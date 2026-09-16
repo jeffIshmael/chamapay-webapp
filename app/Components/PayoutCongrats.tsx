@@ -2,7 +2,6 @@
 
 import React, { useState } from "react";
 import { HiChevronLeft, HiChevronRight, HiOutlineX } from "react-icons/hi";
-import { Chama } from "../MyChamas/page";
 import { JoinedChama } from "@/utils/typesUtils";
 import { motion, AnimatePresence } from "framer-motion";
 import Confetti from "react-confetti";

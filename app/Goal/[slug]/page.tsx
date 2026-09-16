@@ -17,7 +17,7 @@ import {
   FiTarget,
   FiUsers,
 } from "react-icons/fi";
-import { showToast } from "../Components/Toast";
+import { showToast } from "@/app/Components/Toast";
 
 export default function GoalDetailsPage() {
   const params = useParams<{ slug: string }>();
