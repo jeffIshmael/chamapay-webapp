@@ -1,0 +1,21 @@
+{
+  "accountAssociation": {
+    "header": "eyJmaWQiOjEwNzc5MzIsInR5cGUiOiJjdXN0b2R5Iiwia2V5IjoiMHhiYzM1OGM5OEI4OEI5Mjg4NjRlMmMzYzVkMTc2NjcxMzU0MTAzNTg3In0",
+    "payload": "eyJkb21haW4iOiJjaGFtYXBheS1taW5pcGF5LnZlcmNlbC5hcHAifQ",
+    "signature": "MHgxY2ZkOWI0ODM5MGQ2YWNkODliYmE5NzU0NThkOTgzODg1YzY4NDdhMzA0YzAwYTgyNDQ4ZDAxYjQ1OTQwOWRiNDVjZjllZWZlMWJlZDczODE1Mzk3ZmJmNjEwZDEyYzcxYjAxNDU0MDFjNDA5YzgzNDI1OTRjMTc5MjJjZDU1OTFj"
+  },
+  "miniapp": {
+    "version": "1",
+    "name": "Chamapay",
+    "iconUrl": "https://chamapay-minipay.vercel.app/icon.png",
+    "homeUrl": "https://chamapay-minipay.vercel.app",
+    "imageUrl": "https://chamapay-minipay.vercel.app/logo-icon.png",
+    "buttonTitle": "Check this out",
+    "splashImageUrl": "https://chamapay-minipay.vercel.app/logo-icon.png",
+    "splashBackgroundColor": "#d1f6f1",
+    "webhookUrl": "https://api.neynar.com/f/app/d99795a5-172e-44be-a4a8-328a85bc224e/event",
+    "subtitle": "Circular savings Made Easy",
+    "description": "Manage and track your circular groups seamlessly.",
+    "tags": ["finance","saving","DeFi"]
+  }
+}
