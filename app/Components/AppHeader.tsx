@@ -23,15 +23,12 @@ function initials(name: string) {
 export default function AppHeader({
   onSearch,
   showSearch = false,
-  eyebrow,
-  title,
+  /** Single section title (no greeting). e.g. "Save & Earn" */
+  pageTitle,
 }: {
   onSearch?: () => void;
   showSearch?: boolean;
-  /** Small label above the name, e.g. section name. Defaults to time-based greeting. */
-  eyebrow?: string;
-  /** Override the main title (defaults to first name). */
-  title?: string;
+  pageTitle?: string;
 }) {
   const { user, isGuest, logout } = useAuth();
   const router = useRouter();
@@ -43,9 +40,8 @@ export default function AppHeader({
     user?.email?.split("@")[0] ||
     (isGuest ? "Guest" : "there");
   const firstName = displayName.split(/\s+/)[0];
-  const greeting = eyebrow ?? greetingForHour(new Date().getHours());
-  const heading = title ?? firstName;
   const avatar = user?.profileImageUrl;
+  const isSection = Boolean(pageTitle);
 
   useEffect(() => {
     const onDoc = (e: MouseEvent) => {
@@ -62,16 +58,24 @@ export default function AppHeader({
   };
 
   return (
-    <header className="sticky top-0 z-30 safe-top bg-downy-50/90 backdrop-blur-md border-b border-downy-100/80 px-4 pb-3">
+    <header className="sticky top-0 z-30 safe-top bg-downy-50/90 backdrop-blur-md border-b border-downy-100/80 px-4 pb-2.5">
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0 flex-1">
-          <p className="text-[11px] font-medium text-downy-600/90 tracking-wide">
-            {greeting}
-          </p>
-          <h1 className="text-display text-[1.15rem] font-bold text-downy-950 truncate leading-tight mt-0.5">
-            {heading}
-            {!title && <span className="text-downy-500 font-extrabold">.</span>}
-          </h1>
+          {isSection ? (
+            <h1 className="text-display text-[15px] font-bold text-downy-950 truncate leading-tight">
+              {pageTitle}
+            </h1>
+          ) : (
+            <>
+              <p className="text-[11px] font-medium text-downy-600/90 tracking-wide">
+                {greetingForHour(new Date().getHours())}
+              </p>
+              <h1 className="text-display text-[1.15rem] font-bold text-downy-950 truncate leading-tight mt-0.5">
+                {firstName}
+                <span className="text-downy-500 font-extrabold">.</span>
+              </h1>
+            </>
+          )}
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
@@ -80,9 +84,9 @@ export default function AppHeader({
               type="button"
               onClick={onSearch}
               aria-label="Search invite link"
-              className="h-9 w-9 rounded-full bg-white border border-downy-100 text-downy-700 flex items-center justify-center shadow-sm"
+              className="h-8 w-8 rounded-full bg-white border border-downy-100 text-downy-700 flex items-center justify-center shadow-sm"
             >
-              <FiSearch size={16} />
+              <FiSearch size={15} />
             </button>
           )}
 
@@ -91,14 +95,14 @@ export default function AppHeader({
               type="button"
               onClick={() => setMenuOpen((o) => !o)}
               aria-label="Profile menu"
-              className="h-9 w-9 rounded-full overflow-hidden border-2 border-white shadow-md shadow-downy-200/60 ring-1 ring-downy-200 bg-downy-600 text-white flex items-center justify-center text-[11px] font-bold"
+              className="h-8 w-8 rounded-full overflow-hidden border-2 border-white shadow-md shadow-downy-200/60 ring-1 ring-downy-200 bg-downy-600 text-white flex items-center justify-center text-[10px] font-bold"
             >
               {avatar ? (
                 <Image
                   src={avatar}
                   alt=""
-                  width={36}
-                  height={36}
+                  width={32}
+                  height={32}
                   className="h-full w-full object-cover"
                   unoptimized
                 />

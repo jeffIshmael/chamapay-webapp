@@ -10,7 +10,6 @@ import { DotLottieReact } from "@lottiefiles/dotlottie-react";
 import { getUser } from "@/lib/chama";
 import { getRecentActivity } from "@/lib/chamaService";
 import { useSessionAddress } from "@/lib/useSessionAddress";
-import { useAuth } from "../context/AuthContext";
 import { motion } from "framer-motion";
 import {
   FiEye,
@@ -44,8 +43,7 @@ interface Payment {
 }
 
 const Wallet = () => {
-  const { address, token, isAuthenticated, isGuest } = useSessionAddress();
-  const { user } = useAuth();
+  const { address, token, isAuthenticated } = useSessionAddress();
   const [loadingPayments, setLoadingPayments] = useState(false);
   const [loadingUser, setLoadingUser] = useState(false);
   const [balanceVisible, setBalanceVisible] = useState(true);
@@ -122,7 +120,7 @@ const Wallet = () => {
 
   return (
     <div className="min-h-[100dvh] bg-downy-50 pb-nav">
-      <AppHeader eyebrow="Wallet" title={isGuest ? "Guest" : user?.userName || "Balance"} />
+      <AppHeader pageTitle="Wallet" />
 
       <div className="px-4 pt-3">
         <div className="bg-gradient-to-br from-downy-600 to-downy-800 rounded-2xl p-3.5 text-white shadow-md shadow-downy-700/20">

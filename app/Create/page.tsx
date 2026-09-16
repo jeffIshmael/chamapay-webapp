@@ -254,7 +254,7 @@ function CreateContent() {
 
   return (
     <div className="min-h-[100dvh] bg-downy-50 pb-nav">
-      <AppHeader eyebrow="New" title="Create" />
+      <AppHeader pageTitle="Create" />
 
       <div className="px-4 pt-3 pb-2">
         <p className="text-[12px] text-gray-500 leading-relaxed mb-3">

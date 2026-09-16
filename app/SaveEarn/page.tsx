@@ -65,15 +65,15 @@ export default function SaveEarnPage() {
 
   return (
     <div className="min-h-[100dvh] bg-downy-50 pb-nav">
-      <AppHeader eyebrow="Save & Earn" title="Pools" />
+      <AppHeader pageTitle="Save & Earn" />
 
       <div className="px-4 pt-3 pb-6">
-        <p className="text-[12px] text-gray-500 leading-relaxed mb-3">
+        <p className="text-[11px] text-gray-500 leading-relaxed mb-3">
           Supply idle USDC to earn variable interest. Withdraw when the pool has
           free cash.
         </p>
 
-        <h2 className="text-[15px] font-bold text-gray-900 mb-0.5">
+        <h2 className="text-[13px] font-bold text-gray-900 mb-0.5">
           Available pools
         </h2>
         <p className="text-[11px] text-gray-500 mb-3">

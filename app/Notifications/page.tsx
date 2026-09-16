@@ -215,11 +215,11 @@ const Page = () => {
 
   return (
     <div className="min-h-[100dvh] bg-downy-50 pb-nav">
-      <AppHeader eyebrow="Inbox" title="Alerts" />
+      <AppHeader pageTitle="Notifications" />
 
       <div className="px-4 pt-3 pb-6">
         <div className="flex items-center justify-between mb-3">
-          <p className="text-[12px] text-gray-500">
+          <p className="text-[11px] text-gray-500">
             Activity from your chamas and goals
           </p>
           {notifications.length > 0 && (
