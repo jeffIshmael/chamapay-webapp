@@ -73,20 +73,20 @@ export default function GoalDetailsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-downy-100 flex items-center justify-center">
-        <div className="h-10 w-10 rounded-full border-2 border-downy-600 border-t-transparent animate-spin" />
+      <div className="min-h-[100dvh] bg-downy-50 flex items-center justify-center">
+        <div className="h-9 w-9 rounded-full border-2 border-downy-600 border-t-transparent animate-spin" />
       </div>
     );
   }
 
   if (!goal) {
     return (
-      <div className="min-h-screen bg-downy-100 flex flex-col items-center justify-center px-6">
-        <p className="text-gray-600 mb-4">Goal not found</p>
+      <div className="min-h-[100dvh] bg-downy-50 flex flex-col items-center justify-center px-5">
+        <p className="text-[13px] text-gray-600 mb-3">Goal not found</p>
         <button
           type="button"
           onClick={handleBack}
-          className="bg-downy-600 text-white px-4 py-2 rounded-xl font-semibold"
+          className="bg-downy-600 text-white px-4 py-2 rounded-xl text-[12px] font-bold"
         >
           Back to My Goals
         </button>
@@ -100,85 +100,87 @@ export default function GoalDetailsPage() {
   const members = goal._count?.members ?? goal.members?.length ?? 1;
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-10">
-      <div className="bg-downy-800 rounded-b-3xl px-5 pb-6 pt-6 text-white">
-        <div className="flex items-center justify-between mb-4">
+    <div className="min-h-[100dvh] bg-downy-50 pb-8">
+      <div className="bg-downy-800 px-4 pb-4 pt-3 text-white safe-top">
+        <div className="flex items-center justify-between mb-3">
           <button
             type="button"
             onClick={handleBack}
-            className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center"
+            className="h-8 w-8 rounded-full bg-white/20 flex items-center justify-center"
           >
-            <FiArrowLeft />
+            <FiArrowLeft size={16} />
           </button>
-          <h1 className="text-lg font-bold flex-1 text-center">Goal</h1>
-          <div className="w-10" />
+          <h1 className="text-[13px] font-bold flex-1 text-center">Goal</h1>
+          <div className="w-8" />
         </div>
-        <h2 className="text-2xl font-bold mb-1">{goal.name}</h2>
-        <p className="text-white/80 text-sm mb-3 line-clamp-2">
+        <h2 className="text-[1.15rem] font-bold mb-1 leading-tight">{goal.name}</h2>
+        <p className="text-white/80 text-[12px] mb-2.5 line-clamp-2 leading-relaxed">
           {goal.description || "No description"}
         </p>
-        <div className="flex flex-wrap gap-2">
-          <span className="bg-white/20 px-3 py-1 rounded-full text-xs font-semibold">
+        <div className="flex flex-wrap gap-1.5">
+          <span className="bg-white/20 px-2 py-0.5 rounded-full text-[10px] font-semibold">
             {goalTypeLabel(goal.goalType)}
           </span>
           {goal.yieldEnabled && (
-            <span className="bg-emerald-400/30 px-3 py-1 rounded-full text-xs font-semibold">
+            <span className="bg-emerald-400/30 px-2 py-0.5 rounded-full text-[10px] font-semibold">
               Yield on
             </span>
           )}
-          <span className="bg-white/20 px-3 py-1 rounded-full text-xs font-semibold">
+          <span className="bg-white/20 px-2 py-0.5 rounded-full text-[10px] font-semibold">
             {goal.status}
           </span>
         </div>
       </div>
 
-      <div className="px-4 -mt-4 space-y-4">
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
-          <div className="flex justify-between text-sm mb-2">
+      <div className="px-4 -mt-2 space-y-2.5">
+        <div className="bg-white rounded-2xl shadow-sm border border-downy-100/70 p-3.5">
+          <div className="flex justify-between text-[11px] mb-1.5">
             <span className="text-gray-500">Progress</span>
             <span className="font-semibold text-gray-800">
               {balance.toFixed(2)} / {target.toFixed(2)} USDC
             </span>
           </div>
-          <div className="h-2.5 bg-gray-100 rounded-full overflow-hidden">
+          <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
             <div
               className="h-full bg-downy-600 rounded-full transition-all"
               style={{ width: `${progress}%` }}
             />
           </div>
-          <div className="grid grid-cols-2 gap-3 mt-4">
-            <div className="bg-downy-50 rounded-xl p-3">
-              <div className="flex items-center gap-1 text-xs text-gray-500 mb-1">
-                <FiTarget /> Target
+          <div className="grid grid-cols-2 gap-2 mt-3">
+            <div className="bg-downy-50 rounded-xl p-2.5">
+              <div className="flex items-center gap-1 text-[10px] text-gray-500 mb-0.5">
+                <FiTarget size={11} /> Target
               </div>
-              <p className="font-bold text-gray-900">{target.toFixed(2)} USDC</p>
+              <p className="font-bold text-[13px] text-gray-900">
+                {target.toFixed(2)} USDC
+              </p>
             </div>
-            <div className="bg-blue-50 rounded-xl p-3">
-              <div className="flex items-center gap-1 text-xs text-gray-500 mb-1">
-                <FiUsers /> Members
+            <div className="bg-slate-50 rounded-xl p-2.5">
+              <div className="flex items-center gap-1 text-[10px] text-gray-500 mb-0.5">
+                <FiUsers size={11} /> Members
               </div>
-              <p className="font-bold text-gray-900">{members}</p>
+              <p className="font-bold text-[13px] text-gray-900">{members}</p>
             </div>
           </div>
           {goal.endDate && (
-            <div className="flex items-center gap-2 mt-3 text-sm text-gray-600">
-              <FiCalendar />
+            <div className="flex items-center gap-1.5 mt-2.5 text-[11px] text-gray-600">
+              <FiCalendar size={12} />
               Ends {new Date(goal.endDate).toLocaleDateString()}
             </div>
           )}
         </div>
 
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
-          <div className="flex items-center gap-2 mb-2 font-semibold text-gray-900">
-            <FiLink className="text-downy-600" /> Pay link
+        <div className="bg-white rounded-2xl shadow-sm border border-downy-100/70 p-3.5">
+          <div className="flex items-center gap-1.5 mb-1.5 text-[13px] font-semibold text-gray-900">
+            <FiLink className="text-downy-600" size={14} /> Pay link
           </div>
-          <p className="text-xs text-gray-500 break-all mb-3">{payLink}</p>
+          <p className="text-[11px] text-gray-500 break-all mb-2.5">{payLink}</p>
           <button
             type="button"
             onClick={copyLink}
-            className="w-full flex items-center justify-center gap-2 bg-downy-600 text-white font-semibold py-3 rounded-xl"
+            className="w-full flex items-center justify-center gap-1.5 bg-downy-600 text-white text-[13px] font-bold py-2.5 rounded-xl"
           >
-            <FiCopy /> Copy pay link
+            <FiCopy size={14} /> Copy pay link
           </button>
         </div>
       </div>

@@ -22,10 +22,16 @@ function initials(name: string) {
 
 export default function AppHeader({
   onSearch,
-  showSearch = true,
+  showSearch = false,
+  eyebrow,
+  title,
 }: {
   onSearch?: () => void;
   showSearch?: boolean;
+  /** Small label above the name, e.g. section name. Defaults to time-based greeting. */
+  eyebrow?: string;
+  /** Override the main title (defaults to first name). */
+  title?: string;
 }) {
   const { user, isGuest, logout } = useAuth();
   const router = useRouter();
@@ -37,7 +43,8 @@ export default function AppHeader({
     user?.email?.split("@")[0] ||
     (isGuest ? "Guest" : "there");
   const firstName = displayName.split(/\s+/)[0];
-  const greeting = greetingForHour(new Date().getHours());
+  const greeting = eyebrow ?? greetingForHour(new Date().getHours());
+  const heading = title ?? firstName;
   const avatar = user?.profileImageUrl;
 
   useEffect(() => {
@@ -62,8 +69,8 @@ export default function AppHeader({
             {greeting}
           </p>
           <h1 className="text-display text-[1.15rem] font-bold text-downy-950 truncate leading-tight mt-0.5">
-            {firstName}
-            <span className="text-downy-500 font-extrabold">.</span>
+            {heading}
+            {!title && <span className="text-downy-500 font-extrabold">.</span>}
           </h1>
         </div>
 

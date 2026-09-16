@@ -10,6 +10,7 @@ import {
   FiLogIn,
   FiLogOut,
 } from "react-icons/fi";
+import AppHeader from "../Components/AppHeader";
 import BottomNavbar from "../Components/BottomNavbar";
 import {
   getMoonwellUsdcSnapshot,
@@ -63,84 +64,74 @@ export default function SaveEarnPage() {
     liquidity == null || needed <= 0 || liquidity >= needed;
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-28">
-      <div className="bg-downy-800 rounded-b-3xl px-6 pt-8 pb-8 text-center shadow-sm">
-        <h1 className="text-white text-3xl font-extrabold mb-2">Save & Earn</h1>
-        <p className="text-white/90 text-[15px] font-medium leading-6 px-2">
-          Supply your money to earn interest. Withdraw when the pool has free
-          cash.
-        </p>
-      </div>
+    <div className="min-h-[100dvh] bg-downy-50 pb-nav">
+      <AppHeader eyebrow="Save & Earn" title="Pools" />
 
-      <div className="px-5 pt-6">
-        <h2 className="text-2xl font-bold text-gray-900 mb-1">Available Pools</h2>
-        <p className="text-sm font-medium text-gray-500 mb-4">
-          Earn interest on your stablecoins safely.
+      <div className="px-4 pt-3 pb-6">
+        <p className="text-[12px] text-gray-500 leading-relaxed mb-3">
+          Supply idle USDC to earn variable interest. Withdraw when the pool has
+          free cash.
+        </p>
+
+        <h2 className="text-[15px] font-bold text-gray-900 mb-0.5">
+          Available pools
+        </h2>
+        <p className="text-[11px] text-gray-500 mb-3">
+          Earn interest on your stablecoins
         </p>
 
         <Link
           href="/SaveEarn/moonwell"
-          className="block bg-white rounded-[32px] p-5 shadow-lg mb-4 border border-gray-100 hover:border-downy-200 transition"
+          className="block bg-white rounded-2xl p-3.5 shadow-sm border border-downy-100/70 hover:border-downy-200 transition"
         >
-          <div className="flex items-center justify-between mb-5">
-            <div className="flex items-center flex-1 min-w-0">
+          <div className="flex items-center justify-between gap-2 mb-3">
+            <div className="flex items-center flex-1 min-w-0 gap-2.5">
               <Image
                 src="/brand/moonwell_logo.png"
                 alt="Moonwell"
-                width={56}
-                height={56}
-                className="w-14 h-14 rounded-full mr-4 object-cover"
+                width={40}
+                height={40}
+                className="w-10 h-10 rounded-full object-cover shrink-0"
               />
-              <div className="flex-1 pr-2 min-w-0">
-                <p className="text-xl font-bold text-gray-900">Moonwell</p>
-                <p className="text-sm text-gray-500 font-medium mt-0.5">
-                  USDC Pool
-                </p>
+              <div className="min-w-0">
+                <p className="text-[13px] font-bold text-gray-900">Moonwell</p>
+                <p className="text-[11px] text-gray-500 mt-0.5">USDC pool · Base</p>
               </div>
             </div>
-            <div className="items-end bg-downy-50 px-3 py-2 rounded-xl text-right">
+            <div className="bg-downy-50 px-2.5 py-1.5 rounded-xl text-right shrink-0">
               {loading ? (
-                <div className="h-6 w-14 bg-downy-200/50 rounded-md mb-1" />
+                <div className="h-4 w-10 bg-downy-200/50 rounded mb-0.5" />
               ) : (
-                <p className="text-lg font-bold text-downy-700 font-mono">
+                <p className="text-[13px] font-bold text-downy-700 font-mono">
                   {apy}
                 </p>
               )}
-              <p className="text-[10px] font-bold text-downy-600 tracking-wide">
+              <p className="text-[9px] font-bold text-downy-600 tracking-wide">
                 APY
               </p>
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-2 mb-4">
-            <div className="flex flex-col items-center justify-center bg-gray-50 py-2.5 rounded-2xl border border-gray-100">
-              <FiLogIn className="text-emerald-500 mb-1.5" size={18} />
-              <p className="text-[11px] font-bold text-gray-700 text-center leading-tight">
-                Supply
-                <br />
-                anytime
-              </p>
-            </div>
-            <div className="flex flex-col items-center justify-center bg-gray-50 py-2.5 rounded-2xl border border-gray-100">
-              <FiActivity className="text-blue-500 mb-1.5" size={18} />
-              <p className="text-[11px] font-bold text-gray-700 text-center leading-tight">
-                Earn while
-                <br />
-                borrowed
-              </p>
-            </div>
-            <div className="flex flex-col items-center justify-center bg-gray-50 py-2.5 rounded-2xl border border-gray-100">
-              <FiLogOut className="text-amber-500 mb-1.5" size={18} />
-              <p className="text-[11px] font-bold text-gray-700 text-center leading-tight">
-                Withdraw when
-                <br />
-                cash is free
-              </p>
-            </div>
+          <div className="grid grid-cols-3 gap-1.5 mb-3">
+            {[
+              { icon: FiLogIn, color: "text-emerald-500", label: "Supply anytime" },
+              { icon: FiActivity, color: "text-blue-500", label: "Earn while lent" },
+              { icon: FiLogOut, color: "text-amber-500", label: "Cash when free" },
+            ].map(({ icon: Icon, color, label }) => (
+              <div
+                key={label}
+                className="flex flex-col items-center justify-center bg-gray-50 py-2 rounded-xl border border-gray-100 px-1"
+              >
+                <Icon className={`${color} mb-1`} size={14} />
+                <p className="text-[10px] font-semibold text-gray-600 text-center leading-tight">
+                  {label}
+                </p>
+              </div>
+            ))}
           </div>
 
           <div
-            className={`mb-4 rounded-2xl px-3 py-2.5 text-xs font-semibold ${
+            className={`mb-3 rounded-xl px-2.5 py-2 text-[11px] font-semibold ${
               canWithdraw
                 ? "bg-emerald-50 text-emerald-800 border border-emerald-100"
                 : "bg-amber-50 text-amber-800 border border-amber-100"
@@ -153,36 +144,39 @@ export default function SaveEarnPage() {
                 : "Withdrawals paused until pool liquidity returns"}
           </div>
 
-          <div className="bg-slate-50 rounded-2xl p-4 border border-gray-100 flex justify-between items-center">
+          <div className="bg-slate-50 rounded-xl px-3 py-2.5 border border-gray-100 flex justify-between items-center">
             <div>
-              <p className="text-xs text-gray-500 mb-1 font-medium">Invested</p>
+              <p className="text-[10px] text-gray-500 mb-0.5 font-medium">
+                Invested
+              </p>
               {loading ? (
-                <div className="h-5 w-20 bg-gray-200 rounded-md" />
+                <div className="h-4 w-16 bg-gray-200 rounded" />
               ) : (
-                <p className="text-[15px] font-bold text-gray-900 font-mono">
+                <p className="text-[12px] font-bold text-gray-900 font-mono">
                   {invested} USDC
                 </p>
               )}
             </div>
-            <div className="w-px h-8 bg-gray-200" />
+            <div className="w-px h-7 bg-gray-200" />
             <div className="text-right">
-              <p className="text-xs text-gray-500 mb-1 font-medium">Earned</p>
+              <p className="text-[10px] text-gray-500 mb-0.5 font-medium">
+                Earned
+              </p>
               {loading ? (
-                <div className="h-5 w-16 bg-gray-200 rounded-md ml-auto" />
+                <div className="h-4 w-14 bg-gray-200 rounded ml-auto" />
               ) : (
-                <p className="text-[15px] font-bold text-emerald-600 font-mono">
+                <p className="text-[12px] font-bold text-emerald-600 font-mono">
                   +{earned} USDC
                 </p>
               )}
             </div>
-            <FiArrowRight className="text-gray-300 ml-2" />
+            <FiArrowRight className="text-gray-300 ml-1.5" size={14} />
           </div>
         </Link>
 
-        <p className="text-xs text-gray-400 leading-5 text-center px-2 mt-2">
-          You supply money into a lending pool. Borrowers may use that cash and
-          pay interest. Rates change with demand and are not guaranteed. You can
-          only withdraw when the pool has free cash again.
+        <p className="text-[11px] text-gray-400 leading-relaxed text-center px-1 mt-3">
+          Rates change with demand and are not guaranteed. You can only withdraw
+          when the pool has free cash again.
         </p>
       </div>
 

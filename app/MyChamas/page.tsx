@@ -147,7 +147,7 @@ function MyHomeContent() {
 
   return (
     <div className="min-h-[100dvh] bg-downy-50 pb-nav">
-      <AppHeader onSearch={() => setShowLinkSearch(true)} />
+      <AppHeader onSearch={() => setShowLinkSearch(true)} showSearch />
 
       <div className="px-4 pt-3">
         <div className="flex bg-white rounded-2xl p-1 shadow-sm border border-downy-100/60">

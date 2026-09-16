@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import BottomNavbar from "../Components/BottomNavbar";
+import AppHeader from "../Components/AppHeader";
 import {
   getUserDetails,
   transformNotification,
@@ -213,58 +214,56 @@ const Page = () => {
   const pendingRequestIds = new Set(pendingRequests.map((req) => req.id));
 
   return (
-    <div className="max-w-md mx-auto">
-      <div className="bg-gradient-to-b from-white to-downy-50 min-h-screen p-4">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <h1 className="text-2xl font-bold text-gray-800 flex items-center">
-            <FiBell className="mr-2 text-downy-600" />
-            Notifications
-          </h1>
-          <div className="flex items-center space-x-2">
-            {notifications.length > 0 && (
-              <span className="bg-downy-100 text-downy-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
-                {notifications.length} new
-              </span>
-            )}
-          </div>
+    <div className="min-h-[100dvh] bg-downy-50 pb-nav">
+      <AppHeader eyebrow="Inbox" title="Alerts" />
+
+      <div className="px-4 pt-3 pb-6">
+        <div className="flex items-center justify-between mb-3">
+          <p className="text-[12px] text-gray-500">
+            Activity from your chamas and goals
+          </p>
+          {notifications.length > 0 && (
+            <span className="bg-downy-100 text-downy-800 text-[10px] font-bold px-2 py-0.5 rounded-full">
+              {notifications.length} new
+            </span>
+          )}
         </div>
 
         {fetching ? (
-          <div className="space-y-3">
+          <div className="space-y-2">
             {[...Array(5)].map((_, i) => (
               <NotificationSkeleton key={i} />
             ))}
           </div>
         ) : !isAuthenticated ? (
-          <div className="flex flex-col items-center justify-center h-64 text-center">
-            <div className="bg-downy-100 p-4 rounded-xl max-w-xs">
-              <h3 className="text-lg font-medium text-gray-700">
+          <div className="flex flex-col items-center justify-center py-12 text-center">
+            <div className="bg-white border border-downy-100 p-4 rounded-2xl max-w-xs shadow-sm">
+              <h3 className="text-[14px] font-bold text-gray-800">
                 Sign in required
               </h3>
-              <p className="text-gray-500 mt-2">
+              <p className="text-[12px] text-gray-500 mt-1.5">
                 Sign in to view notifications
               </p>
               <Link
                 href="/"
-                className="inline-block mt-4 bg-downy-600 text-white px-4 py-2 rounded-lg"
+                className="inline-block mt-3 bg-downy-600 text-white text-[12px] font-bold px-4 py-2 rounded-xl"
               >
                 Sign in
               </Link>
             </div>
           </div>
         ) : notifications.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-64 text-center">
-            <FiClock className="text-gray-300 text-5xl mb-4" />
-            <h3 className="text-lg font-medium text-gray-700">
+          <div className="flex flex-col items-center justify-center py-14 text-center">
+            <FiClock className="text-gray-300 text-4xl mb-3" />
+            <h3 className="text-[14px] font-bold text-gray-800">
               No notifications yet
             </h3>
-            <p className="text-gray-500 mt-1">
-              You&apos;ll see notifications here when you have new activity
+            <p className="text-[12px] text-gray-500 mt-1 max-w-[14rem]">
+              You&apos;ll see activity here when something happens
             </p>
           </div>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-2">
             {notifications.map((notification) => {
               const isPending =
                 notification.requestId !== null &&
@@ -273,37 +272,36 @@ const Page = () => {
               return (
                 <div
                   key={notification.id}
-                  className={`relative p-2 rounded-xl shadow-sm border ${notification.read
-                    ? "bg-white border-gray-200"
+                  className={`relative p-2.5 rounded-2xl shadow-sm border ${notification.read
+                    ? "bg-white border-downy-100/70"
                     : "bg-downy-50 border-downy-200"
                     }`}
                 >
                   {!notification.read && (
-                    <div className="absolute top-2 right-2 w-2 h-2 bg-downy-500 rounded-full"></div>
+                    <div className="absolute top-2 right-2 w-1.5 h-1.5 bg-downy-500 rounded-full"></div>
                   )}
 
                   <div className="flex items-start">
                     <div
-                      className={`p-2 rounded-lg mr-3 ${isPending
+                      className={`p-1.5 rounded-lg mr-2.5 ${isPending
                         ? "bg-purple-100 text-purple-600"
                         : "bg-downy-100 text-downy-600"
                         }`}
                     >
                       {isPending ? (
-                        <FiUserPlus size={18} />
+                        <FiUserPlus size={15} />
                       ) : (
-                        <FiBell size={18} />
+                        <FiBell size={15} />
                       )}
                     </div>
 
-                    <div className="flex-1">
-                      <p className="text-gray-800 font-medium">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[12px] text-gray-800 font-medium leading-snug">
                         {notification.message}
                       </p>
 
-                      {/* Timestamp row */}
-                      <div className="flex justify-between items-center mt-2">
-                        <span className="text-xs text-gray-500 flex items-center">
+                      <div className="flex justify-between items-center mt-1.5">
+                        <span className="text-[10px] text-gray-500 flex items-center">
                           {new Date(notification.createdAt).toLocaleTimeString(
                             [],
                             {
@@ -458,7 +456,7 @@ const Page = () => {
         activeSection={activeSection}
         setActiveSection={setActiveSection}
       />
-    </div >
+    </div>
   );
 };
 

@@ -12,6 +12,7 @@ import {
   FiUsers,
 } from "react-icons/fi";
 import BottomNavbar from "../Components/BottomNavbar";
+import AppHeader from "../Components/AppHeader";
 import { showToast } from "../Components/Toast";
 import { checkChama } from "@/lib/chama";
 import { registerChamaToDatabase } from "@/lib/chamaService";
@@ -59,15 +60,15 @@ function SectionHeader({
   subtitle?: string;
 }) {
   return (
-    <div className="mb-5">
-      <div className="flex items-center gap-2.5 mb-1">
-        <span className="bg-downy-100 px-2.5 py-1 rounded-full text-[11px] font-bold text-downy-800">
+    <div className="mb-3">
+      <div className="flex items-center gap-2 mb-0.5">
+        <span className="bg-downy-100 px-2 py-0.5 rounded-full text-[10px] font-bold text-downy-800">
           {step}
         </span>
-        <h3 className="text-lg font-bold text-gray-900">{title}</h3>
+        <h3 className="text-[14px] font-bold text-gray-900">{title}</h3>
       </div>
       {subtitle ? (
-        <p className="text-sm text-gray-500 leading-5">{subtitle}</p>
+        <p className="text-[11px] text-gray-500 leading-relaxed">{subtitle}</p>
       ) : null}
     </div>
   );
@@ -75,14 +76,14 @@ function SectionHeader({
 
 function FieldLabel({ children }: { children: React.ReactNode }) {
   return (
-    <label className="block text-[13px] font-semibold text-gray-600 mb-2 tracking-wide">
+    <label className="block text-[11px] font-semibold text-gray-600 mb-1.5 tracking-wide">
       {children}
     </label>
   );
 }
 
 const inputClass =
-  "w-full bg-white border border-gray-200 rounded-2xl px-4 py-3.5 text-gray-900 text-[15px] focus:border-downy-500 focus:ring-downy-500";
+  "w-full bg-white border border-gray-200 rounded-xl px-3 py-2.5 text-gray-900 text-[13px] focus:border-downy-500 focus:ring-downy-500";
 
 function CreateContent() {
   const searchParams = useSearchParams();
@@ -252,31 +253,27 @@ function CreateContent() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-28">
-      {/* Header — matches app */}
-      <div className="bg-downy-800 rounded-b-3xl px-5 pt-6 pb-5 text-center">
-        <h1 className="text-2xl font-bold text-white">Create</h1>
-        <p className="text-white/80 text-sm leading-5 mt-2 px-2">
-          Create a chama (rotational saving group) or save for goal.
-        </p>
-      </div>
+    <div className="min-h-[100dvh] bg-downy-50 pb-nav">
+      <AppHeader eyebrow="New" title="Create" />
 
-      {/* Mode toggle */}
-      <div className="px-5 pt-4 pb-2">
-        <div className="flex bg-white border border-gray-100 rounded-2xl p-1 shadow-sm">
+      <div className="px-4 pt-3 pb-2">
+        <p className="text-[12px] text-gray-500 leading-relaxed mb-3">
+          Start a rotational chama or a Save for Goal pot.
+        </p>
+        <div className="flex bg-white border border-downy-100/70 rounded-2xl p-1 shadow-sm">
           <button
             type="button"
             onClick={() => {
               setMode("chama");
               setErrorText("");
             }}
-            className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-semibold text-[15px] transition ${
+            className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl font-semibold text-[12px] transition ${
               mode === "chama"
                 ? "bg-downy-600 text-white"
-                : "bg-transparent text-gray-600"
+                : "bg-transparent text-gray-500"
             }`}
           >
-            <FiUsers /> Chama
+            <FiUsers size={14} /> Chama
           </button>
           <button
             type="button"
@@ -284,38 +281,38 @@ function CreateContent() {
               setMode("goal");
               setErrorText("");
             }}
-            className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-semibold text-[15px] transition ${
+            className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl font-semibold text-[12px] transition ${
               mode === "goal"
                 ? "bg-downy-600 text-white"
-                : "bg-transparent text-gray-600"
+                : "bg-transparent text-gray-500"
             }`}
           >
-            <FiTarget /> Goal
+            <FiTarget size={14} /> Goal
           </button>
         </div>
       </div>
 
-      <div className="px-5 pt-3 space-y-5">
+      <div className="px-4 pt-2 space-y-3">
         {errorText && (
-          <div className="text-red-500 p-3 flex items-center border border-red-500 rounded-xl bg-red-50">
-            <FiAlertTriangle className="mr-2 shrink-0" />
-            <span className="text-sm">{errorText}</span>
+          <div className="text-red-500 p-2.5 flex items-center border border-red-200 rounded-xl bg-red-50">
+            <FiAlertTriangle className="mr-2 shrink-0" size={14} />
+            <span className="text-[12px]">{errorText}</span>
           </div>
         )}
 
         {mode === "chama" ? (
-          <form onSubmit={createChama} className="space-y-5">
-            <div className="px-1">
-              <p className="text-base font-bold text-gray-900">
+          <form onSubmit={createChama} className="space-y-3">
+            <div className="px-0.5">
+              <p className="text-[13px] font-bold text-gray-900">
                 Rotational savings
               </p>
-              <p className="text-sm text-gray-500 mt-1 leading-5">
+              <p className="text-[11px] text-gray-500 mt-0.5 leading-relaxed">
                 Members contribute on a schedule — each round, one person gets
                 the pot.
               </p>
             </div>
 
-            <div className="bg-white rounded-3xl border border-gray-100 p-5 shadow-sm">
+            <div className="bg-white rounded-2xl border border-downy-100/70 p-3.5 shadow-sm">
               <SectionHeader
                 step="01"
                 title="About your chama"
@@ -333,7 +330,7 @@ function CreateContent() {
               />
             </div>
 
-            <div className="bg-white rounded-3xl border border-gray-100 p-5 shadow-sm">
+            <div className="bg-white rounded-2xl border border-downy-100/70 p-3.5 shadow-sm">
               <SectionHeader
                 step="02"
                 title="Money & schedule"
@@ -343,7 +340,7 @@ function CreateContent() {
               <FieldLabel>
                 Contribution cycle <span className="text-red-500">*</span>
               </FieldLabel>
-              <div className="grid grid-cols-3 gap-2 mb-3">
+              <div className="grid grid-cols-3 gap-1.5 mb-2.5">
                 {CYCLE_PRESETS.map((opt) => {
                   const active = frequency === opt.days;
                   return (
@@ -351,7 +348,7 @@ function CreateContent() {
                       key={opt.days}
                       type="button"
                       onClick={() => setFrequency(opt.days)}
-                      className={`relative py-3 rounded-xl border ${
+                      className={`relative py-2.5 rounded-xl border ${
                         active
                           ? "bg-downy-50 border-downy-400"
                           : "bg-white border-gray-200"
@@ -389,10 +386,10 @@ function CreateContent() {
                   if (t === "" || /^\d+$/.test(t)) setFrequency(t);
                 }}
                 placeholder="Or enter custom days"
-                className={`${inputClass} mb-4`}
+                className={`${inputClass} mb-3`}
               />
 
-              <div className="grid grid-cols-2 gap-4 mb-4">
+              <div className="grid grid-cols-2 gap-2.5 mb-3">
                 <div>
                   <FieldLabel>
                     First payout date <span className="text-red-500">*</span>
@@ -424,8 +421,8 @@ function CreateContent() {
               <FieldLabel>
                 Contribution (USDC) <span className="text-red-500">*</span>
               </FieldLabel>
-              <div className="flex items-center bg-white border border-gray-200 rounded-2xl overflow-hidden">
-                <span className="px-4 py-3.5 bg-gray-50 border-r border-gray-200 text-sm font-bold text-gray-600">
+              <div className="flex items-center bg-white border border-gray-200 rounded-xl overflow-hidden">
+                <span className="px-3 py-2.5 bg-gray-50 border-r border-gray-200 text-[12px] font-bold text-gray-600">
                   USDC
                 </span>
                 <input
@@ -437,7 +434,7 @@ function CreateContent() {
                     if (v === "" || /^\d*\.?\d*$/.test(v)) setContribution(v);
                   }}
                   placeholder="5"
-                  className="flex-1 px-4 py-3.5 text-gray-900 text-[15px] font-semibold border-0 focus:ring-0"
+                  className="flex-1 px-3 py-2.5 text-gray-900 text-[13px] font-semibold border-0 focus:ring-0"
                 />
               </div>
             </div>
@@ -445,9 +442,9 @@ function CreateContent() {
             <button
               type="submit"
               disabled={!chamaValid || loading}
-              className={`w-full py-4 rounded-2xl font-bold text-base text-white flex items-center justify-center gap-2 ${
+              className={`w-full py-3 rounded-xl font-bold text-[13px] text-white flex items-center justify-center gap-2 ${
                 chamaValid && !loading
-                  ? "bg-downy-600 shadow-lg shadow-downy-600/30"
+                  ? "bg-downy-600 shadow-md shadow-downy-600/25"
                   : "bg-gray-300 cursor-not-allowed"
               }`}
             >
@@ -456,18 +453,18 @@ function CreateContent() {
             </button>
           </form>
         ) : (
-          <form onSubmit={createGoalAction} className="space-y-5">
+          <form onSubmit={createGoalAction} className="space-y-3">
             <div className="px-1">
-              <p className="text-base font-bold text-gray-900">
+              <p className="text-[13px] font-bold text-gray-900">
                 Save toward a target
               </p>
-              <p className="text-sm text-gray-500 mt-1 leading-5">
+              <p className="text-[11px] text-gray-500 mt-0.5 leading-relaxed">
                 Personal, invite friends, or go public. Optional yield on
                 Moonwell.
               </p>
             </div>
 
-            <div className="bg-white rounded-3xl border border-gray-100 p-5 shadow-sm">
+            <div className="bg-white rounded-2xl border border-downy-100/70 p-3.5 shadow-sm">
               <SectionHeader
                 step="01"
                 title="Goal type"
@@ -476,20 +473,20 @@ function CreateContent() {
               <button
                 type="button"
                 onClick={() => setShowGoalTypePicker((v) => !v)}
-                className="w-full bg-downy-50/80 border border-downy-100 rounded-2xl px-4 py-4 flex items-center justify-between text-left"
+                className="w-full bg-downy-50/80 border border-downy-100 rounded-xl px-3 py-3 flex items-center justify-between text-left"
               >
                 <div className="flex-1 pr-3">
                   <p className="text-[11px] font-bold text-downy-700 uppercase tracking-wider mb-1">
                     Selected
                   </p>
-                  <p className="text-base font-bold text-gray-900">
+                  <p className="text-[13px] font-bold text-gray-900">
                     {selectedGoalType.label}
                   </p>
-                  <p className="text-xs text-gray-500 mt-1.5 leading-4">
+                  <p className="text-[11px] text-gray-500 mt-0.5.5 leading-4">
                     {selectedGoalType.description}
                   </p>
                 </div>
-                <span className="w-9 h-9 rounded-full bg-white border border-downy-100 flex items-center justify-center text-downy-700">
+                <span className="w-8 h-8 rounded-full bg-white border border-downy-100 flex items-center justify-center text-downy-700">
                   <FiChevronDown />
                 </span>
               </button>
@@ -504,16 +501,16 @@ function CreateContent() {
                         if (opt.type === "public") setYieldEnabled(false);
                         setShowGoalTypePicker(false);
                       }}
-                      className={`w-full text-left rounded-2xl border px-4 py-3 ${
+                      className={`w-full text-left rounded-xl border px-3 py-2.5 ${
                         goalType === opt.type
                           ? "border-downy-400 bg-downy-50"
                           : "border-gray-200 bg-white"
                       }`}
                     >
-                      <p className="font-bold text-gray-900 text-sm">
+                      <p className="font-bold text-gray-900 text-[12px]">
                         {opt.label}
                       </p>
-                      <p className="text-xs text-gray-500 mt-1">
+                      <p className="text-[11px] text-gray-500 mt-0.5">
                         {opt.description}
                       </p>
                     </button>
@@ -522,7 +519,7 @@ function CreateContent() {
               )}
             </div>
 
-            <div className="bg-white rounded-3xl border border-gray-100 p-5 shadow-sm">
+            <div className="bg-white rounded-2xl border border-downy-100/70 p-3.5 shadow-sm">
               <SectionHeader
                 step="02"
                 title="The story"
@@ -556,7 +553,7 @@ function CreateContent() {
               </div>
             </div>
 
-            <div className="bg-white rounded-3xl border border-gray-100 p-5 shadow-sm">
+            <div className="bg-white rounded-2xl border border-downy-100/70 p-3.5 shadow-sm">
               <SectionHeader
                 step="03"
                 title="Target & extras"
@@ -567,8 +564,8 @@ function CreateContent() {
                   <FieldLabel>
                     Target amount <span className="text-red-500">*</span>
                   </FieldLabel>
-                  <div className="flex items-center bg-white border border-gray-200 rounded-2xl overflow-hidden">
-                    <span className="px-4 py-3.5 bg-gray-50 border-r border-gray-200 text-sm font-bold text-gray-600">
+                  <div className="flex items-center bg-white border border-gray-200 rounded-xl overflow-hidden">
+                    <span className="px-3 py-2.5 bg-gray-50 border-r border-gray-200 text-[12px] font-bold text-gray-600">
                       USDC
                     </span>
                     <input
@@ -580,7 +577,7 @@ function CreateContent() {
                         if (v === "" || /^\d*\.?\d*$/.test(v)) setTarget(v);
                       }}
                       placeholder="400"
-                      className="flex-1 px-4 py-3.5 text-gray-900 text-[15px] font-semibold border-0 focus:ring-0"
+                      className="flex-1 px-3 py-2.5 text-gray-900 text-[13px] font-semibold border-0 focus:ring-0"
                     />
                   </div>
                 </div>
@@ -604,7 +601,7 @@ function CreateContent() {
 
                 {goalType !== "public" && (
                   <div
-                    className={`flex items-center justify-between rounded-2xl px-4 py-4 border ${
+                    className={`flex items-center justify-between rounded-xl px-3 py-3 border ${
                       yieldEnabled
                         ? "bg-emerald-50 border-emerald-200"
                         : "bg-gray-50 border-gray-200"
@@ -612,12 +609,12 @@ function CreateContent() {
                   >
                     <div className="flex-1 pr-3">
                       <div className="flex items-center gap-1.5">
-                        <p className="text-sm font-bold text-gray-900">
+                        <p className="text-[12px] font-bold text-gray-900">
                           Put money to work
                         </p>
                         <FiInfo className="text-emerald-600 text-sm" />
                       </div>
-                      <p className="text-xs text-gray-500 mt-1 leading-4">
+                      <p className="text-[11px] text-gray-500 mt-0.5 leading-4">
                         Idle funds earn on Moonwell. You can turn this off later.
                       </p>
                     </div>
@@ -653,9 +650,9 @@ function CreateContent() {
             <button
               type="submit"
               disabled={!goalValid || loading}
-              className={`w-full py-4 rounded-2xl font-bold text-base text-white flex items-center justify-center gap-2 ${
+              className={`w-full py-3 rounded-xl font-bold text-[13px] text-white flex items-center justify-center gap-2 ${
                 goalValid && !loading
-                  ? "bg-downy-600 shadow-lg shadow-downy-600/30"
+                  ? "bg-downy-600 shadow-md shadow-downy-600/25"
                   : "bg-gray-300 cursor-not-allowed"
               }`}
             >
@@ -680,7 +677,7 @@ export default function Page() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="min-h-[100dvh] bg-downy-50 flex items-center justify-center">
           <div className="h-10 w-10 rounded-full border-2 border-downy-600 border-t-transparent animate-spin" />
         </div>
       }

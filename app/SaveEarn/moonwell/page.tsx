@@ -105,101 +105,98 @@ export default function MoonwellPoolPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-28">
-      <div className="bg-gradient-to-br from-downy-800 to-emerald-900 rounded-b-3xl px-5 pt-6 pb-8 text-white">
-        <div className="flex items-center justify-between mb-5">
+    <div className="min-h-[100dvh] bg-downy-50 pb-nav">
+      <div className="bg-gradient-to-br from-downy-800 to-emerald-900 px-4 pt-3 pb-4 text-white safe-top">
+        <div className="flex items-center justify-between mb-3">
           <button
             type="button"
             onClick={() => router.push("/SaveEarn")}
-            className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center"
+            className="h-8 w-8 rounded-full bg-white/20 flex items-center justify-center"
           >
-            <FiArrowLeft />
+            <FiArrowLeft size={16} />
           </button>
-          <h1 className="text-lg font-bold">Moonwell</h1>
-          <div className="w-10" />
+          <h1 className="text-[13px] font-bold">Moonwell</h1>
+          <div className="w-8" />
         </div>
 
-        <div className="flex items-center gap-3 mb-5">
+        <div className="flex items-center gap-2.5 mb-3">
           <Image
             src="/brand/moonwell_logo.png"
             alt="Moonwell"
-            width={52}
-            height={52}
-            className="w-13 h-13 rounded-full bg-white object-cover"
+            width={40}
+            height={40}
+            className="w-10 h-10 rounded-full bg-white object-cover"
           />
           <div>
-            <p className="text-xl font-bold">USDC Pool</p>
-            <p className="text-white/80 text-sm">Base · Moonwell</p>
+            <p className="text-[15px] font-bold leading-tight">USDC Pool</p>
+            <p className="text-white/75 text-[11px]">Base · Moonwell</p>
           </div>
         </div>
 
-        <div className="grid grid-cols-3 gap-2">
-          <div className="bg-white/10 rounded-2xl p-3 text-center">
-            <p className="text-[10px] text-white/70 uppercase font-bold mb-1">
-              APY
-            </p>
-            <p className="font-mono font-bold text-lg">
-              {loading ? "…" : apy}
-            </p>
-          </div>
-          <div className="bg-white/10 rounded-2xl p-3 text-center">
-            <p className="text-[10px] text-white/70 uppercase font-bold mb-1">
-              Your bal
-            </p>
-            <p className="font-mono font-bold text-sm">
-              {loading ? "…" : `${total.toFixed(2)}`}
-            </p>
-          </div>
-          <div className="bg-white/10 rounded-2xl p-3 text-center">
-            <p className="text-[10px] text-white/70 uppercase font-bold mb-1">
-              TVL
-            </p>
-            <p className="font-mono font-bold text-sm">
-              {loading ? "…" : formatTvl(snapshot?.marketTotalSupplyUsd)}
-            </p>
-          </div>
+        <div className="grid grid-cols-3 gap-1.5">
+          {[
+            { label: "APY", value: loading ? "…" : apy },
+            {
+              label: "Your bal",
+              value: loading ? "…" : total.toFixed(2),
+            },
+            {
+              label: "TVL",
+              value: loading ? "…" : formatTvl(snapshot?.marketTotalSupplyUsd),
+            },
+          ].map((stat) => (
+            <div
+              key={stat.label}
+              className="bg-white/10 rounded-xl px-2 py-2 text-center"
+            >
+              <p className="text-[9px] text-white/70 uppercase font-bold mb-0.5">
+                {stat.label}
+              </p>
+              <p className="font-mono font-bold text-[12px]">{stat.value}</p>
+            </div>
+          ))}
         </div>
       </div>
 
-      <div className="px-5 -mt-3 space-y-4">
-        <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-5">
-          <div className="flex justify-between mb-3">
+      <div className="px-4 -mt-2 space-y-2.5 pb-4">
+        <div className="bg-white rounded-2xl border border-downy-100/70 shadow-sm p-3.5">
+          <div className="flex justify-between mb-2.5">
             <div>
-              <p className="text-xs text-gray-500 font-medium">Invested</p>
-              <p className="font-mono font-bold text-gray-900">
+              <p className="text-[10px] text-gray-500 font-medium">Invested</p>
+              <p className="font-mono font-bold text-[13px] text-gray-900">
                 {principal.toFixed(3)} USDC
               </p>
             </div>
             <div className="text-right">
-              <p className="text-xs text-gray-500 font-medium">Earned</p>
-              <p className="font-mono font-bold text-emerald-600">
+              <p className="text-[10px] text-gray-500 font-medium">Earned</p>
+              <p className="font-mono font-bold text-[13px] text-emerald-600">
                 +{earned.toFixed(3)} USDC
               </p>
             </div>
           </div>
           <div
-            className={`rounded-2xl px-3 py-2.5 text-xs font-semibold flex items-start gap-2 ${
+            className={`rounded-xl px-2.5 py-2 text-[11px] font-semibold flex items-start gap-1.5 ${
               canWithdraw
                 ? "bg-emerald-50 text-emerald-800"
                 : "bg-amber-50 text-amber-800"
             }`}
           >
-            <FiInfo className="mt-0.5 shrink-0" />
+            <FiInfo className="mt-0.5 shrink-0" size={13} />
             {canWithdraw
               ? "You can withdraw when the pool has free cash (available now)."
               : "Withdrawals are limited until Moonwell liquidity returns."}
           </div>
         </div>
 
-        <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-5">
-          <div className="flex bg-gray-100 rounded-2xl p-1 mb-4">
+        <div className="bg-white rounded-2xl border border-downy-100/70 shadow-sm p-3.5">
+          <div className="flex bg-gray-100 rounded-xl p-0.5 mb-3">
             <button
               type="button"
               onClick={() => setMode("deposit")}
-              className={`flex-1 py-2.5 rounded-xl text-sm font-semibold ${
+              className={`flex-1 py-2 rounded-[10px] text-[12px] font-semibold ${
                 mode === "deposit"
                   ? "bg-downy-600 text-white"
-                  : "text-gray-600"
+                  : "bg-transparent text-gray-500"
               }`}
             >
               Supply
@@ -207,21 +204,21 @@ export default function MoonwellPoolPage() {
             <button
               type="button"
               onClick={() => setMode("withdraw")}
-              className={`flex-1 py-2.5 rounded-xl text-sm font-semibold ${
+              className={`flex-1 py-2 rounded-[10px] text-[12px] font-semibold ${
                 mode === "withdraw"
                   ? "bg-downy-600 text-white"
-                  : "text-gray-600"
+                  : "bg-transparent text-gray-500"
               }`}
             >
               Withdraw
             </button>
           </div>
 
-          <label className="block text-[13px] font-semibold text-gray-600 mb-2">
+          <label className="block text-[11px] font-semibold text-gray-600 mb-1.5">
             Amount (USDC)
           </label>
-          <div className="flex items-center border border-gray-200 rounded-2xl overflow-hidden mb-4">
-            <span className="px-4 py-3.5 bg-gray-50 border-r border-gray-200 text-sm font-bold text-gray-600">
+          <div className="flex items-center border border-gray-200 rounded-xl overflow-hidden mb-3">
+            <span className="px-3 py-2.5 bg-gray-50 border-r border-gray-200 text-[12px] font-bold text-gray-600">
               USDC
             </span>
             <input
@@ -233,7 +230,7 @@ export default function MoonwellPoolPage() {
                 if (v === "" || /^\d*\.?\d*$/.test(v)) setAmount(v);
               }}
               placeholder={mode === "deposit" ? "10" : "5"}
-              className="flex-1 px-4 py-3.5 text-[15px] font-semibold border-0 focus:ring-0"
+              className="flex-1 px-3 py-2.5 text-[13px] font-semibold border-0 focus:ring-0 bg-white"
             />
           </div>
 
@@ -241,10 +238,10 @@ export default function MoonwellPoolPage() {
             type="button"
             onClick={submit}
             disabled={submitting || !amount}
-            className={`w-full py-4 rounded-2xl font-bold text-white ${
+            className={`w-full py-3 rounded-xl text-[13px] font-bold text-white ${
               submitting || !amount
                 ? "bg-gray-300 cursor-not-allowed"
-                : "bg-downy-600 shadow-lg shadow-downy-600/30"
+                : "bg-downy-600 shadow-md shadow-downy-600/25"
             }`}
           >
             {submitting
@@ -255,7 +252,7 @@ export default function MoonwellPoolPage() {
           </button>
         </div>
 
-        <p className="text-xs text-gray-400 text-center leading-5 px-2">
+        <p className="text-[11px] text-gray-400 text-center leading-relaxed px-1">
           Rates are variable and not guaranteed. Powered by Moonwell on Base.
         </p>
       </div>
