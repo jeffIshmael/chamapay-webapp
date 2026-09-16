@@ -23,7 +23,6 @@ import { HiOutlineQrcode } from "react-icons/hi";
 import { useRouter } from "next/navigation";
 import SendModal from "./sendModal";
 import QRCodeModal from "./QRCodeModal";
-import AppHeader from "./AppHeader";
 import Link from "next/link";
 
 interface Payment {
@@ -120,9 +119,7 @@ const Wallet = () => {
 
   return (
     <div className="min-h-[100dvh] bg-downy-50 pb-nav">
-      <AppHeader pageTitle="Wallet" />
-
-      <div className="px-4 pt-3">
+      <div className="px-4 pt-4 safe-top">
         <div className="bg-gradient-to-br from-downy-600 to-downy-800 rounded-2xl p-3.5 text-white shadow-md shadow-downy-700/20">
           <div className="flex justify-between items-center">
             <p className="text-downy-100 text-[11px] font-medium">

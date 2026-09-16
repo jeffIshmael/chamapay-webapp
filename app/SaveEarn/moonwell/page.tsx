@@ -106,8 +106,8 @@ export default function MoonwellPoolPage() {
 
   return (
     <div className="min-h-[100dvh] bg-downy-50 pb-nav">
-      <div className="bg-gradient-to-br from-downy-800 to-emerald-900 px-4 pt-3 pb-4 text-white safe-top">
-        <div className="flex items-center justify-between mb-3">
+      <div className="bg-gradient-to-br from-downy-800 to-emerald-900 rounded-b-3xl px-4 pt-4 pb-5 text-white safe-top shadow-md shadow-downy-900/20">
+        <div className="flex items-center justify-between mb-3 min-h-[36px]">
           <button
             type="button"
             onClick={() => router.push("/SaveEarn")}

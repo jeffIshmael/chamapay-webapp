@@ -92,7 +92,11 @@ body.modal-open {
   }
 
   .pb-nav {
-    padding-bottom: calc(4.75rem + var(--safe-bottom));
+    padding-bottom: calc(6rem + var(--safe-bottom));
+  }
+
+  .pb-nav-create {
+    padding-bottom: calc(9.5rem + var(--safe-bottom));
   }
 
   .safe-top {

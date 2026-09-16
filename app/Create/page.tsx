@@ -253,10 +253,10 @@ function CreateContent() {
   };
 
   return (
-    <div className="min-h-[100dvh] bg-downy-50 pb-nav">
+    <div className="h-[100dvh] max-h-[100dvh] bg-downy-50 flex flex-col overflow-hidden">
       <AppHeader pageTitle="Create" />
 
-      <div className="px-4 pt-3 pb-2">
+      <div className="shrink-0 px-4 pt-3 pb-2 bg-downy-50 border-b border-downy-100/50 z-20">
         <p className="text-[12px] text-gray-500 leading-relaxed mb-3">
           Start a rotational chama or a Save for Goal pot.
         </p>
@@ -292,7 +292,7 @@ function CreateContent() {
         </div>
       </div>
 
-      <div className="px-4 pt-2 space-y-3">
+      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 pt-3 space-y-3 pb-nav-create">
         {errorText && (
           <div className="text-red-500 p-2.5 flex items-center border border-red-200 rounded-xl bg-red-50">
             <FiAlertTriangle className="mr-2 shrink-0" size={14} />

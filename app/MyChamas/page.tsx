@@ -14,7 +14,6 @@ import {
   goalTypeLabel,
   GoalRecord,
 } from "@/lib/goalService";
-import ChamaLinkSearch from "../Components/SearchModal";
 import { motion } from "framer-motion";
 import {
   FiUsers,
@@ -41,13 +40,12 @@ function MyHomeContent() {
   const [goals, setGoals] = useState<GoalRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [goalsLoading, setGoalsLoading] = useState(true);
-  const [showLinkSearch, setShowLinkSearch] = useState(false);
   const [showPayoutModal, setShowPayoutModal] = useState(false);
   const [userId, setUserId] = useState<number | null>(null);
   const [showingChamas, setShowingChamas] = useState<JoinedChama[]>([]);
   const [error, setError] = useState<string | null>(null);
 
-  const { isConnected, address, token, isAuthenticated, isGuest } =
+  const { address, token, isAuthenticated, isGuest } =
     useSessionAddress();
   const router = useRouter();
 
@@ -147,7 +145,7 @@ function MyHomeContent() {
 
   return (
     <div className="min-h-[100dvh] bg-downy-50 pb-nav">
-      <AppHeader onSearch={() => setShowLinkSearch(true)} showSearch />
+      <AppHeader />
 
       <div className="px-4 pt-3">
         <div className="flex bg-white rounded-2xl p-1 shadow-sm border border-downy-100/60">
@@ -303,9 +301,6 @@ function MyHomeContent() {
         activeSection={activeSection}
         setActiveSection={setActiveSection}
       />
-      {showLinkSearch && (
-        <ChamaLinkSearch onClose={() => setShowLinkSearch(false)} />
-      )}
       {showPayoutModal && (
         <PayoutCongrats
           chamas={showingChamas}

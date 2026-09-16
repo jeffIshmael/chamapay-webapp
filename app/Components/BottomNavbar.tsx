@@ -14,7 +14,7 @@ const tabs = [
   { href: "/MyChamas", label: "Home", icon: FiHome, match: ["Home", "Chamas"] },
   {
     href: "/SaveEarn",
-    label: "Earn",
+    label: "Save & Earn",
     icon: FiTrendingUp,
     match: ["SaveEarn"],
   },
@@ -90,7 +90,11 @@ export default function BottomNavbar({
               >
                 <Icon size={18} strokeWidth={active ? 2.4 : 2} />
               </span>
-              <span className="text-[10px] font-semibold leading-none">
+              <span
+                className={`text-[9px] font-semibold leading-tight text-center px-0.5 ${
+                  tab.href === "/SaveEarn" ? "max-w-[52px]" : ""
+                }`}
+              >
                 {tab.label}
               </span>
             </Link>

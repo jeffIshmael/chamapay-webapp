@@ -101,8 +101,8 @@ export default function GoalDetailsPage() {
 
   return (
     <div className="min-h-[100dvh] bg-downy-50 pb-8">
-      <div className="bg-downy-800 px-4 pb-4 pt-3 text-white safe-top">
-        <div className="flex items-center justify-between mb-3">
+      <div className="bg-downy-800 rounded-b-3xl px-4 pb-5 pt-4 text-white safe-top shadow-md shadow-downy-900/20">
+        <div className="flex items-center justify-between mb-3 min-h-[36px]">
           <button
             type="button"
             onClick={handleBack}
