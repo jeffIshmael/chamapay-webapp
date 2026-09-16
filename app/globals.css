@@ -2,51 +2,124 @@
 @tailwind components;
 @tailwind utilities;
 
-@import url('https://fonts.googleapis.com/css2?family=Lobster&display=swap');
-
-/* Define your color palette */
 :root {
-  --primary-color: #66d9d0;
-  --background-light: #020303;
-  --text-light: #09272a;
-  --button-light: #66d9d0;
-
-  --background-dark: #020303;
-  --text-dark: #09272a;
-  --button-dark: #66d9d0;
+  --cp-teal: #26a6a2;
+  --cp-teal-deep: #1a6b6b;
+  --cp-ink: #0f2f32;
+  --cp-mist: #e8f7f5;
+  --cp-shell: #f4fbfa;
+  --cp-ring: rgba(38, 166, 162, 0.22);
+  --app-max: 26.5rem;
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-top: env(safe-area-inset-top, 0px);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background-light: var(--background-dark);
-    --text-light: var(--text-dark);
-    --button-light: var(--button-dark);
-  }
+html {
+  height: 100%;
 }
 
-/* Apply these colors globally */
 body {
-  background-color: var(--background-light);
-  color: var(--text-light);
-  font-family: 'Lobster', cursive, sans-serif;
+  margin: 0;
+  min-height: 100%;
+  color: var(--cp-ink);
+  font-family: var(--font-jakarta), "Plus Jakarta Sans", system-ui, sans-serif;
+  font-size: 14px;
+  line-height: 1.45;
+  background:
+    radial-gradient(ellipse 80% 50% at 50% -10%, rgba(102, 217, 208, 0.35), transparent 55%),
+    radial-gradient(ellipse 60% 40% at 100% 100%, rgba(26, 107, 107, 0.18), transparent 50%),
+    linear-gradient(165deg, #0d3d3f 0%, #145456 42%, #0a2a2c 100%);
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
 }
 
-button {
-  background-color: var(--button-light);
-  color: var(--text-light);
-  transition: background-color 0.3s ease;
-}
-
-button:hover {
-  background-color: var(--button-light);
-}
 body.modal-open {
   overflow: hidden;
 }
 
+/* Mobile app chrome: phone-width column on desktop */
+.app-viewport {
+  min-height: 100dvh;
+  display: flex;
+  justify-content: center;
+  align-items: stretch;
+  padding: 0;
+}
+
+@media (min-width: 480px) {
+  .app-viewport {
+    padding: 1.25rem 1rem;
+    align-items: center;
+  }
+}
+
+.app-shell {
+  width: 100%;
+  max-width: var(--app-max);
+  min-height: 100dvh;
+  background: var(--cp-shell);
+  position: relative;
+  overflow-x: hidden;
+  box-shadow: none;
+}
+
+@media (min-width: 480px) {
+  .app-shell {
+    min-height: min(860px, calc(100dvh - 2.5rem));
+    max-height: calc(100dvh - 2.5rem);
+    border-radius: 1.75rem;
+    overflow: hidden;
+    box-shadow:
+      0 0 0 1px rgba(255, 255, 255, 0.08),
+      0 25px 50px -12px rgba(0, 0, 0, 0.45),
+      0 0 80px -20px rgba(102, 217, 208, 0.35);
+  }
+}
+
+.app-shell-scroll {
+  min-height: 100%;
+  height: 100%;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  position: relative;
+}
+
+@layer utilities {
+  .text-display {
+    font-family: var(--font-jakarta), "Plus Jakarta Sans", system-ui, sans-serif;
+    letter-spacing: -0.03em;
+  }
+
+  .pb-nav {
+    padding-bottom: calc(4.75rem + var(--safe-bottom));
+  }
+
+  .safe-top {
+    padding-top: max(0.75rem, var(--safe-top));
+  }
+}
+
+/* Dock tab bar to the phone shell (not the desktop page edge) */
+.bottom-nav-dock {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 0;
+  width: 100%;
+  max-width: var(--app-max);
+}
+
+@media (min-width: 480px) {
+  .bottom-nav-dock {
+    bottom: 1.25rem;
+    width: min(var(--app-max), calc(100% - 2rem));
+  }
+}
+
 @font-face {
-  font-family: 'Playwrite US Trad';
-  src: url('/fonts/PlaywriteUSTrad-VariableFont_wght.ttf') format('truetype');
+  font-family: "Playwrite US Trad";
+  src: url("/fonts/PlaywriteUSTrad-VariableFont_wght.ttf") format("truetype");
   font-weight: normal;
   font-style: normal;
 }

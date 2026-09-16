@@ -1,16 +1,33 @@
-import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import type { Metadata, Viewport } from "next";
+import { Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 import { BlockchainProviders } from "@/Providers/BlockchainProviders";
 import { Toaster } from "sonner";
 import { IsFarcasterProvider } from "./context/isFarcasterContext";
 import { AuthProvider } from "./context/AuthContext";
 
-const inter = Inter({ subsets: ["latin"] });
+const jakarta = Plus_Jakarta_Sans({
+  subsets: ["latin"],
+  variable: "--font-jakarta",
+  weight: ["400", "500", "600", "700", "800"],
+});
 
 export const metadata: Metadata = {
-  title: "Chamapay",
-  description: "The circular savings app",
+  title: "ChamaPay",
+  description: "Circular savings — chamas, goals, and earn",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "ChamaPay",
+  },
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  viewportFit: "cover",
+  themeColor: "#1a6b6b",
 };
 
 export default function RootLayout({
@@ -19,17 +36,22 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body
-        className={`bg-gypsum  border-gray shadow-lg shadow-stone-400 border-rounded-lg max-w-sm mx-auto  min-h-screen ${inter.className}`}
-      >
-        <BlockchainProviders>
-          <IsFarcasterProvider>
-            <AuthProvider>
-              <Toaster /> {children}
-            </AuthProvider>
-          </IsFarcasterProvider>
-        </BlockchainProviders>
+    <html lang="en" className={jakarta.variable}>
+      <body className={`${jakarta.className} antialiased`}>
+        <div className="app-viewport">
+          <div className="app-shell">
+            <div className="app-shell-scroll">
+              <BlockchainProviders>
+                <IsFarcasterProvider>
+                  <AuthProvider>
+                    <Toaster position="top-center" richColors closeButton />
+                    {children}
+                  </AuthProvider>
+                </IsFarcasterProvider>
+              </BlockchainProviders>
+            </div>
+          </div>
+        </div>
       </body>
     </html>
   );

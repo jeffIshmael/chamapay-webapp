@@ -2,6 +2,7 @@
 
 import React, { useCallback, useEffect, useState, Suspense } from "react";
 import BottomNavbar from "../Components/BottomNavbar";
+import AppHeader from "../Components/AppHeader";
 import Link from "next/link";
 import {
   getUserDetails,
@@ -21,7 +22,6 @@ import {
   FiClock,
   FiCalendar,
   FiDollarSign,
-  FiSearch,
   FiTarget,
   FiPlus,
 } from "react-icons/fi";
@@ -146,37 +146,27 @@ function MyHomeContent() {
   }, [token, isAuthenticated, isGuest]);
 
   return (
-    <div className="min-h-screen bg-downy-100 pb-24">
-      <div className="sticky top-0 z-10 bg-white rounded-b-lg shadow-sm px-4 pt-4 pb-2">
-        <div className="flex justify-between items-center">
-          <h1 className="text-3xl font-bold text-downy-800">ChamaPay</h1>
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            className="text-white p-2 rounded-full bg-downy-500"
-            onClick={() => setShowLinkSearch(true)}
-          >
-            <FiSearch className="text-lg" />
-          </motion.button>
-        </div>
+    <div className="min-h-[100dvh] bg-downy-50 pb-nav">
+      <AppHeader onSearch={() => setShowLinkSearch(true)} />
 
-        <div className="flex mt-4 bg-gray-100 rounded-2xl p-1">
+      <div className="px-4 pt-3">
+        <div className="flex bg-white rounded-2xl p-1 shadow-sm border border-downy-100/60">
           <button
             type="button"
             onClick={() => setHomeTab("chamas")}
-            className={`flex-1 py-2.5 font-semibold text-sm flex items-center justify-center gap-1.5 rounded-xl transition ${
+            className={`flex-1 py-2 font-semibold text-[12px] flex items-center justify-center gap-1.5 rounded-xl transition ${
               homeTab === "chamas"
                 ? "bg-downy-600 text-white shadow-sm"
-                : "bg-transparent text-gray-600"
+                : "bg-transparent text-gray-500"
             }`}
           >
-            <FiUsers />
+            <FiUsers size={14} />
             Chamas
             <span
-              className={`text-[10px] px-1.5 py-0.5 rounded-full ${
+              className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${
                 homeTab === "chamas"
                   ? "bg-white/20 text-white"
-                  : "bg-gray-200 text-gray-600"
+                  : "bg-gray-100 text-gray-500"
               }`}
             >
               {chamas.length}
@@ -185,19 +175,19 @@ function MyHomeContent() {
           <button
             type="button"
             onClick={() => setHomeTab("goals")}
-            className={`flex-1 py-2.5 font-semibold text-sm flex items-center justify-center gap-1.5 rounded-xl transition ${
+            className={`flex-1 py-2 font-semibold text-[12px] flex items-center justify-center gap-1.5 rounded-xl transition ${
               homeTab === "goals"
                 ? "bg-downy-600 text-white shadow-sm"
-                : "bg-transparent text-gray-600"
+                : "bg-transparent text-gray-500"
             }`}
           >
-            <FiTarget />
+            <FiTarget size={14} />
             Goals
             <span
-              className={`text-[10px] px-1.5 py-0.5 rounded-full ${
+              className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${
                 homeTab === "goals"
                   ? "bg-white/20 text-white"
-                  : "bg-gray-200 text-gray-600"
+                  : "bg-gray-100 text-gray-500"
               }`}
             >
               {goals.length}
@@ -208,43 +198,43 @@ function MyHomeContent() {
 
       <div className="px-4 pt-4 pb-6">
         {!isAuthenticated ? (
-          <div className="flex flex-col items-center justify-center py-12 px-4">
-            <p className="text-gray-600 text-center mb-4">
+          <div className="flex flex-col items-center justify-center py-10 px-4">
+            <p className="text-gray-500 text-center text-[13px] mb-4">
               Sign in with Google or email to view your chamas and goals
             </p>
             <Link
               href="/"
-              className="bg-downy-600 text-white px-6 py-3 rounded-full font-semibold"
+              className="bg-downy-600 text-white px-5 py-2.5 rounded-2xl text-[13px] font-bold"
             >
               Sign in
             </Link>
           </div>
         ) : homeTab === "chamas" ? (
           <>
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center justify-between mb-3">
               <div>
-                <h2 className="text-xl font-bold text-gray-900">My Chamas</h2>
-                <p className="text-sm text-gray-500">
-                  Rotational saving groups you belong to
+                <h2 className="text-[15px] font-bold text-gray-900">My Chamas</h2>
+                <p className="text-[11px] text-gray-500 mt-0.5">
+                  Rotational groups you belong to
                 </p>
               </div>
               <Link
                 href="/Create?mode=chama"
-                className="flex items-center gap-1 bg-emerald-100 text-emerald-700 px-3 py-2 rounded-full text-sm font-semibold"
+                className="flex items-center gap-1 bg-downy-100 text-downy-800 px-2.5 py-1.5 rounded-full text-[11px] font-bold"
               >
-                New <FiPlus />
+                New <FiPlus size={12} />
               </Link>
             </div>
             {loading ? (
-              <div className="flex flex-col items-center justify-center py-12">
-                <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-downy-500 mb-4" />
-                <p className="text-gray-600">Loading your chamas...</p>
+              <div className="flex flex-col items-center justify-center py-10">
+                <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-downy-500 mb-3" />
+                <p className="text-gray-500 text-[12px]">Loading chamas…</p>
               </div>
             ) : chamas.length === 0 ? (
               <EmptyState
-                icon={<FiUsers className="text-4xl text-downy-400" />}
-                title="No Chamas Yet"
-                description="Join or create your first chama to start saving with your community"
+                icon={<FiUsers className="text-3xl text-downy-400" />}
+                title="No chamas yet"
+                description="Join or create your first chama to start saving with your circle"
                 buttonText="Create Chama"
                 buttonLink="/Create?mode=chama"
               />
@@ -252,10 +242,10 @@ function MyHomeContent() {
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                className="space-y-4"
+                className="space-y-2.5"
               >
                 {error && (
-                  <p className="text-sm text-amber-700 bg-amber-50 px-3 py-2 rounded-lg">
+                  <p className="text-[12px] text-amber-700 bg-amber-50 px-3 py-2 rounded-xl">
                     {error}
                   </p>
                 )}
@@ -267,28 +257,28 @@ function MyHomeContent() {
           </>
         ) : (
           <>
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center justify-between mb-3">
               <div>
-                <h2 className="text-xl font-bold text-gray-900">My Goals</h2>
-                <p className="text-sm text-gray-500">
+                <h2 className="text-[15px] font-bold text-gray-900">My Goals</h2>
+                <p className="text-[11px] text-gray-500 mt-0.5">
                   Save for Goal pots you created or joined
                 </p>
               </div>
               <Link
                 href="/Create?mode=goal"
-                className="flex items-center gap-1 bg-emerald-100 text-emerald-700 px-3 py-2 rounded-full text-sm font-semibold"
+                className="flex items-center gap-1 bg-downy-100 text-downy-800 px-2.5 py-1.5 rounded-full text-[11px] font-bold"
               >
-                New goal <FiPlus />
+                New goal <FiPlus size={12} />
               </Link>
             </div>
             {goalsLoading ? (
-              <div className="flex flex-col items-center justify-center py-12">
-                <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-downy-500 mb-4" />
-                <p className="text-gray-600">Loading your goals...</p>
+              <div className="flex flex-col items-center justify-center py-10">
+                <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-downy-500 mb-3" />
+                <p className="text-gray-500 text-[12px]">Loading goals…</p>
               </div>
             ) : goals.length === 0 ? (
               <EmptyState
-                icon={<FiTarget className="text-4xl text-downy-400" />}
+                icon={<FiTarget className="text-3xl text-downy-400" />}
                 title="No goals yet"
                 description="Create a personal, invite, or public Save for Goal pot"
                 buttonText="New Goal"
@@ -298,7 +288,7 @@ function MyHomeContent() {
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                className="space-y-4"
+                className="space-y-2.5"
               >
                 {goals.map((goal) => (
                   <GoalCard key={goal.id} goal={goal} />
@@ -330,52 +320,57 @@ function MyHomeContent() {
 const ChamaCard = ({ chama }: { chama: JoinedChama }) => (
   <Link href={`/Chama/${chama.slug}`}>
     <motion.div
-      whileHover={{ y: -2 }}
-      className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden mb-2"
+      whileTap={{ scale: 0.99 }}
+      className="bg-white rounded-2xl shadow-sm border border-downy-100/70 overflow-hidden"
     >
-      <div className="p-4">
-        <div className="flex items-start gap-3">
-          <div className="flex-1">
-            <div className="flex justify-between items-start">
-              <h3 className="font-bold text-gray-800">{chama.name}</h3>
-              <div className="flex items-center bg-downy-50 px-2 py-1 rounded-full">
-                <FiDollarSign className="text-downy-600 mr-1 text-sm" />
-                <span className="text-xs font-medium text-downy-700">
+      <div className="p-3.5">
+        <div className="flex items-start gap-2.5">
+          <div className="flex-1 min-w-0">
+            <div className="flex justify-between items-start gap-2">
+              <h3 className="font-bold text-[13px] text-gray-900 truncate">
+                {chama.name}
+              </h3>
+              <div className="flex items-center bg-downy-50 px-1.5 py-0.5 rounded-full shrink-0">
+                <FiDollarSign className="text-downy-600 mr-0.5" size={11} />
+                <span className="text-[10px] font-semibold text-downy-700">
                   {chama.contribution} {chama.currency}/{chama.frequency}
                 </span>
               </div>
             </div>
-            <div className="flex items-center text-gray-500 text-sm mt-2">
-              <FiCalendar className="mr-1" />
-              <span>
+            <div className="flex items-center text-gray-500 text-[11px] mt-1.5">
+              <FiCalendar className="mr-1 shrink-0" size={12} />
+              <span className="truncate">
                 {chama.status === "active"
-                  ? `Pay date: ${utcToLocalTime(chama.contributionDueDate)}`
-                  : `Start date: ${utcToLocalTime(chama.startDate)}`}
+                  ? `Pay: ${utcToLocalTime(chama.contributionDueDate)}`
+                  : `Starts: ${utcToLocalTime(chama.startDate)}`}
               </span>
             </div>
-            <div className="flex items-center justify-between gap-1 mt-2">
+            <div className="flex items-center justify-between gap-1 mt-1.5">
               <div className="flex items-center gap-1">
-                <FiUsers className="text-gray-500" />
-                <span className="text-xs font-medium text-gray-500">
+                <FiUsers className="text-gray-400" size={12} />
+                <span className="text-[11px] font-medium text-gray-500">
                   {chama.members.length}{" "}
                   {chama.members.length === 1 ? "member" : "members"}
                 </span>
               </div>
-              <div className="flex items-center text-gray-500 text-sm">
+              <div className="flex items-center text-[11px] text-gray-500">
                 <FiClock
+                  size={12}
                   className={`${
-                    chama.status === "active" ? "text-green-500" : "text-gray-500"
+                    chama.status === "active" ? "text-emerald-500" : "text-gray-400"
                   } mr-1`}
                 />
                 <span
-                  className={`${chama.status === "active" && "text-green-500"}`}
+                  className={
+                    chama.status === "active" ? "text-emerald-600 font-semibold" : ""
+                  }
                 >
-                  {chama.status === "active" ? "active" : "Not started"}
+                  {chama.status === "active" ? "Active" : "Not started"}
                 </span>
               </div>
             </div>
           </div>
-          <FiArrowRight className="text-gray-400 mt-2" />
+          <FiArrowRight className="text-gray-300 mt-1 shrink-0" size={16} />
         </div>
       </div>
     </motion.div>
@@ -383,47 +378,48 @@ const ChamaCard = ({ chama }: { chama: JoinedChama }) => (
 );
 
 const GoalCard = ({ goal }: { goal: GoalRecord }) => {
-  const members =
-    goal._count?.members ?? goal.members?.length ?? 1;
+  const members = goal._count?.members ?? goal.members?.length ?? 1;
   return (
     <Link href={`/Goal/${goal.slug}`}>
       <motion.div
-        whileHover={{ y: -2 }}
-        className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden mb-2"
+        whileTap={{ scale: 0.99 }}
+        className="bg-white rounded-2xl shadow-sm border border-downy-100/70 overflow-hidden"
       >
-        <div className="p-4">
-          <div className="flex items-start justify-between gap-3">
+        <div className="p-3.5">
+          <div className="flex items-start justify-between gap-2.5">
             <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 mb-2">
-                <FiTarget className="text-downy-600 shrink-0" />
-                <h3 className="font-bold text-gray-800 truncate">{goal.name}</h3>
+              <div className="flex items-center gap-1.5 mb-1.5">
+                <FiTarget className="text-downy-600 shrink-0" size={14} />
+                <h3 className="font-bold text-[13px] text-gray-900 truncate">
+                  {goal.name}
+                </h3>
               </div>
-              <div className="flex flex-wrap gap-2 mb-2">
-                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800">
+              <div className="flex flex-wrap gap-1.5 mb-1.5">
+                <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800">
                   {goalTypeLabel(goal.goalType)}
                 </span>
                 {goal.yieldEnabled && (
-                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-teal-50 text-teal-800">
+                  <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-teal-50 text-teal-800">
                     Yield
                   </span>
                 )}
-                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-gray-100 text-gray-700">
+                <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-600">
                   {goal.status}
                 </span>
               </div>
-              <p className="text-sm text-gray-600 line-clamp-2">
+              <p className="text-[12px] text-gray-500 line-clamp-2">
                 {goal.description || "No description"}
               </p>
-              <div className="flex items-center justify-between mt-3 pt-2 border-t border-gray-100">
-                <span className="text-sm font-semibold text-blue-700">
+              <div className="flex items-center justify-between mt-2.5 pt-2 border-t border-gray-100">
+                <span className="text-[12px] font-bold text-downy-800">
                   Target {goal.targetAmount} USDC
                 </span>
-                <span className="text-xs text-gray-500">
+                <span className="text-[11px] text-gray-500">
                   {members} {members === 1 ? "member" : "members"}
                 </span>
               </div>
             </div>
-            <FiArrowRight className="text-gray-400 mt-1 shrink-0" />
+            <FiArrowRight className="text-gray-300 mt-0.5 shrink-0" size={16} />
           </div>
         </div>
       </motion.div>
@@ -447,20 +443,23 @@ const EmptyState = ({
   <motion.div
     initial={{ opacity: 0 }}
     animate={{ opacity: 1 }}
-    className="flex flex-col items-center justify-center py-12 px-4 text-center"
+    className="flex flex-col items-center justify-center py-10 px-4 text-center"
   >
-    <div className="bg-downy-50 p-4 rounded-full mb-4">{icon}</div>
-    <h3 className="text-lg font-bold text-gray-800 mb-1">{title}</h3>
-    <p className="text-gray-500 mb-6 max-w-xs">{description}</p>
+    <div className="bg-white border border-downy-100 p-3.5 rounded-2xl mb-3 shadow-sm">
+      {icon}
+    </div>
+    <h3 className="text-[15px] font-bold text-gray-900 mb-1">{title}</h3>
+    <p className="text-[12px] text-gray-500 mb-5 max-w-[15rem] leading-relaxed">
+      {description}
+    </p>
     <Link href={buttonLink}>
       <motion.button
-        whileHover={{ scale: 1.02 }}
         whileTap={{ scale: 0.98 }}
-        className="bg-white text-downy-700 font-bold py-2.5 pl-7 pr-3 rounded-full shadow-md border-[1.5px] border-downy-500 inline-flex items-center gap-3"
+        className="bg-downy-700 text-white font-bold text-[13px] py-2.5 pl-5 pr-2.5 rounded-full shadow-md inline-flex items-center gap-2.5"
       >
         {buttonText}
-        <span className="w-9 h-9 rounded-full bg-downy-600 text-white inline-flex items-center justify-center">
-          <FiPlus />
+        <span className="w-8 h-8 rounded-full bg-white/20 text-white inline-flex items-center justify-center">
+          <FiPlus size={14} />
         </span>
       </motion.button>
     </Link>
@@ -470,8 +469,8 @@ const EmptyState = ({
 const Page = () => (
   <Suspense
     fallback={
-      <div className="min-h-screen bg-downy-100 flex items-center justify-center">
-        <div className="h-10 w-10 rounded-full border-2 border-downy-600 border-t-transparent animate-spin" />
+      <div className="min-h-[100dvh] bg-downy-50 flex items-center justify-center">
+        <div className="h-9 w-9 rounded-full border-2 border-downy-600 border-t-transparent animate-spin" />
       </div>
     }
   >

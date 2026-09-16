@@ -91,7 +91,7 @@ export default function AuthScreen() {
         window.google.accounts.id.renderButton(googleBtnRef.current, {
           theme: "outline",
           size: "large",
-          width: 320,
+          width: 300,
           text: "continue_with",
           shape: "pill",
         });
@@ -150,44 +150,47 @@ export default function AuthScreen() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-downy-100 flex items-center justify-center">
-        <div className="h-10 w-10 rounded-full border-2 border-downy-600 border-t-transparent animate-spin" />
+      <div className="min-h-[100dvh] bg-downy-50 flex items-center justify-center">
+        <div className="h-9 w-9 rounded-full border-2 border-downy-600 border-t-transparent animate-spin" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-downy-700 to-downy-900 px-5 py-10 flex flex-col">
-      <div className="text-center mb-8">
+    <div className="min-h-[100dvh] flex flex-col bg-gradient-to-b from-downy-800 via-downy-700 to-downy-950 px-4 pt-8 pb-6">
+      <div className="text-center shrink-0 mb-6">
         <Image
           src="/images/logo.png"
           alt="ChamaPay"
-          width={64}
-          height={64}
-          className="mx-auto rounded-2xl mb-4"
+          width={52}
+          height={52}
+          className="mx-auto rounded-2xl mb-3 shadow-lg shadow-black/20"
+          priority
         />
-        <h1 className="text-3xl font-bold text-white">ChamaPay</h1>
-        <p className="mt-2 text-downy-100 text-sm">
-          Circular savings — sign in with Google or email
+        <h1 className="text-display text-[1.65rem] font-extrabold text-white tracking-tight">
+          ChamaPay
+        </h1>
+        <p className="mt-1.5 text-[12px] text-downy-100/85 max-w-[16rem] mx-auto leading-snug">
+          Circular savings with email or Google — no wallet connect needed
         </p>
       </div>
 
       <motion.div
-        initial={{ opacity: 0, y: 16 }}
+        initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
-        className="bg-white rounded-3xl p-6 shadow-xl mt-auto mb-6"
+        className="bg-white rounded-[1.5rem] p-5 shadow-2xl shadow-black/20 mt-auto"
       >
         {step === "home" && (
-          <div className="space-y-4">
-            <h2 className="text-xl font-bold text-gray-900 text-center">
-              Welcome
+          <div className="space-y-3">
+            <h2 className="text-[1.05rem] font-bold text-gray-900 text-center">
+              Welcome back
             </h2>
-            <p className="text-sm text-gray-500 text-center mb-2">
-              No wallet connect — just Google or email to continue.
+            <p className="text-[12px] text-gray-500 text-center -mt-1 mb-1">
+              Sign in to manage chamas, goals, and your wallet.
             </p>
 
             {clientId ? (
-              <div className="flex justify-center py-2" ref={googleBtnRef} />
+              <div className="flex justify-center py-1" ref={googleBtnRef} />
             ) : (
               <button
                 type="button"
@@ -197,28 +200,28 @@ export default function AuthScreen() {
                     "warning"
                   )
                 }
-                className="w-full flex items-center justify-center gap-2 border border-gray-200 rounded-full py-3 font-semibold text-gray-800"
+                className="w-full flex items-center justify-center gap-2 border border-gray-200 rounded-2xl py-2.5 text-[13px] font-semibold text-gray-800 bg-white"
               >
-                <FcGoogle size={22} />
+                <FcGoogle size={20} />
                 Continue with Google
               </button>
             )}
 
-            <div className="relative py-2">
+            <div className="relative py-1">
               <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-gray-200" />
+                <div className="w-full border-t border-gray-100" />
               </div>
-              <div className="relative flex justify-center text-xs">
-                <span className="bg-white px-3 text-gray-400">or</span>
+              <div className="relative flex justify-center text-[10px] uppercase tracking-wider">
+                <span className="bg-white px-2 text-gray-400">or</span>
               </div>
             </div>
 
             <button
               type="button"
               onClick={() => setStep("email")}
-              className="w-full flex items-center justify-center gap-2 bg-downy-600 text-white rounded-full py-3.5 font-semibold"
+              className="w-full flex items-center justify-center gap-2 bg-downy-600 text-white rounded-2xl py-3 text-[13px] font-bold"
             >
-              <FiMail size={18} />
+              <FiMail size={16} />
               Continue with email
             </button>
 
@@ -229,68 +232,68 @@ export default function AuthScreen() {
                 continueAsGuest();
                 router.replace("/MyChamas");
               }}
-              className="w-full text-center text-sm font-semibold text-gray-500 py-2 hover:text-downy-700"
+              className="w-full text-center text-[12px] font-semibold text-gray-400 py-1.5 hover:text-downy-700 bg-transparent"
             >
-              Proceed as guest (temporary)
+              Browse as guest
             </button>
           </div>
         )}
 
         {step === "email" && (
-          <div className="space-y-4">
+          <div className="space-y-3">
             <button
               type="button"
               onClick={() => setStep("home")}
-              className="text-sm text-downy-700 font-medium"
+              className="text-[12px] text-downy-700 font-semibold bg-transparent"
             >
               ← Back
             </button>
-            <h2 className="text-xl font-bold text-gray-900">Email</h2>
+            <h2 className="text-[1.05rem] font-bold text-gray-900">Email</h2>
             <input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="you@example.com"
-              className="w-full rounded-xl border border-gray-200 px-4 py-3 outline-none focus:ring-2 focus:ring-downy-500"
+              className="w-full rounded-xl border border-gray-200 px-3.5 py-2.5 text-[13px] outline-none focus:ring-2 focus:ring-downy-500"
             />
             <button
               type="button"
               disabled={busy}
               onClick={onSendCode}
-              className="w-full flex items-center justify-center gap-2 bg-downy-600 text-white rounded-full py-3.5 font-semibold disabled:opacity-60"
+              className="w-full flex items-center justify-center gap-2 bg-downy-600 text-white rounded-2xl py-3 text-[13px] font-bold disabled:opacity-60"
             >
               {busy ? "Sending…" : "Send code"}
-              <FiArrowRight />
+              <FiArrowRight size={16} />
             </button>
           </div>
         )}
 
         {step === "code" && (
-          <div className="space-y-4">
+          <div className="space-y-3">
             <button
               type="button"
               onClick={() => setStep("email")}
-              className="text-sm text-downy-700 font-medium"
+              className="text-[12px] text-downy-700 font-semibold bg-transparent"
             >
               ← Back
             </button>
-            <h2 className="text-xl font-bold text-gray-900">Enter code</h2>
-            <p className="text-sm text-gray-500">
-              We sent a code to <span className="font-semibold">{email}</span>
+            <h2 className="text-[1.05rem] font-bold text-gray-900">Enter code</h2>
+            <p className="text-[12px] text-gray-500">
+              Sent to <span className="font-semibold text-gray-700">{email}</span>
             </p>
             <input
               type="text"
               inputMode="numeric"
               value={code}
               onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
-              placeholder="6-digit code"
-              className="w-full rounded-xl border border-gray-200 px-4 py-3 tracking-[0.3em] text-center text-lg outline-none focus:ring-2 focus:ring-downy-500"
+              placeholder="••••••"
+              className="w-full rounded-xl border border-gray-200 px-3.5 py-2.5 tracking-[0.35em] text-center text-base outline-none focus:ring-2 focus:ring-downy-500"
             />
             <button
               type="button"
               disabled={busy}
               onClick={onVerifyCode}
-              className="w-full bg-downy-600 text-white rounded-full py-3.5 font-semibold disabled:opacity-60"
+              className="w-full bg-downy-600 text-white rounded-2xl py-3 text-[13px] font-bold disabled:opacity-60"
             >
               {busy ? "Verifying…" : "Verify & continue"}
             </button>
@@ -298,24 +301,26 @@ export default function AuthScreen() {
         )}
 
         {step === "username" && (
-          <div className="space-y-4">
-            <h2 className="text-xl font-bold text-gray-900">Pick a username</h2>
-            <p className="text-sm text-gray-500">
-              Almost done — choose how you appear in chamas.
+          <div className="space-y-3">
+            <h2 className="text-[1.05rem] font-bold text-gray-900">
+              Pick a username
+            </h2>
+            <p className="text-[12px] text-gray-500">
+              This is how you appear in chamas and goals.
             </p>
             <input
               type="text"
               value={userName}
               onChange={(e) => setUserName(e.target.value)}
               placeholder="e.g. mint"
-              className="w-full rounded-xl border border-gray-200 px-4 py-3 outline-none focus:ring-2 focus:ring-downy-500"
+              className="w-full rounded-xl border border-gray-200 px-3.5 py-2.5 text-[13px] outline-none focus:ring-2 focus:ring-downy-500"
               autoFocus
             />
             <button
               type="button"
               disabled={busy}
               onClick={onRegister}
-              className="w-full bg-downy-600 text-white rounded-full py-3.5 font-semibold disabled:opacity-60"
+              className="w-full bg-downy-600 text-white rounded-2xl py-3 text-[13px] font-bold disabled:opacity-60"
             >
               {busy ? "Creating account…" : "Create account"}
             </button>
@@ -325,7 +330,7 @@ export default function AuthScreen() {
                 setPendingProfile(null);
                 setStep("home");
               }}
-              className="w-full text-sm text-gray-500"
+              className="w-full text-[12px] text-gray-400 bg-transparent"
             >
               Cancel
             </button>
