@@ -57,10 +57,14 @@ export default function AppHeader({
   };
 
   return (
-    <header className="sticky top-0 z-30 safe-top bg-gradient-to-br from-downy-800 to-emerald-900 rounded-b-3xl px-4 pt-2 pb-5 text-white shadow-md shadow-downy-900/20">
+    <header
+      className={`sticky top-0 z-30 safe-top bg-gradient-to-br from-downy-800 to-emerald-900 rounded-b-3xl px-4 pt-1.5 text-white shadow-md shadow-downy-900/20 ${
+        isSection ? "pb-2.5" : "pb-4"
+      }`}
+    >
       {isSection ? (
-        <div className="flex items-center justify-center min-h-[44px]">
-          <h1 className="text-display text-[15px] font-bold text-white truncate leading-tight py-1 text-center">
+        <div className="flex items-center justify-center min-h-[36px]">
+          <h1 className="text-display text-[15px] font-bold text-white truncate leading-tight text-center">
             {pageTitle}
           </h1>
         </div>

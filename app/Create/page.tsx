@@ -7,6 +7,7 @@ import {
   FiCalendar,
   FiCheck,
   FiChevronDown,
+  FiClock,
   FiInfo,
   FiTarget,
   FiUsers,
@@ -400,7 +401,7 @@ function CreateContent() {
                       value={startDate}
                       onChange={(e) => setStartDate(e.target.value)}
                       min={new Date().toISOString().split("T")[0]}
-                      className={`${inputClass} [color-scheme:light]`}
+                      className={`${inputClass} [color-scheme:light] pr-10`}
                     />
                     <FiCalendar className="absolute right-4 top-1/2 -translate-y-1/2 text-downy-700 pointer-events-none" />
                   </div>
@@ -409,12 +410,15 @@ function CreateContent() {
                   <FieldLabel>
                     Payout time <span className="text-red-500">*</span>
                   </FieldLabel>
-                  <input
-                    type="time"
-                    value={startTime}
-                    onChange={(e) => setStartTime(e.target.value)}
-                    className={`${inputClass} [color-scheme:light]`}
-                  />
+                  <div className="relative">
+                    <input
+                      type="time"
+                      value={startTime}
+                      onChange={(e) => setStartTime(e.target.value)}
+                      className={`${inputClass} [color-scheme:light] pr-10`}
+                    />
+                    <FiClock className="absolute right-4 top-1/2 -translate-y-1/2 text-downy-700 pointer-events-none" />
+                  </div>
                 </div>
               </div>
 
