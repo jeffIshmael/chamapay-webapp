@@ -29,9 +29,21 @@ export const duration = (cycleTime: number) => {
   return result;
 };
 
+function toValidDate(
+  value: Date | string | number | null | undefined
+): Date | null {
+  if (value == null || value === "") return null;
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return date;
+}
+
 // this function changes UTC time to user's local time
-export const utcToLocalTime = (utcDate: Date) => {
-  const date = new Date(utcDate);
+export const utcToLocalTime = (
+  utcDate: Date | string | number | null | undefined
+) => {
+  const date = toValidDate(utcDate);
+  if (!date) return "—";
 
   const userTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
   return new Intl.DateTimeFormat("en-GB", {
@@ -42,8 +54,11 @@ export const utcToLocalTime = (utcDate: Date) => {
 };
 
 //this function changes time from UTC to EAT
-export const utcToEAT = (utcDate: Date) => {
-  const date = new Date(utcDate);
+export const utcToEAT = (
+  utcDate: Date | string | number | null | undefined
+) => {
+  const date = toValidDate(utcDate);
+  if (!date) return "—";
 
   return new Intl.DateTimeFormat("en-GB", {
     dateStyle: "medium",
@@ -51,7 +66,6 @@ export const utcToEAT = (utcDate: Date) => {
     timeZone: "Africa/Nairobi",
   }).format(date);
 };
-
 
 // this function will is to loop between the pictures
 export const getPicture = (id: number): string => {
@@ -63,9 +77,13 @@ export const getPicture = (id: number): string => {
 };
 
 // Utility function to format time remaining
-export const formatTimeRemaining = (targetDate: string | Date): string => {
+export const formatTimeRemaining = (
+  targetDate: string | Date | null | undefined
+): string => {
+  const target = toValidDate(targetDate);
+  if (!target) return "—";
+
   const now = new Date();
-  const target = new Date(targetDate);
   const diffMs = target.getTime() - now.getTime();
 
   // If date has passed
@@ -152,7 +170,7 @@ export const formatDays = (days: number): string => {
   }
 
   // Multi-week months — e.g. 45 days = "6 weeks"
-  if ((days % 7 === 0) && days < 365) {
+  if (days % 7 === 0 && days < 365) {
     const weeks = days / 7;
     return `${weeks} weeks`;
   }

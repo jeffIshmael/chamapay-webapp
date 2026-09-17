@@ -122,7 +122,7 @@ export interface JoinedChama {
   collateralAmount: number;
   nextPayout: string | null;
   myTurn: boolean;
-  myPosition: number;
+  myPosition: number | null;
   nextTurnMember: string;
   status: "not started" | "active";
   unreadMessages: number;

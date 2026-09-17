@@ -470,13 +470,13 @@ export const transformChamaData = (
   const normalizedAddress = (userAddress || "").toLowerCase();
 
   // --------- GET USER POSITION IN PAYOUT ORDER ---------
-  const myPosition =
-    payoutArray.length && normalizedAddress
-      ? payoutArray.findIndex(
-          (entry: any) =>
-            entry.userAddress?.toLowerCase() === normalizedAddress
-        ) + 1 // +1 so position starts at 1 instead of index 0
-      : null;
+  let myPosition: number | null = null;
+  if (payoutArray.length && normalizedAddress) {
+    const idx = payoutArray.findIndex(
+      (entry: any) => entry.userAddress?.toLowerCase() === normalizedAddress
+    );
+    myPosition = idx >= 0 ? idx + 1 : null;
+  }
 
   // --------- GET MY PAY DATE FROM PAYOUT ORDER ---------
   const myTurnDate =
@@ -554,7 +554,7 @@ export const transformChamaData = (
 
     // --------- MY POSITION IN PAYOUT CYCLE ---------
     myTurn: myPosition === safeNextPayoutIndex + 1,
-    myPosition: myPosition || null,
+    myPosition,
 
     nextTurnMember: backendChama.members?.[1]?.user?.userName || "Not assigned",
 
