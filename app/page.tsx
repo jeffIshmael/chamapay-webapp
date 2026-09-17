@@ -27,16 +27,20 @@ export default function Home() {
 
   if (isLoading || !ready) {
     return (
-      <div className="min-h-[100dvh] flex items-center justify-center bg-downy-50">
+      <div className="min-h-[100dvh] flex flex-col items-center justify-center gap-3 bg-downy-50">
         <div className="h-9 w-9 rounded-full border-2 border-downy-600 border-t-transparent animate-spin" />
+        <p className="text-[13px] font-semibold text-downy-800">Loading…</p>
       </div>
     );
   }
 
   if (isAuthenticated) {
     return (
-      <div className="min-h-[100dvh] flex items-center justify-center bg-downy-50">
+      <div className="min-h-[100dvh] flex flex-col items-center justify-center gap-3 bg-downy-50">
         <div className="h-9 w-9 rounded-full border-2 border-downy-600 border-t-transparent animate-spin" />
+        <p className="text-[13px] font-semibold text-downy-800">
+          Taking you home…
+        </p>
       </div>
     );
   }

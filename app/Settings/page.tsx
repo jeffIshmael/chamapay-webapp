@@ -60,6 +60,7 @@ export default function SettingsPage() {
     token,
     isAuthenticated,
     isGuest,
+    isLoading: authLoading,
     logout,
     refreshUser,
     updateLocalUser,
@@ -73,8 +74,9 @@ export default function SettingsPage() {
   const [showCurrencyDropdown, setShowCurrencyDropdown] = useState(false);
 
   useEffect(() => {
+    if (authLoading) return;
     if (!isAuthenticated) router.replace("/");
-  }, [isAuthenticated, router]);
+  }, [authLoading, isAuthenticated, router]);
 
   useEffect(() => {
     if (!isGuest) void refreshUser();
@@ -177,6 +179,15 @@ export default function SettingsPage() {
 
   const selectedCurrency =
     CURRENCY_OPTIONS.find((o) => o.id === currency) || CURRENCY_OPTIONS[1];
+
+  if (authLoading || !isAuthenticated) {
+    return (
+      <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-gray-50">
+        <div className="h-9 w-9 rounded-full border-2 border-downy-600 border-t-transparent animate-spin" />
+        <p className="text-[13px] font-semibold text-downy-800">Loading…</p>
+      </div>
+    );
+  }
 
   return (
     <div className="absolute inset-0 flex flex-col bg-gray-50">

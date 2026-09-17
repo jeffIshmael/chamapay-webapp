@@ -76,11 +76,11 @@ export default function OnboardingScreen({
     <div className="h-[100dvh] max-h-[100dvh] flex flex-col bg-downy-50 overflow-hidden">
       <div className="flex items-center justify-between px-5 pt-4 safe-top shrink-0">
         <Image
-          src="/images/logo.png"
+          src="/images/chamapay-logo.png"
           alt="ChamaPay"
           width={32}
           height={32}
-          className="rounded-lg"
+          className="rounded-lg bg-black"
           priority
         />
         <button

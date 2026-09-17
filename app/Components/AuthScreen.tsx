@@ -2,6 +2,7 @@
 
 import { useAuth } from "@/app/context/AuthContext";
 import { showToast } from "@/app/Components/Toast";
+import { authDebug } from "@/lib/authDebug";
 import { motion } from "framer-motion";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
@@ -44,6 +45,8 @@ export default function AuthScreen() {
   const [code, setCode] = useState("");
   const [userName, setUserName] = useState("");
   const [busy, setBusy] = useState(false);
+  const [redirecting, setRedirecting] = useState(false);
+  const [pageOrigin, setPageOrigin] = useState("");
   const googleBtnRef = useRef<HTMLDivElement>(null);
   const clientId =
     process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ||
@@ -51,7 +54,13 @@ export default function AuthScreen() {
     "";
 
   useEffect(() => {
+    setPageOrigin(window.location.origin);
+  }, []);
+
+  useEffect(() => {
     if (!isLoading && isAuthenticated) {
+      authDebug("AuthScreen already authenticated → /MyChamas");
+      setRedirecting(true);
       router.replace("/MyChamas");
     }
   }, [isAuthenticated, isLoading, router]);
@@ -66,11 +75,25 @@ export default function AuthScreen() {
 
   const handleGoogleCredential = useCallback(
     async (response: { credential: string }) => {
+      authDebug("google credential received", {
+        hasCredential: Boolean(response?.credential),
+      });
       setBusy(true);
-      const result = await loginWithGoogle(response.credential, "id");
-      setBusy(false);
-      if (result === "ok") router.replace("/MyChamas");
-      if (result === "register") setStep("username");
+      try {
+        const result = await loginWithGoogle(response.credential, "id");
+        authDebug("google login result", { result });
+        if (result === "ok") {
+          setRedirecting(true);
+          router.replace("/MyChamas");
+          return;
+        }
+        if (result === "register") setStep("username");
+      } catch (e) {
+        authDebug("google credential handler error", e);
+        showToast("Google sign-in failed", "error");
+      } finally {
+        setBusy(false);
+      }
     },
     [loginWithGoogle, router]
   );
@@ -129,7 +152,10 @@ export default function AuthScreen() {
     setBusy(true);
     const result = await verifyEmailCode(email.trim(), code.trim());
     setBusy(false);
-    if (result === "ok") router.replace("/MyChamas");
+    if (result === "ok") {
+      setRedirecting(true);
+      router.replace("/MyChamas");
+    }
     if (result === "register") setStep("username");
   };
 
@@ -145,13 +171,19 @@ export default function AuthScreen() {
       profileImageUrl: pendingProfile?.picture,
     });
     setBusy(false);
-    if (ok) router.replace("/MyChamas");
+    if (ok) {
+      setRedirecting(true);
+      router.replace("/MyChamas");
+    }
   };
 
-  if (isLoading) {
+  if (isLoading || redirecting) {
     return (
-      <div className="min-h-[100dvh] bg-downy-50 flex items-center justify-center">
+      <div className="min-h-[100dvh] bg-downy-50 flex flex-col items-center justify-center gap-3 px-6">
         <div className="h-9 w-9 rounded-full border-2 border-downy-600 border-t-transparent animate-spin" />
+        <p className="text-[13px] font-semibold text-downy-800">
+          {redirecting ? "Signing you in…" : "Loading…"}
+        </p>
       </div>
     );
   }
@@ -160,11 +192,11 @@ export default function AuthScreen() {
     <div className="min-h-[100dvh] flex flex-col bg-gradient-to-b from-downy-800 via-downy-700 to-downy-950 px-4 pt-8 pb-6">
       <div className="text-center shrink-0 mb-6">
         <Image
-          src="/images/logo.png"
+          src="/images/chamapay-logo.png"
           alt="ChamaPay"
-          width={52}
-          height={52}
-          className="mx-auto rounded-2xl mb-3 shadow-lg shadow-black/20"
+          width={64}
+          height={64}
+          className="mx-auto rounded-2xl mb-3 shadow-lg shadow-black/20 bg-black"
           priority
         />
         <h1 className="text-display text-[1.65rem] font-extrabold text-white tracking-tight">
@@ -190,7 +222,16 @@ export default function AuthScreen() {
             </p>
 
             {clientId ? (
-              <div className="flex justify-center py-1" ref={googleBtnRef} />
+              <div className="space-y-2">
+                <div className="flex justify-center py-1" ref={googleBtnRef} />
+                {process.env.NODE_ENV === "development" && pageOrigin ? (
+                  <p className="text-[10px] text-center text-gray-400 leading-snug px-2">
+                    If Google shows &quot;no registered origin&quot;, add{" "}
+                    <span className="font-mono text-gray-500">{pageOrigin}</span>{" "}
+                    as an Authorized JavaScript origin on your Google Web client.
+                  </p>
+                ) : null}
+              </div>
             ) : (
               <button
                 type="button"
@@ -227,8 +268,9 @@ export default function AuthScreen() {
 
             <button
               type="button"
-              disabled={busy}
+              disabled={busy || redirecting}
               onClick={() => {
+                setRedirecting(true);
                 continueAsGuest();
                 router.replace("/MyChamas");
               }}

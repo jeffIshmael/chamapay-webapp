@@ -22,16 +22,19 @@ import { useSessionAddress } from "@/lib/useSessionAddress";
 export default function SaveEarnPage() {
   const router = useRouter();
   const { token, user } = useAuth();
-  const { isAuthenticated, isGuest } = useSessionAddress();
+  const { isAuthenticated, isGuest, isLoading: authLoading } =
+    useSessionAddress();
   const [activeSection, setActiveSection] = useState("SaveEarn");
   const [snapshot, setSnapshot] = useState<MoonwellUsdcSnapshot | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (authLoading) return;
     if (!isAuthenticated) router.replace("/");
-  }, [isAuthenticated, router]);
+  }, [authLoading, isAuthenticated, router]);
 
   const load = useCallback(async () => {
+    if (authLoading || !isAuthenticated) return;
     const address =
       (user?.smartAddress as string) || (user?.address as string) || "";
     if (!address || isGuest || token === "guest") {
@@ -48,11 +51,20 @@ export default function SaveEarnPage() {
     } finally {
       setLoading(false);
     }
-  }, [user, token, isGuest]);
+  }, [authLoading, isAuthenticated, user, token, isGuest]);
 
   useEffect(() => {
     load();
   }, [load]);
+
+  if (authLoading || !isAuthenticated) {
+    return (
+      <div className="min-h-[100dvh] bg-downy-50 flex flex-col items-center justify-center gap-3">
+        <div className="h-9 w-9 rounded-full border-2 border-downy-600 border-t-transparent animate-spin" />
+        <p className="text-[13px] font-semibold text-downy-800">Loading…</p>
+      </div>
+    );
+  }
 
   const apy =
     snapshot?.supplyApy != null ? `${snapshot.supplyApy.toFixed(2)}%` : "—";

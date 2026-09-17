@@ -28,6 +28,7 @@ import { utcToLocalTime } from "@/utils/duration";
 import PayoutCongrats from "../Components/PayoutCongrats";
 import { JoinedChama } from "@/utils/typesUtils";
 import { useSessionAddress } from "@/lib/useSessionAddress";
+import { authDebug } from "@/lib/authDebug";
 import { useRouter, useSearchParams } from "next/navigation";
 
 type HomeTab = "chamas" | "goals";
@@ -45,15 +46,24 @@ function MyHomeContent() {
   const [showingChamas, setShowingChamas] = useState<JoinedChama[]>([]);
   const [error, setError] = useState<string | null>(null);
 
-  const { address, token, isAuthenticated, isGuest } =
+  const { address, token, isAuthenticated, isGuest, isLoading: authLoading } =
     useSessionAddress();
   const router = useRouter();
 
   useEffect(() => {
+    authDebug("MyChamas auth gate", {
+      authLoading,
+      isAuthenticated,
+      isGuest,
+      hasToken: Boolean(token),
+      hasAddress: Boolean(address),
+    });
+    if (authLoading) return;
     if (!isAuthenticated) {
+      authDebug("MyChamas unauthenticated → /");
       router.replace("/");
     }
-  }, [isAuthenticated, router]);
+  }, [authLoading, isAuthenticated, isGuest, token, address, router]);
 
   useEffect(() => {
     const tab = searchParams.get("tab");
@@ -66,6 +76,7 @@ function MyHomeContent() {
   }, [homeTab]);
 
   const fetchChamas = useCallback(async () => {
+    if (authLoading) return;
     if (!token || !isAuthenticated) {
       setLoading(false);
       return;
@@ -78,27 +89,33 @@ function MyHomeContent() {
     }
     try {
       setLoading(true);
+      authDebug("fetchChamas start", { address: address || null });
       const response = await getUserChamas(token);
       if (response.success && response.chamas) {
+        const wallet = address || "";
         const transformed = response.chamas.map((member: any) =>
-          transformChamaData(member.chama, address as string)
+          transformChamaData(member.chama, wallet)
         );
         setChamas(transformed);
         setError(null);
+        authDebug("fetchChamas ok", { count: transformed.length });
       } else {
         setChamas([]);
         setError(response.error || "No chamas found");
+        authDebug("fetchChamas empty", response.error);
       }
     } catch (err) {
+      authDebug("fetchChamas error", err);
       console.error(err);
       setError("Failed to fetch chamas");
       setChamas([]);
     } finally {
       setLoading(false);
     }
-  }, [token, isAuthenticated, isGuest, address]);
+  }, [authLoading, token, isAuthenticated, isGuest, address]);
 
   const fetchGoals = useCallback(async () => {
+    if (authLoading) return;
     if (!token || !isAuthenticated || isGuest || token === "guest") {
       setGoals([]);
       setGoalsLoading(false);
@@ -112,12 +129,13 @@ function MyHomeContent() {
       } else {
         setGoals([]);
       }
-    } catch {
+    } catch (err) {
+      authDebug("fetchGoals error", err);
       setGoals([]);
     } finally {
       setGoalsLoading(false);
     }
-  }, [token, isAuthenticated, isGuest]);
+  }, [authLoading, token, isAuthenticated, isGuest]);
 
   useEffect(() => {
     fetchChamas();
@@ -126,22 +144,36 @@ function MyHomeContent() {
 
   useEffect(() => {
     const fetchUserData = async () => {
-      if (!token || !isAuthenticated || isGuest || token === "guest") return;
+      if (authLoading || !token || !isAuthenticated || isGuest || token === "guest")
+        return;
       try {
         const userData = await getUserDetails(token);
         if (userData?.user) {
           setUserId(userData.user.id);
-          if (userData.user.payOuts && userData.user.payOuts.length > 0) {
-            setShowingChamas(userData.user.payOuts as unknown as JoinedChama[]);
+          const payOuts = userData.user.payOuts;
+          if (Array.isArray(payOuts) && payOuts.length > 0) {
+            setShowingChamas(payOuts as unknown as JoinedChama[]);
             setShowPayoutModal(true);
           }
         }
       } catch (err) {
+        authDebug("fetchUserData error", err);
         console.error("Error fetching user data:", err);
       }
     };
     fetchUserData();
-  }, [token, isAuthenticated, isGuest]);
+  }, [authLoading, token, isAuthenticated, isGuest]);
+
+  if (authLoading || !isAuthenticated) {
+    return (
+      <div className="min-h-[100dvh] bg-downy-50 flex flex-col items-center justify-center gap-3">
+        <div className="h-9 w-9 rounded-full border-2 border-downy-600 border-t-transparent animate-spin" />
+        <p className="text-[13px] font-semibold text-downy-800">
+          {authLoading ? "Restoring session…" : "Redirecting…"}
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-[100dvh] bg-downy-50 pb-nav">

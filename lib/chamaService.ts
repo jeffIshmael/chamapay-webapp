@@ -457,17 +457,26 @@ export const transformChamaData = (
     backendChama._count?.members || backendChama.members?.length || 0;
 
   // Parse payout order array safely
-  const payoutArray = backendChama.payOutOrder
-    ? JSON.parse(backendChama.payOutOrder)
-    : [];
+  let payoutArray: any[] = [];
+  try {
+    payoutArray = backendChama.payOutOrder
+      ? JSON.parse(backendChama.payOutOrder)
+      : [];
+    if (!Array.isArray(payoutArray)) payoutArray = [];
+  } catch {
+    payoutArray = [];
+  }
+
+  const normalizedAddress = (userAddress || "").toLowerCase();
 
   // --------- GET USER POSITION IN PAYOUT ORDER ---------
-  const myPosition = payoutArray.length
-    ? payoutArray.findIndex(
-      (entry: any) =>
-        entry.userAddress?.toLowerCase() === userAddress.toLowerCase()
-    ) + 1 // +1 so position starts at 1 instead of index 0
-    : null;
+  const myPosition =
+    payoutArray.length && normalizedAddress
+      ? payoutArray.findIndex(
+          (entry: any) =>
+            entry.userAddress?.toLowerCase() === normalizedAddress
+        ) + 1 // +1 so position starts at 1 instead of index 0
+      : null;
 
   // --------- GET MY PAY DATE FROM PAYOUT ORDER ---------
   const myTurnDate =

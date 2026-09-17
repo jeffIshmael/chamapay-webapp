@@ -23,7 +23,8 @@ export default function GoalDetailsPage() {
   const params = useParams<{ slug: string }>();
   const slug = params?.slug;
   const router = useRouter();
-  const { token, isAuthenticated, isGuest } = useSessionAddress();
+  const { token, isAuthenticated, isGuest, isLoading: authLoading } =
+    useSessionAddress();
 
   const [goal, setGoal] = useState<GoalRecord | null>(null);
   const [finance, setFinance] = useState<GoalFinance | null>(null);
@@ -31,6 +32,7 @@ export default function GoalDetailsPage() {
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
+    if (authLoading) return;
     if (!slug || !token || !isAuthenticated || isGuest || token === "guest") {
       setLoading(false);
       return;
@@ -48,15 +50,16 @@ export default function GoalDetailsPage() {
     } finally {
       setLoading(false);
     }
-  }, [slug, token, isAuthenticated, isGuest]);
+  }, [authLoading, slug, token, isAuthenticated, isGuest]);
 
   useEffect(() => {
+    if (authLoading) return;
     if (!isAuthenticated) {
       router.replace("/");
       return;
     }
     load();
-  }, [isAuthenticated, load, router]);
+  }, [authLoading, isAuthenticated, load, router]);
 
   const copyLink = async () => {
     try {
@@ -71,7 +74,7 @@ export default function GoalDetailsPage() {
     router.replace("/MyChamas?tab=goals");
   };
 
-  if (loading) {
+  if (authLoading || loading) {
     return (
       <div className="min-h-[100dvh] bg-downy-50 flex items-center justify-center">
         <div className="h-9 w-9 rounded-full border-2 border-downy-600 border-t-transparent animate-spin" />

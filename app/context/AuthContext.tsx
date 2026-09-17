@@ -11,6 +11,7 @@ import React, {
 } from "react";
 import { serverUrl } from "@/lib/serverUrl";
 import { showToast } from "@/app/Components/Toast";
+import { authDebug, decodeJwtPayload } from "@/lib/authDebug";
 
 export interface AuthUser {
   id: number;
@@ -91,16 +92,25 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     try {
       const storedToken = localStorage.getItem(TOKEN_KEY);
       const storedUser = localStorage.getItem(USER_KEY);
+      authDebug("hydrate", {
+        hasToken: Boolean(storedToken),
+        hasUser: Boolean(storedUser),
+      });
       if (storedToken) setToken(storedToken);
       if (storedUser) setUser(JSON.parse(storedUser));
-    } catch {
-      /* ignore */
+    } catch (e) {
+      authDebug("hydrate failed", e);
     }
     setIsLoading(false);
   }, []);
 
   const persistSession = useCallback(
     (nextToken: string, nextUser: AuthUser, refreshToken?: string | null) => {
+      authDebug("persistSession", {
+        userId: nextUser?.id,
+        email: nextUser?.email,
+        hasSmartAddress: Boolean(nextUser?.smartAddress || nextUser?.address),
+      });
       setToken(nextToken);
       setUser(nextUser);
       localStorage.setItem(TOKEN_KEY, nextToken);
@@ -158,10 +168,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         let picture = "";
 
         if (tokenType === "id") {
-          const payload = JSON.parse(atob(rawToken.split(".")[1] || ""));
-          email = payload.email || "";
-          name = payload.name || "";
-          picture = payload.picture || "";
+          const payload = decodeJwtPayload(rawToken);
+          email = String(payload.email || "");
+          name = String(payload.name || "");
+          picture = String(payload.picture || "");
+          authDebug("google id token decoded", { email, hasName: Boolean(name) });
         } else {
           const res = await fetch("https://www.googleapis.com/userinfo/v2/me", {
             headers: { Authorization: `Bearer ${rawToken}` },
@@ -170,6 +181,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           email = info.email || "";
           name = info.name || "";
           picture = info.picture || "";
+          authDebug("google access token profile", { email });
         }
 
         if (!email) {
@@ -178,12 +190,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         }
 
         const exists = await checkUserExists(email);
+        authDebug("checkUserExists", { email, exists });
         if (!exists) {
           setPendingProfile({ email, name, picture });
           return "register";
         }
 
         const { ok, data } = await authenticateEmail(email, "google");
+        authDebug("authenticateEmail", {
+          ok,
+          hasToken: Boolean(data?.token),
+          hasUser: Boolean(data?.user),
+          message: data?.message,
+        });
         if (ok && data?.token && data?.user) {
           persistSession(data.token, data.user, data.refreshToken);
           showToast("Signed in with Google", "success");
@@ -192,6 +211,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         showToast(data?.message || "Google sign-in failed", "error");
         return "error";
       } catch (error) {
+        authDebug("loginWithGoogle error", error);
         console.error(error);
         showToast("Google sign-in failed", "error");
         return "error";
