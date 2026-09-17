@@ -272,7 +272,7 @@ function MyHomeContent() {
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                className="space-y-6"
+                className="space-y-8"
               >
                 {error && (
                   <p className="text-[12px] text-amber-700 bg-amber-50 px-3 py-2 rounded-xl">
@@ -358,7 +358,7 @@ const ChamaCard = ({ chama }: { chama: JoinedChama }) => {
     <Link href={`/Chama/${chama.slug}`}>
       <motion.div
         whileTap={{ scale: 0.99 }}
-        className="bg-white rounded-2xl shadow-sm border border-downy-100/70 overflow-hidden"
+        className="bg-white rounded-2xl shadow-md border border-downy-100 overflow-hidden"
       >
         <div className="p-3.5">
           <div className="flex items-start gap-2.5">

@@ -58,7 +58,7 @@ export default function AppHeader({
 
   return (
     <header
-      className={`sticky top-0 z-30 safe-top bg-gradient-to-br from-downy-800 to-emerald-900 rounded-b-3xl px-4 pt-1.5 text-white shadow-md shadow-downy-900/20 ${
+      className={`sticky top-0 z-30 safe-top bg-downy-700 rounded-b-3xl px-4 pt-1.5 text-white ${
         isSection ? "pb-2.5" : "pb-4"
       }`}
     >
