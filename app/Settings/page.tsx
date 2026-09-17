@@ -39,19 +39,16 @@ function initials(name: string) {
 const CURRENCY_OPTIONS: {
   id: Currency;
   label: string;
-  subtitle: string;
   icon: string;
 }[] = [
   {
     id: "KES",
     label: "Kenyan Shilling (KES)",
-    subtitle: "Show balances in KES",
     icon: "/brand/kenya-flag.png",
   },
   {
     id: "USDC",
     label: "USD Coin (USDC)",
-    subtitle: "Show balances in USDC",
     icon: "/brand/usdclogo.png",
   },
 ];
@@ -182,39 +179,40 @@ export default function SettingsPage() {
     CURRENCY_OPTIONS.find((o) => o.id === currency) || CURRENCY_OPTIONS[1];
 
   return (
-    <div className="flex flex-col bg-gray-50 min-h-full">
-      <div className="sticky top-0 z-40 bg-gradient-to-br from-downy-800 to-emerald-900 px-5 pt-3 pb-5 rounded-b-3xl text-white safe-top shadow-md shadow-downy-900/20">
-        <div className="flex items-center justify-between mb-5 min-h-[40px]">
+    <div className="absolute inset-0 flex flex-col bg-gray-50">
+      {/* Fixed header — does not scroll */}
+      <div className="shrink-0 bg-gradient-to-br from-downy-800 to-emerald-900 px-4 pt-2 pb-3.5 rounded-b-2xl text-white safe-top shadow-md shadow-downy-900/20">
+        <div className="flex items-center justify-between mb-3 min-h-[32px]">
           <button
             type="button"
             onClick={() => router.back()}
             aria-label="Go back"
-            className="h-10 w-10 rounded-full bg-white/20 flex items-center justify-center hover:bg-white/30 transition"
+            className="h-8 w-8 rounded-full bg-white/20 flex items-center justify-center"
           >
-            <FiArrowLeft size={18} />
+            <FiArrowLeft size={16} />
           </button>
-          <h1 className="text-display text-[17px] font-bold">
+          <h1 className="text-display text-[14px] font-bold">
             Profile & Settings
           </h1>
-          <div className="w-10" />
+          <div className="w-8" />
         </div>
 
-        <div className="rounded-2xl border border-white/20 bg-white/10 p-4 backdrop-blur-sm">
-          <div className="flex items-center gap-3.5">
+        <div className="rounded-xl border border-white/20 bg-white/10 px-3 py-2.5">
+          <div className="flex items-center gap-3">
             <div className="relative shrink-0">
               <button
                 type="button"
                 disabled={imageUploading}
                 onClick={handlePhotoClick}
                 aria-label="Change profile photo"
-                className="h-16 w-16 rounded-full overflow-hidden border-2 border-white/40 bg-white/20 flex items-center justify-center text-sm font-bold"
+                className="h-12 w-12 rounded-full overflow-hidden border-2 border-white/40 bg-white/20 flex items-center justify-center text-[11px] font-bold"
               >
                 {avatar ? (
                   <Image
                     src={avatar}
                     alt=""
-                    width={64}
-                    height={64}
+                    width={48}
+                    height={48}
                     className="h-full w-full object-cover"
                     unoptimized
                   />
@@ -223,7 +221,7 @@ export default function SettingsPage() {
                 )}
                 {imageUploading && (
                   <span className="absolute inset-0 bg-black/50 flex items-center justify-center rounded-full">
-                    <span className="h-5 w-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    <span className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                   </span>
                 )}
               </button>
@@ -231,10 +229,10 @@ export default function SettingsPage() {
                 type="button"
                 disabled={imageUploading}
                 onClick={handlePhotoClick}
-                className="absolute -bottom-1 -right-1 h-7 w-7 rounded-full bg-downy-500 border-2 border-white text-white flex items-center justify-center shadow"
+                className="absolute -bottom-0.5 -right-0.5 h-6 w-6 rounded-full bg-downy-500 border-2 border-white text-white flex items-center justify-center shadow"
                 aria-label="Upload photo"
               >
-                <FiCamera size={12} />
+                <FiCamera size={11} />
               </button>
               <input
                 ref={fileRef}
@@ -249,15 +247,17 @@ export default function SettingsPage() {
               />
             </div>
             <div className="min-w-0 flex-1">
-              <p className="text-base font-bold truncate">{displayName}</p>
-              <p className="text-emerald-100 text-sm truncate">
+              <p className="text-[13px] font-bold truncate leading-tight">
+                {displayName}
+              </p>
+              <p className="text-emerald-100 text-[11px] truncate mt-0.5">
                 {isGuest ? "Guest session" : user?.email || "No email provided"}
               </p>
               <button
                 type="button"
                 onClick={handlePhotoClick}
                 disabled={imageUploading}
-                className="mt-1.5 text-[11px] font-semibold text-downy-200 underline underline-offset-2"
+                className="mt-1 text-[10px] font-semibold text-downy-200 underline underline-offset-2"
               >
                 {imageUploading ? "Uploading…" : "Change profile photo"}
               </button>
@@ -266,41 +266,42 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      <div className="px-4 mt-4 space-y-4 pb-10">
+      {/* Scrollable body */}
+      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-3.5 pt-3 pb-8 space-y-3 [-webkit-overflow-scrolling:touch]">
         <button
           type="button"
           onClick={handleEditProfile}
-          className="w-full text-left bg-white rounded-2xl border border-gray-100 shadow-sm p-4"
+          className="w-full text-left bg-white rounded-xl border border-gray-100 shadow-sm p-3"
         >
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3.5 min-w-0">
-              <span className="h-11 w-11 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0">
-                <FiEdit2 size={18} />
+          <div className="flex items-center justify-between gap-2.5">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <span className="h-9 w-9 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0">
+                <FiEdit2 size={15} />
               </span>
               <div className="min-w-0">
-                <p className="text-[15px] font-bold text-gray-900">
+                <p className="text-[13px] font-bold text-gray-900 leading-tight">
                   Edit Profile
                 </p>
-                <p className="text-sm text-gray-500">
+                <p className="text-[11px] text-gray-500 mt-0.5">
                   {isGuest
                     ? "Sign in to update your details"
                     : "Update phone number and profile photo"}
                 </p>
               </div>
             </div>
-            <FiChevronRight size={18} className="text-emerald-500 shrink-0" />
+            <FiChevronRight size={16} className="text-emerald-500 shrink-0" />
           </div>
         </button>
 
         <div
           ref={currencyMenuRef}
-          className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 relative z-20"
+          className="bg-white rounded-xl border border-gray-100 shadow-sm p-3"
         >
-          <div className="mb-3">
-            <p className="text-[15px] font-bold text-gray-900">
+          <div className="mb-2">
+            <p className="text-[13px] font-bold text-gray-900 leading-tight">
               Currency Preference
             </p>
-            <p className="text-sm text-gray-500">
+            <p className="text-[11px] text-gray-500 mt-0.5">
               Choose your preferred display currency
             </p>
           </div>
@@ -308,10 +309,10 @@ export default function SettingsPage() {
           <button
             type="button"
             onClick={() => setShowCurrencyDropdown((o) => !o)}
-            className="w-full flex items-center justify-between gap-3 rounded-xl bg-gray-50 p-3.5 text-left hover:bg-gray-100 transition"
+            className="w-full flex items-center justify-between gap-2.5 rounded-lg bg-gray-50 p-2.5 text-left"
           >
-            <div className="flex items-center gap-3 min-w-0">
-              <span className="relative h-8 w-8 shrink-0 overflow-hidden rounded-full bg-white border border-gray-100">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <span className="relative h-7 w-7 shrink-0 overflow-hidden rounded-full bg-white border border-gray-100">
                 <Image
                   src={selectedCurrency.icon}
                   alt=""
@@ -321,16 +322,16 @@ export default function SettingsPage() {
                 />
               </span>
               <div className="min-w-0">
-                <p className="text-sm font-semibold text-gray-900 truncate">
+                <p className="text-[12px] font-semibold text-gray-900 truncate">
                   {selectedCurrency.label}
                 </p>
-                <p className="text-xs text-gray-500">
+                <p className="text-[10px] text-gray-500">
                   Current selection: {currency}
                 </p>
               </div>
             </div>
             <FiChevronDown
-              size={18}
+              size={16}
               className={`text-gray-400 shrink-0 transition-transform ${
                 showCurrencyDropdown ? "rotate-180" : ""
               }`}
@@ -338,7 +339,7 @@ export default function SettingsPage() {
           </button>
 
           {showCurrencyDropdown && (
-            <div className="mt-2 rounded-xl border border-gray-200 bg-white shadow-lg overflow-hidden">
+            <div className="mt-2 rounded-lg border border-gray-200 bg-white overflow-hidden">
               {CURRENCY_OPTIONS.map((opt) => {
                 const active = currency === opt.id;
                 return (
@@ -346,12 +347,12 @@ export default function SettingsPage() {
                     key={opt.id}
                     type="button"
                     onClick={() => handleCurrencySelect(opt.id)}
-                    className={`w-full flex items-center justify-between gap-3 px-3.5 py-3.5 text-left border-b border-gray-50 last:border-0 ${
-                      active ? "bg-downy-50" : "hover:bg-gray-50"
+                    className={`w-full flex items-center justify-between gap-2.5 px-2.5 py-2.5 text-left border-b border-gray-50 last:border-0 ${
+                      active ? "bg-downy-50" : ""
                     }`}
                   >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <span className="relative h-7 w-7 shrink-0 overflow-hidden rounded-full bg-white border border-gray-100">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <span className="relative h-6 w-6 shrink-0 overflow-hidden rounded-full bg-white border border-gray-100">
                         <Image
                           src={opt.icon}
                           alt=""
@@ -361,7 +362,7 @@ export default function SettingsPage() {
                         />
                       </span>
                       <span
-                        className={`text-sm font-semibold truncate ${
+                        className={`text-[12px] font-semibold truncate ${
                           active ? "text-downy-700" : "text-gray-700"
                         }`}
                       >
@@ -369,7 +370,7 @@ export default function SettingsPage() {
                       </span>
                     </div>
                     {active && (
-                      <FiCheck size={18} className="text-downy-600 shrink-0" />
+                      <FiCheck size={15} className="text-downy-600 shrink-0" />
                     )}
                   </button>
                 );
@@ -382,29 +383,29 @@ export default function SettingsPage() {
           <button
             type="button"
             onClick={copyWalletAddress}
-            className="w-full text-left bg-white rounded-2xl border border-gray-100 shadow-sm p-4"
+            className="w-full text-left bg-white rounded-xl border border-gray-100 shadow-sm p-3"
           >
-            <div className="flex items-start justify-between gap-3 mb-3">
+            <div className="flex items-start justify-between gap-2.5 mb-2">
               <div className="min-w-0">
-                <p className="text-[15px] font-bold text-gray-900">
+                <p className="text-[13px] font-bold text-gray-900 leading-tight">
                   Wallet Information
                 </p>
-                <p className="text-sm text-gray-500 mt-0.5">
+                <p className="text-[11px] text-gray-500 mt-0.5">
                   Your onchain wallet address
                 </p>
               </div>
-              <span className="h-10 w-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
-                {copiedAddress ? <FiCheck size={16} /> : <FiCopy size={16} />}
+              <span className="h-8 w-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+                {copiedAddress ? <FiCheck size={14} /> : <FiCopy size={14} />}
               </span>
             </div>
-            <div className="rounded-xl border border-emerald-100 bg-emerald-50/60 px-3.5 py-3">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-700/70 mb-1">
+            <div className="rounded-lg border border-emerald-100 bg-emerald-50/60 px-3 py-2.5">
+              <p className="text-[9px] font-bold uppercase tracking-wider text-emerald-700/70 mb-0.5">
                 Address
               </p>
-              <p className="font-mono text-[14px] font-semibold text-gray-900">
+              <p className="font-mono text-[12px] font-semibold text-gray-900">
                 {formatWalletAddress(wallet)}
               </p>
-              <p className="mt-1.5 text-xs font-medium text-emerald-700">
+              <p className="mt-1 text-[10px] font-medium text-emerald-700">
                 {copiedAddress
                   ? "Copied to clipboard"
                   : "Tap card to copy full address"}
@@ -413,62 +414,66 @@ export default function SettingsPage() {
           </button>
         ) : null}
 
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
-          <div className="mb-3">
-            <p className="text-[15px] font-bold text-gray-900">Legal & Support</p>
-            <p className="text-sm text-gray-500">Policies and help resources</p>
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-3">
+          <div className="mb-2">
+            <p className="text-[13px] font-bold text-gray-900 leading-tight">
+              Legal & Support
+            </p>
+            <p className="text-[11px] text-gray-500 mt-0.5">
+              Policies and help resources
+            </p>
           </div>
-          <div className="space-y-2">
-            <a
-              href="https://chamapay.com/privacy"
-              target="_blank"
-              rel="noreferrer"
-              className="flex items-center justify-between gap-3 rounded-xl bg-gray-50 p-3.5 hover:bg-gray-100 transition"
-            >
-              <div className="flex items-center gap-3 min-w-0">
-                <span className="h-10 w-10 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center shrink-0">
-                  <FiFileText size={16} />
-                </span>
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold text-gray-900">
-                    Privacy Policy
-                  </p>
-                  <p className="text-xs text-gray-500">Read our privacy policy</p>
+          <div className="space-y-1.5">
+            {(
+              [
+                {
+                  href: "https://chamapay.com/privacy",
+                  title: "Privacy Policy",
+                  sub: "Read our privacy policy",
+                  iconBg: "bg-blue-100 text-blue-600",
+                  icon: <FiFileText size={14} />,
+                },
+                {
+                  href: "https://chamapay.com/terms",
+                  title: "Terms of Service",
+                  sub: "Review our terms and conditions",
+                  iconBg: "bg-green-100 text-emerald-600",
+                  icon: <FiFileText size={14} />,
+                },
+              ] as const
+            ).map((item) => (
+              <a
+                key={item.href}
+                href={item.href}
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center justify-between gap-2.5 rounded-lg bg-gray-50 p-2.5"
+              >
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <span
+                    className={`h-8 w-8 rounded-md flex items-center justify-center shrink-0 ${item.iconBg}`}
+                  >
+                    {item.icon}
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-[12px] font-semibold text-gray-900">
+                      {item.title}
+                    </p>
+                    <p className="text-[10px] text-gray-500">{item.sub}</p>
+                  </div>
                 </div>
-              </div>
-              <FiExternalLink size={16} className="text-gray-400 shrink-0" />
-            </a>
-
-            <a
-              href="https://chamapay.com/terms"
-              target="_blank"
-              rel="noreferrer"
-              className="flex items-center justify-between gap-3 rounded-xl bg-gray-50 p-3.5 hover:bg-gray-100 transition"
-            >
-              <div className="flex items-center gap-3 min-w-0">
-                <span className="h-10 w-10 rounded-lg bg-green-100 text-emerald-600 flex items-center justify-center shrink-0">
-                  <FiFileText size={16} />
-                </span>
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold text-gray-900">
-                    Terms of Service
-                  </p>
-                  <p className="text-xs text-gray-500">
-                    Review our terms and conditions
-                  </p>
-                </div>
-              </div>
-              <FiExternalLink size={16} className="text-gray-400 shrink-0" />
-            </a>
+                <FiExternalLink size={14} className="text-gray-400 shrink-0" />
+              </a>
+            ))}
 
             <a
               href="https://t.me/chamapay"
               target="_blank"
               rel="noreferrer"
-              className="flex items-center justify-between gap-3 rounded-xl bg-gray-50 p-3.5 hover:bg-gray-100 transition"
+              className="flex items-center justify-between gap-2.5 rounded-lg bg-gray-50 p-2.5"
             >
-              <div className="flex items-center gap-3 min-w-0">
-                <span className="h-10 w-10 rounded-lg overflow-hidden shrink-0 relative">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <span className="h-8 w-8 rounded-md overflow-hidden shrink-0 relative">
                   <Image
                     src="/brand/telegram.jpg"
                     alt=""
@@ -478,49 +483,49 @@ export default function SettingsPage() {
                   />
                 </span>
                 <div className="min-w-0">
-                  <p className="text-sm font-semibold text-gray-900">
+                  <p className="text-[12px] font-semibold text-gray-900">
                     Help & Support
                   </p>
-                  <p className="text-xs text-gray-500">
+                  <p className="text-[10px] text-gray-500">
                     Join our Telegram community
                   </p>
                 </div>
               </div>
-              <FiExternalLink size={16} className="text-gray-400 shrink-0" />
+              <FiExternalLink size={14} className="text-gray-400 shrink-0" />
             </a>
 
             <a
               href="https://x.com/Chama_pay"
               target="_blank"
               rel="noreferrer"
-              className="flex items-center justify-between gap-3 rounded-xl bg-gray-50 p-3.5 hover:bg-gray-100 transition"
+              className="flex items-center justify-between gap-2.5 rounded-lg bg-gray-50 p-2.5"
             >
-              <div className="flex items-center gap-3 min-w-0">
-                <span className="h-10 w-10 rounded-lg bg-black text-white flex items-center justify-center shrink-0 text-xs font-bold">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <span className="h-8 w-8 rounded-md bg-black text-white flex items-center justify-center shrink-0 text-[11px] font-bold">
                   𝕏
                 </span>
                 <div className="min-w-0">
-                  <p className="text-sm font-semibold text-gray-900">
+                  <p className="text-[12px] font-semibold text-gray-900">
                     Follow us on X
                   </p>
-                  <p className="text-xs text-gray-500">
+                  <p className="text-[10px] text-gray-500">
                     Stay updated with the latest news
                   </p>
                 </div>
               </div>
-              <FiExternalLink size={16} className="text-gray-400 shrink-0" />
+              <FiExternalLink size={14} className="text-gray-400 shrink-0" />
             </a>
 
-            <div className="flex items-center justify-between gap-3 rounded-xl bg-gray-50 p-3.5">
-              <div className="flex items-center gap-3 min-w-0">
-                <span className="h-10 w-10 rounded-lg bg-violet-100 text-violet-600 flex items-center justify-center shrink-0">
-                  <FiInfo size={16} />
+            <div className="flex items-center justify-between gap-2.5 rounded-lg bg-gray-50 p-2.5">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <span className="h-8 w-8 rounded-md bg-violet-100 text-violet-600 flex items-center justify-center shrink-0">
+                  <FiInfo size={14} />
                 </span>
                 <div className="min-w-0">
-                  <p className="text-sm font-semibold text-gray-900">
+                  <p className="text-[12px] font-semibold text-gray-900">
                     About Chamapay
                   </p>
-                  <p className="text-xs text-gray-500">
+                  <p className="text-[10px] text-gray-500">
                     Group savings, goals, and yield on Base
                   </p>
                 </div>
@@ -529,13 +534,13 @@ export default function SettingsPage() {
           </div>
         </div>
 
-        <div className="rounded-2xl bg-red-500/90 p-2 shadow-sm">
+        <div className="rounded-xl bg-red-500/90 p-1.5 shadow-sm">
           <button
             type="button"
             onClick={handleSignOut}
-            className="w-full flex items-center justify-center gap-2 rounded-xl bg-red-700 py-3.5 text-white font-bold text-[15px] hover:bg-red-600 transition"
+            className="w-full flex items-center justify-center gap-2 rounded-lg bg-red-700 py-3 text-white font-bold text-[13px]"
           >
-            <FiLogOut size={18} />
+            <FiLogOut size={16} />
             {isGuest ? "Exit Guest" : "Sign Out"}
           </button>
         </div>

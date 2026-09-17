@@ -56,10 +56,12 @@ body.modal-open {
 .app-shell {
   width: 100%;
   max-width: var(--app-max);
-  min-height: 100dvh;
+  height: 100dvh;
+  max-height: 100dvh;
+  min-height: 0;
   background: var(--cp-shell);
   position: relative;
-  overflow-x: hidden;
+  overflow: hidden;
   box-shadow: none;
   display: flex;
   flex-direction: column;
@@ -68,10 +70,8 @@ body.modal-open {
 @media (min-width: 480px) {
   .app-shell {
     height: min(860px, calc(100dvh - 2.5rem));
-    min-height: 0;
     max-height: calc(100dvh - 2.5rem);
     border-radius: 1.75rem;
-    overflow: hidden;
     box-shadow:
       0 0 0 1px rgba(255, 255, 255, 0.08),
       0 25px 50px -12px rgba(0, 0, 0, 0.45),
@@ -82,7 +82,6 @@ body.modal-open {
 .app-shell-scroll {
   flex: 1 1 auto;
   min-height: 0;
-  height: 100%;
   overflow-y: auto;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
