@@ -4,21 +4,50 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   FiBell,
-  FiHome,
   FiPlus,
   FiTrendingUp,
   FiCreditCard,
 } from "react-icons/fi";
 
+function HomeIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      className={className ?? "w-[18px] h-[18px]"}
+    >
+      <path d="M19.006 3.705a.75.75 0 1 0-.512-1.41L6 6.838V3a.75.75 0 0 0-.75-.75h-1.5A.75.75 0 0 0 3 3v4.93l-1.006.365a.75.75 0 0 0 .512 1.41l16.5-6Z" />
+      <path
+        fillRule="evenodd"
+        d="M3.019 11.114 18 5.667v3.421l4.006 1.457a.75.75 0 1 1-.512 1.41l-.494-.18v8.475h.75a.75.75 0 0 1 0 1.5H2.25a.75.75 0 0 1 0-1.5H3v-9.129l.019-.007ZM18 20.25v-9.566l1.5.546v9.02H18Zm-9-6a.75.75 0 0 0-.75.75v4.5c0 .414.336.75.75.75h3a.75.75 0 0 0 .75-.75V15a.75.75 0 0 0-.75-.75H9Z"
+        clipRule="evenodd"
+      />
+    </svg>
+  );
+}
+
 const tabs = [
-  { href: "/MyChamas", label: "Home", icon: FiHome, match: ["Home", "Chamas"] },
+  {
+    href: "/MyChamas",
+    label: "Home",
+    icon: HomeIcon,
+    match: ["Home", "Chamas"],
+    custom: true,
+  },
   {
     href: "/SaveEarn",
     label: "Save & Earn",
     icon: FiTrendingUp,
     match: ["SaveEarn"],
   },
-  { href: "/Create", label: "Create", icon: FiPlus, match: ["Create"], center: true },
+  {
+    href: "/Create",
+    label: "Create",
+    icon: FiPlus,
+    match: ["Create"],
+    center: true,
+  },
   {
     href: "/Notifications",
     label: "Alerts",
@@ -51,6 +80,7 @@ export default function BottomNavbar({
         {tabs.map((tab) => {
           const active = isActive(tab);
           const Icon = tab.icon;
+          const isCustom = "custom" in tab && tab.custom;
 
           if ("center" in tab && tab.center) {
             return (
@@ -88,7 +118,11 @@ export default function BottomNavbar({
                   active ? "bg-downy-100 text-downy-700" : ""
                 }`}
               >
-                <Icon size={18} strokeWidth={active ? 2.4 : 2} />
+                {isCustom ? (
+                  <HomeIcon />
+                ) : (
+                  <Icon size={18} strokeWidth={active ? 2.4 : 2} />
+                )}
               </span>
               <span
                 className={`text-[9px] font-semibold leading-tight text-center px-0.5 ${

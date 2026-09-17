@@ -19,6 +19,7 @@ export interface AuthUser {
   profileImageUrl?: string | null;
   smartAddress?: string | null;
   address?: string | null;
+  phoneNo?: string | number | null;
   isGuest?: boolean;
   [key: string]: unknown;
 }
@@ -44,6 +45,8 @@ interface AuthContextType {
   setPendingProfile: (profile: { email: string; name?: string; picture?: string } | null) => void;
   pendingProfile: { email: string; name?: string; picture?: string } | null;
   logout: () => void;
+  refreshUser: () => Promise<void>;
+  updateLocalUser: (patch: Partial<AuthUser>) => void;
   /** @deprecated wallet signature login — kept as no-op for legacy callers */
   login: (address: string) => Promise<boolean>;
 }
@@ -114,6 +117,34 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(REFRESH_KEY);
     localStorage.removeItem(USER_KEY);
+  }, []);
+
+  const updateLocalUser = useCallback((patch: Partial<AuthUser>) => {
+    setUser((prev) => {
+      if (!prev) return prev;
+      const next = { ...prev, ...patch };
+      localStorage.setItem(USER_KEY, JSON.stringify(next));
+      return next;
+    });
+  }, []);
+
+  const refreshUser = useCallback(async () => {
+    const storedToken = localStorage.getItem(TOKEN_KEY);
+    if (!storedToken || storedToken === GUEST_TOKEN) return;
+    try {
+      const response = await fetch(`${serverUrl}/user`, {
+        headers: { Authorization: `Bearer ${storedToken}` },
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) return;
+      const nextUser = (data?.user ?? data) as AuthUser;
+      if (nextUser?.id != null) {
+        setUser(nextUser);
+        localStorage.setItem(USER_KEY, JSON.stringify(nextUser));
+      }
+    } catch {
+      /* ignore */
+    }
   }, []);
 
   const loginWithGoogle = useCallback(
@@ -314,6 +345,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     pendingProfile,
     setPendingProfile,
     logout,
+    refreshUser,
+    updateLocalUser,
     login,
   };
 

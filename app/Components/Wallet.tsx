@@ -18,12 +18,17 @@ import {
   FiSend,
   FiArrowUpRight,
   FiArrowDownLeft,
+  FiDownload,
+  FiUpload,
 } from "react-icons/fi";
 import { HiOutlineQrcode } from "react-icons/hi";
 import { useRouter } from "next/navigation";
 import SendModal from "./sendModal";
 import QRCodeModal from "./QRCodeModal";
+import DepositModal from "./DepositModal";
+import WithdrawModal from "./WithdrawModal";
 import Link from "next/link";
+import { useFormattedBalance } from "@/lib/useFormattedBalance";
 
 interface Payment {
   id: number;
@@ -43,6 +48,7 @@ interface Payment {
 
 const Wallet = () => {
   const { address, token, isAuthenticated } = useSessionAddress();
+  const { formatBalanceParts, currency } = useFormattedBalance();
   const [loadingPayments, setLoadingPayments] = useState(false);
   const [loadingUser, setLoadingUser] = useState(false);
   const [balanceVisible, setBalanceVisible] = useState(true);
@@ -58,9 +64,19 @@ const Wallet = () => {
     args: [address],
   });
 
-  const [activeModal, setActiveModal] = useState<"send" | "qr" | null>(null);
-  const openModal = (modal: "send" | "qr") => setActiveModal(modal);
+  const [activeModal, setActiveModal] = useState<
+    "send" | "qr" | "deposit" | "withdraw" | null
+  >(null);
+  const openModal = (modal: "send" | "qr" | "deposit" | "withdraw") =>
+    setActiveModal(modal);
   const closeModal = () => setActiveModal(null);
+
+  const refreshActivity = () => {
+    if (!userId || !token) return;
+    getRecentActivity(userId, token)
+      .then((activityData) => setPayments(activityData))
+      .catch(() => {});
+  };
 
   const balance = balanceData ? Number(balanceData) / 10 ** 6 : 0;
   const truncatedAddress = address
@@ -137,27 +153,42 @@ const Wallet = () => {
           <div className="flex items-end mt-1.5 gap-1">
             <h2 className="text-[1.65rem] font-extrabold text-white leading-none tracking-tight">
               {balanceVisible && address
-                ? balance.toFixed(3)
+                ? (() => {
+                    const p = formatBalanceParts(balance);
+                    return p.decimal ? `${p.whole}.${p.decimal}` : p.whole;
+                  })()
                 : !address
                   ? "---"
                   : "••••"}
             </h2>
             <span className="text-[13px] text-white/90 mb-0.5 font-semibold">
-              USDC
+              {currency}
             </span>
           </div>
 
           {address ? (
-            <div className="mt-3 flex items-center justify-between bg-white/15 px-2.5 py-1.5 rounded-xl">
-              <p className="text-white text-[11px] font-medium truncate">
-                {truncatedAddress}
-              </p>
+            <div className="mt-3 flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 min-w-0 flex-1 bg-white/15 px-2.5 py-1.5 rounded-xl">
+                <p className="text-white text-[11px] font-medium truncate font-mono tracking-wide">
+                  {truncatedAddress}
+                </p>
+                <button
+                  type="button"
+                  onClick={copyToClipboard}
+                  className="text-white/80 bg-transparent p-0.5 shrink-0"
+                  aria-label="Copy address"
+                >
+                  <FiCopy size={13} />
+                </button>
+              </div>
               <button
                 type="button"
-                onClick={copyToClipboard}
-                className="text-white bg-transparent p-1"
+                onClick={() => openModal("qr")}
+                disabled={!address}
+                aria-label="Receive via QR"
+                className="h-9 w-9 rounded-full bg-white/20 text-white flex items-center justify-center shrink-0"
               >
-                <FiCopy size={13} />
+                <HiOutlineQrcode size={18} />
               </button>
             </div>
           ) : (
@@ -168,32 +199,38 @@ const Wallet = () => {
               Sign in to view wallet
             </Link>
           )}
+        </div>
 
-          <div className="grid grid-cols-2 gap-2 mt-3">
-            {[
-              {
-                icon: <FiSend size={16} />,
-                label: "Send",
-                action: () => openModal("send"),
-              },
-              {
-                icon: <HiOutlineQrcode size={18} />,
-                label: "Receive",
-                action: () => openModal("qr"),
-              },
-            ].map((action) => (
-              <motion.button
-                key={action.label}
-                whileTap={{ scale: 0.97 }}
-                type="button"
-                onClick={action.action}
-                className="bg-white/15 backdrop-blur-sm py-2.5 rounded-xl flex items-center justify-center gap-2 text-white text-[12px] font-semibold"
-              >
-                {action.icon}
-                {action.label}
-              </motion.button>
-            ))}
-          </div>
+        <div className="grid grid-cols-3 gap-2 mt-3">
+          {[
+            {
+              icon: <FiDownload size={18} className="text-downy-700" />,
+              label: "Deposit",
+              action: () => openModal("deposit"),
+            },
+            {
+              icon: <FiSend size={17} className="text-downy-700" />,
+              label: "Send",
+              action: () => openModal("send"),
+            },
+            {
+              icon: <FiUpload size={18} className="text-downy-700" />,
+              label: "Withdraw",
+              action: () => openModal("withdraw"),
+            },
+          ].map((action) => (
+            <motion.button
+              key={action.label}
+              whileTap={{ scale: 0.97 }}
+              type="button"
+              onClick={action.action}
+              disabled={!address}
+              className="bg-white py-3 rounded-xl shadow-sm flex flex-col items-center justify-center gap-1 text-downy-800 text-[11px] font-semibold disabled:opacity-50"
+            >
+              {action.icon}
+              {action.label}
+            </motion.button>
+          ))}
         </div>
       </div>
 
@@ -311,8 +348,28 @@ const Wallet = () => {
         )}
       </div>
 
+      {activeModal === "deposit" && (
+        <DepositModal
+          isOpen={true}
+          onClose={closeModal}
+          onSuccess={refreshActivity}
+        />
+      )}
       {activeModal === "send" && (
-        <SendModal isOpen={true} onClose={closeModal} balance={balance} />
+        <SendModal
+          isOpen={true}
+          onClose={closeModal}
+          balance={balance}
+          onSuccess={refreshActivity}
+        />
+      )}
+      {activeModal === "withdraw" && (
+        <WithdrawModal
+          isOpen={true}
+          onClose={closeModal}
+          balance={balance}
+          onSuccess={refreshActivity}
+        />
       )}
       {activeModal === "qr" && (
         <QRCodeModal

@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { FiLogOut, FiUser } from "react-icons/fi";
+import { FiLogOut, FiSettings, FiUser } from "react-icons/fi";
 import { useAuth } from "@/app/context/AuthContext";
 import { useRouter } from "next/navigation";
 
@@ -38,7 +38,7 @@ export default function AppHeader({
   const firstName = displayName.split(/\s+/)[0];
   const avatar = user?.profileImageUrl;
   const isSection = Boolean(pageTitle);
-  /** Profile menu only on home (greeting header). */
+  /** Profile + settings only on home (greeting header). */
   const showProfile = !isSection;
 
   useEffect(() => {
@@ -77,7 +77,15 @@ export default function AppHeader({
           </div>
 
           {showProfile && (
-            <div className="relative shrink-0" ref={menuRef}>
+            <div className="relative shrink-0 flex items-center gap-2" ref={menuRef}>
+              <Link
+                href="/Settings"
+                aria-label="Profile settings"
+                className="h-8 w-8 rounded-full bg-white/15 border border-white/30 text-white flex items-center justify-center hover:bg-white/25 transition"
+              >
+                <FiSettings size={15} />
+              </Link>
+
               <button
                 type="button"
                 onClick={() => setMenuOpen((o) => !o)}
@@ -99,7 +107,7 @@ export default function AppHeader({
               </button>
 
               {menuOpen && (
-                <div className="absolute right-0 mt-2 w-56 rounded-2xl bg-white shadow-xl shadow-downy-950/20 border border-gray-100 py-2 z-50 text-left">
+                <div className="absolute right-0 top-full mt-2 w-56 rounded-2xl bg-white shadow-xl shadow-downy-950/20 border border-gray-100 py-2 z-50 text-left">
                   <div className="px-3.5 py-2 border-b border-gray-50">
                     <p className="text-xs font-semibold text-gray-900 truncate">
                       {displayName}
@@ -108,6 +116,14 @@ export default function AppHeader({
                       {isGuest ? "Guest session" : user?.email}
                     </p>
                   </div>
+                  <Link
+                    href="/Settings"
+                    onClick={() => setMenuOpen(false)}
+                    className="flex items-center gap-2.5 px-3.5 py-2.5 text-[13px] font-medium text-gray-700 hover:bg-downy-50"
+                  >
+                    <FiSettings size={15} className="text-downy-600" />
+                    Profile &amp; settings
+                  </Link>
                   <Link
                     href="/Wallet"
                     onClick={() => setMenuOpen(false)}
