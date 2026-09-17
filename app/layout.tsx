@@ -14,13 +14,13 @@ const jakarta = Plus_Jakarta_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "ChamaPay",
+  title: "Chamapay",
   description: "Circular savings — chamas, goals, and earn",
   manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "ChamaPay",
+    title: "Chamapay",
   },
   icons: {
     icon: "/icon.png",

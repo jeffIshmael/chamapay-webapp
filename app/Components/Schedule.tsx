@@ -239,8 +239,8 @@ const Schedule = ({
       const message =
         `📢 It’s almost payday for me!\n` +
         `Only ${timeUntilUserPayout} left before I receive ` +
-        `${amountToReceive} USDC via ${chama.name} group on ChamaPay 🎉\n\n` +
-        `Circular savings that work 💪 #ChamaPay`;
+        `${amountToReceive} USDC via ${chama.name} group on Chamapay 🎉\n\n` +
+        `Circular savings that work 💪 #Chamapay`;
 
       const imageUrl = await generateScheduleImage(sharingDetails);
 

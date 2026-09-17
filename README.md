@@ -1,6 +1,6 @@
-# ChamaPay Web App
+# Chamapay Web App
 
-Next.js client for ChamaPay (ported from `chamapay-minipay`).
+Next.js client for Chamapay (ported from `chamapay-minipay`).
 
 ## Auth
 

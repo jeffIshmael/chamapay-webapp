@@ -310,7 +310,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         }
         persistSession(result.token, result.user, result.refreshToken);
         setPendingProfile(null);
-        showToast("Welcome to ChamaPay!", "success");
+        showToast("Welcome to Chamapay!", "success");
         return true;
       } catch {
         showToast("Registration failed", "error");

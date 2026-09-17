@@ -193,14 +193,14 @@ export default function AuthScreen() {
       <div className="text-center shrink-0 mb-6">
         <Image
           src="/images/chamapay-logo.png"
-          alt="ChamaPay"
+          alt="Chamapay"
           width={64}
           height={64}
           className="mx-auto rounded-2xl mb-3 shadow-lg shadow-black/20 bg-black"
           priority
         />
         <h1 className="text-display text-[1.65rem] font-extrabold text-white tracking-tight">
-          ChamaPay
+          Chamapay
         </h1>
         <p className="mt-1.5 text-[12px] text-downy-100/85 max-w-[16rem] mx-auto leading-snug">
           Circular savings with email or Google — no wallet connect needed

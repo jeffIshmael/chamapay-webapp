@@ -107,7 +107,7 @@ export default function SendModal({
     if (!to || !to.startsWith("0x") || to.length !== 42) {
       showToast(
         mode === "chamapay"
-          ? "Select a ChamaPay user"
+          ? "Select a Chamapay user"
           : "Enter a valid wallet address",
         "warning"
       );
@@ -188,7 +188,7 @@ export default function SendModal({
                     : "bg-transparent text-gray-500"
                 }`}
               >
-                ChamaPay
+                Chamapay
               </button>
               <button
                 type="button"
@@ -285,7 +285,7 @@ export default function SendModal({
                   </>
                 )}
                 <p className="text-[10px] text-emerald-700 mt-1.5 font-medium">
-                  Transfers to ChamaPay users are free
+                  Transfers to Chamapay users are free
                 </p>
               </div>
             ) : (

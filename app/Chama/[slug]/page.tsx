@@ -319,7 +319,7 @@ const ChamaDetails = ({ params }: { params: { slug: string } }) => {
               )}
               <h3 className="text-lg font-semibold mb-2">Join {chama.name}?</h3>
               <p className="text-sm text-gray-600 mb-4">
-                You will lock the required collateral via your ChamaPay wallet.
+                You will lock the required collateral via your Chamapay wallet.
               </p>
               <div className="flex gap-2">
                 <button

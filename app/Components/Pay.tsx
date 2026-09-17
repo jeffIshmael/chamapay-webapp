@@ -131,7 +131,7 @@ const Pay = ({
                     <div className="flex items-center gap-3 min-w-0">
                       <Image
                         src="/icon.png"
-                        alt="ChamaPay"
+                        alt="Chamapay"
                         width={40}
                         height={40}
                         className="rounded-full shrink-0"

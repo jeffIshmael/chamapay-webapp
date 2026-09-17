@@ -1,6 +1,6 @@
-# ChamaPay Miniapp API Endpoints
+# Chamapay Miniapp API Endpoints
 
-This document outlines the API endpoints available for the ChamaPay miniapp. All endpoints under `/miniapp` require a Bearer token in the `Authorization` header.
+This document outlines the API endpoints available for the Chamapay miniapp. All endpoints under `/miniapp` require a Bearer token in the `Authorization` header.
 
 ## Authentication & User
 

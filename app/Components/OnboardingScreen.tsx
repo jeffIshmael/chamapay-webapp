@@ -32,7 +32,7 @@ const slides: OnboardingSlide[] = [
     id: "3",
     title: "Cash In & Out",
     description:
-      "Move money between M-Pesa and your ChamaPay wallet in a few taps.",
+      "Move money between M-Pesa and your Chamapay wallet in a few taps.",
     imageSrc: "/onboarding/screen3.png",
   },
 ];
@@ -77,7 +77,7 @@ export default function OnboardingScreen({
       <div className="flex items-center justify-between px-5 pt-4 safe-top shrink-0">
         <Image
           src="/images/chamapay-logo.png"
-          alt="ChamaPay"
+          alt="Chamapay"
           width={32}
           height={32}
           className="rounded-lg bg-black"

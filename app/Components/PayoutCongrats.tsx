@@ -87,7 +87,7 @@ const PayoutCongrats = ({
       // Construct the cast text
       const message =
         `🎉 Milestone Unlocked! 💰\n` +
-        `"${chama.name}" Chama just hit a payout on ChamaPay! 🥳🔥\n\n` +
+        `"${chama.name}" Chama just hit a payout on Chamapay! 🥳🔥\n\n` +
         `Teamwork, consistency, and shared goals made it happen. Yep — someone just bagged the reward! 💼💸\n` +
         `🚀 Ready to stack savings with the squad? Join the vibe now! 🔗`;
 

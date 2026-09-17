@@ -1,10 +1,10 @@
-/** Lightweight auth/home debug logs for prod triage (filter console by ChamaPay:auth). */
+/** Lightweight auth/home debug logs for prod triage (filter console by Chamapay:auth). */
 export function authDebug(message: string, data?: unknown) {
   try {
     if (data !== undefined) {
-      console.info(`[ChamaPay:auth] ${message}`, data);
+      console.info(`[Chamapay:auth] ${message}`, data);
     } else {
-      console.info(`[ChamaPay:auth] ${message}`);
+      console.info(`[Chamapay:auth] ${message}`);
     }
   } catch {
     /* ignore */

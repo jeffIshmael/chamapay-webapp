@@ -96,7 +96,7 @@ export default function AddToHomeScreen() {
             />
             <div className="min-w-0">
               <p className="text-[14px] font-bold text-gray-900">
-                Add ChamaPay to Home Screen
+                Add Chamapay to Home Screen
               </p>
               <p className="text-[11px] text-gray-500 mt-0.5 leading-snug">
                 Install for a full-screen app experience

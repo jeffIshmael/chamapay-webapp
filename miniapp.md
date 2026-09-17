@@ -1,6 +1,6 @@
 # Miniapp API Documentation
 
-These endpoints are specifically exposed for the ChamaPay Miniapp.
+These endpoints are specifically exposed for the Chamapay Miniapp.
 
 ## Authentication
 All endpoints require a valid JWT token in the `Authorization` header (`Bearer <token>`). The user's wallet address and other details are derived from this token.
