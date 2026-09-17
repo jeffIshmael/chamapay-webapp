@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { Dialog } from "@headlessui/react";
-import { FiArrowLeft, FiCheck, FiSmartphone } from "react-icons/fi";
+import { FiX, FiCheck, FiSmartphone } from "react-icons/fi";
+import Image from "next/image";
 import { showToast } from "./Toast";
 import { useAuth } from "@/app/context/AuthContext";
 import {
@@ -192,81 +193,81 @@ export default function WithdrawModal({
   };
 
   const busy = step === "processing" || step === "verifying";
+  const blockDismiss = () => {};
 
   return (
-    <Dialog open={isOpen} onClose={close} className="relative z-50">
-      <div className="fixed inset-0 bg-black/40" aria-hidden="true" />
-      <div className="fixed inset-0 flex items-end sm:items-center justify-center">
-        <Dialog.Panel className="w-full max-w-[var(--app-max)] max-h-[92dvh] overflow-y-auto rounded-t-3xl sm:rounded-3xl bg-downy-50 shadow-xl">
+    <Dialog open={isOpen} onClose={blockDismiss} className="relative z-[100]">
+      <div className="app-modal-layer !pointer-events-auto">
+        <div className="app-modal-backdrop" aria-hidden="true" />
+        <Dialog.Panel className="app-modal-sheet bg-downy-50 max-h-[92%] overflow-y-auto">
           <div className="sticky top-0 z-10 bg-gradient-to-br from-downy-800 to-emerald-900 text-white px-4 pt-3 pb-4 rounded-t-3xl">
-            <div className="flex items-center gap-3 min-h-[40px]">
+            <div className="flex items-center justify-between min-h-[40px]">
+              <div className="w-8" />
+              <Dialog.Title className="text-[15px] font-bold">
+                Withdraw to M-Pesa
+              </Dialog.Title>
               <button
                 type="button"
                 onClick={close}
                 className="h-8 w-8 rounded-full bg-white/20 flex items-center justify-center"
+                aria-label="Close"
               >
-                <FiArrowLeft size={16} />
+                <FiX size={16} />
               </button>
-              <Dialog.Title className="text-[15px] font-bold flex-1 text-center pr-8">
-                Withdraw
-              </Dialog.Title>
             </div>
-            <p className="text-[11px] text-white/75 text-center mt-1">
-              Cash out to M-Pesa · balance {balance.toFixed(3)} USDC
-            </p>
+            <div className="flex items-center justify-center gap-2 mt-3">
+              <Image
+                src="/static/images/mpesa.png"
+                alt="M-Pesa"
+                width={36}
+                height={36}
+                className="rounded-lg bg-white p-0.5"
+              />
+              <p className="text-[12px] text-white/85 font-medium">
+                Cash out to your M-Pesa
+              </p>
+            </div>
           </div>
 
           <div className="px-4 py-4 space-y-3">
-            <div className="flex bg-white rounded-xl p-0.5 border border-downy-100">
-              <button
-                type="button"
-                onClick={() => setKesMode(true)}
-                className={`flex-1 py-2 rounded-[10px] text-[12px] font-semibold ${
-                  kesMode ? "bg-downy-600 text-white" : "bg-transparent text-gray-500"
-                }`}
-              >
+            <p className="text-[12px] text-gray-600 text-center">
+              Wallet balance:{" "}
+              <span className="font-bold text-gray-900">
+                {(balance * rate).toLocaleString("en-KE", {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}{" "}
                 KES
-              </button>
-              <button
-                type="button"
-                onClick={() => setKesMode(false)}
-                className={`flex-1 py-2 rounded-[10px] text-[12px] font-semibold ${
-                  !kesMode ? "bg-downy-600 text-white" : "bg-transparent text-gray-500"
-                }`}
-              >
-                USDC
-              </button>
-            </div>
+              </span>
+            </p>
 
             <div>
               <label className="block text-[11px] font-semibold text-gray-600 mb-1.5">
-                Amount ({kesMode ? "KES" : "USDC"})
+                Amount (KES)
               </label>
               <div className="relative">
                 <input
                   type="text"
                   inputMode="decimal"
-                  value={kesMode ? kes : usdc}
-                  onChange={(e) =>
-                    kesMode ? onKesChange(e.target.value) : onUsdcChange(e.target.value)
-                  }
-                  placeholder={kesMode ? "500" : "5"}
+                  value={kes}
+                  onChange={(e) => onKesChange(e.target.value)}
+                  placeholder="500"
                   disabled={busy}
                   className="w-full rounded-xl border border-gray-200 px-3 py-2.5 pr-14 text-[15px] font-bold outline-none focus:ring-2 focus:ring-downy-500"
                 />
                 <button
                   type="button"
                   disabled={busy}
-                  onClick={() => onUsdcChange(balance.toFixed(3))}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-[11px] font-bold text-downy-700 bg-transparent"
+                  onClick={() =>
+                    onKesChange((balance * rate).toFixed(2))
+                  }
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-downy-700 bg-downy-50 px-2 py-1 rounded-lg"
                 >
-                  Max
+                  MAX
                 </button>
               </div>
               <p className="text-[11px] text-gray-500 mt-1">
-                {kesMode
-                  ? `≈ ${usdc || "0.000"} USDC`
-                  : `≈ ${kes || "0.00"} KES`}
+                ≈ {usdc || "0.000"} USDC
               </p>
             </div>
 
@@ -340,11 +341,11 @@ export default function WithdrawModal({
           if (step === "verifying") return;
           setShowVerify(false);
         }}
-        className="relative z-[60]"
+        className="relative z-[110]"
       >
-        <div className="fixed inset-0 bg-black/40" aria-hidden="true" />
-        <div className="fixed inset-0 flex items-center justify-center p-4">
-          <Dialog.Panel className="w-full max-w-sm rounded-2xl bg-white p-5">
+        <div className="app-modal-layer !pointer-events-auto !justify-center">
+          <div className="app-modal-backdrop" aria-hidden="true" />
+          <Dialog.Panel className="relative w-[calc(100%-2rem)] rounded-2xl bg-white p-5 mx-4 shadow-xl">
             <Dialog.Title className="text-[15px] font-bold text-gray-900 mb-2">
               Confirm recipient
             </Dialog.Title>

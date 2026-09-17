@@ -14,11 +14,13 @@ import {
 } from "@/lib/moonwellService";
 import { useAuth } from "../../context/AuthContext";
 import { useSessionAddress } from "@/lib/useSessionAddress";
+import { useFormattedBalance } from "@/lib/useFormattedBalance";
 
 export default function MoonwellPoolPage() {
   const router = useRouter();
   const { token, user } = useAuth();
   const { isAuthenticated, isGuest } = useSessionAddress();
+  const { formatBalance } = useFormattedBalance();
   const [activeSection, setActiveSection] = useState("SaveEarn");
   const [snapshot, setSnapshot] = useState<MoonwellUsdcSnapshot | null>(null);
   const [loading, setLoading] = useState(true);
@@ -138,7 +140,7 @@ export default function MoonwellPoolPage() {
             { label: "APY", value: loading ? "…" : apy },
             {
               label: "Your bal",
-              value: loading ? "…" : total.toFixed(2),
+              value: loading ? "…" : formatBalance(total),
             },
             {
               label: "TVL",
@@ -164,13 +166,13 @@ export default function MoonwellPoolPage() {
             <div>
               <p className="text-[10px] text-gray-500 font-medium">Invested</p>
               <p className="font-mono font-bold text-[13px] text-gray-900">
-                {principal.toFixed(3)} USDC
+                {formatBalance(principal)}
               </p>
             </div>
             <div className="text-right">
               <p className="text-[10px] text-gray-500 font-medium">Earned</p>
               <p className="font-mono font-bold text-[13px] text-emerald-600">
-                +{earned.toFixed(3)} USDC
+                +{formatBalance(earned)}
               </p>
             </div>
           </div>

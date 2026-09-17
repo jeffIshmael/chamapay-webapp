@@ -2,11 +2,13 @@
 
 import { useEffect, useState } from "react";
 import { Dialog } from "@headlessui/react";
-import { FiArrowLeft, FiSearch, FiUser, FiX } from "react-icons/fi";
+import { FiSearch, FiUser, FiX } from "react-icons/fi";
 import { showToast } from "./Toast";
 import { useAuth } from "@/app/context/AuthContext";
 import { serverUrl } from "@/lib/serverUrl";
 import { internalTransferFee } from "@/lib/transactionFees";
+import { useCurrencyStore } from "@/store/useCurrencyStore";
+import { useFormattedBalance } from "@/lib/useFormattedBalance";
 
 type SendMode = "chamapay" | "external";
 
@@ -30,7 +32,10 @@ export default function SendModal({
   onSuccess?: () => void;
 }) {
   const { token, isAuthenticated } = useAuth();
+  const { currency, platformRate } = useCurrencyStore();
+  const { formatBalance } = useFormattedBalance();
   const [mode, setMode] = useState<SendMode>("chamapay");
+  const [kesMode, setKesMode] = useState(currency === "KES");
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchUser[]>([]);
   const [selected, setSelected] = useState<SearchUser | null>(null);
@@ -79,7 +84,11 @@ export default function SendModal({
     onClose();
   };
 
-  const parsedAmount = parseFloat(amount) || 0;
+  const parsedDisplay = parseFloat(amount) || 0;
+  const parsedAmount =
+    kesMode && platformRate > 0
+      ? parsedDisplay / platformRate
+      : parsedDisplay;
   const fee =
     mode === "external" && parsedAmount > 0
       ? internalTransferFee(parsedAmount)
@@ -93,9 +102,7 @@ export default function SendModal({
     }
 
     const to =
-      mode === "chamapay"
-        ? selected?.smartAddress
-        : recipient.trim();
+      mode === "chamapay" ? selected?.smartAddress : recipient.trim();
 
     if (!to || !to.startsWith("0x") || to.length !== 42) {
       showToast(
@@ -106,18 +113,18 @@ export default function SendModal({
       );
       return;
     }
-    if (parsedAmount <= 0) {
+    if (!parsedAmount || parsedAmount <= 0) {
       showToast("Enter a valid amount", "warning");
       return;
     }
     if (total > balance) {
-      showToast("Insufficient balance (including fee)", "warning");
+      showToast("Insufficient balance (including fee)", "error");
       return;
     }
 
+    setSending(true);
     try {
-      setSending(true);
-      const response = await fetch(`${serverUrl}/user/sendUSDC`, {
+      const res = await fetch(`${serverUrl}/user/sendUSDC`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -126,48 +133,44 @@ export default function SendModal({
         body: JSON.stringify({
           receiver: to,
           amount: parsedAmount.toFixed(3),
-          fee,
+          fee: fee.toFixed(3),
         }),
       });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok || !data?.success) {
-        showToast(data?.message || data?.error || "Unable to send", "error");
-        return;
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || data?.success === false) {
+        throw new Error(data?.error || data?.message || "Send failed");
       }
-      showToast(`${parsedAmount.toFixed(3)} USDC sent`, "success");
+      showToast("Sent successfully", "success");
       onSuccess?.();
       reset();
       onClose();
     } catch (e) {
-      showToast(
-        e instanceof Error ? e.message : "Send failed",
-        "error"
-      );
+      showToast(e instanceof Error ? e.message : "Send failed", "error");
     } finally {
       setSending(false);
     }
   };
 
   return (
-    <Dialog open={isOpen} onClose={close} className="relative z-50">
-      <div className="fixed inset-0 bg-black/40" aria-hidden="true" />
-      <div className="fixed inset-0 flex items-end sm:items-center justify-center">
-        <Dialog.Panel className="w-full max-w-[var(--app-max)] max-h-[92dvh] overflow-y-auto rounded-t-3xl sm:rounded-3xl bg-downy-50 shadow-xl">
+    <Dialog open={isOpen} onClose={() => {}} className="relative z-[100]">
+      <div className="app-modal-layer !pointer-events-auto">
+        <div className="app-modal-backdrop" aria-hidden="true" />
+        <Dialog.Panel className="app-modal-sheet bg-downy-50 max-h-[92%] overflow-y-auto">
           <div className="sticky top-0 z-10 bg-gradient-to-br from-downy-800 to-emerald-900 text-white px-4 pt-3 pb-4 rounded-t-3xl">
-            <div className="flex items-center gap-3 min-h-[40px]">
+            <div className="flex items-center justify-between min-h-[40px]">
+              <div className="w-8" />
+              <Dialog.Title className="text-[15px] font-bold">Send</Dialog.Title>
               <button
                 type="button"
                 onClick={close}
                 className="h-8 w-8 rounded-full bg-white/20 flex items-center justify-center"
+                aria-label="Close"
               >
-                <FiArrowLeft size={16} />
+                <FiX size={16} />
               </button>
-              <Dialog.Title className="text-[15px] font-bold flex-1 text-center pr-8">
-                Send
-              </Dialog.Title>
             </div>
             <p className="text-[11px] text-white/75 text-center mt-1">
-              Balance {balance.toFixed(3)} USDC
+              Balance {formatBalance(balance)}
             </p>
           </div>
 
@@ -249,7 +252,9 @@ export default function SendModal({
                       />
                     </div>
                     {searching && (
-                      <p className="text-[11px] text-gray-400 mt-1.5">Searching…</p>
+                      <p className="text-[11px] text-gray-400 mt-1.5">
+                        Searching…
+                      </p>
                     )}
                     {results.length > 0 && (
                       <div className="mt-1.5 bg-white border border-downy-100 rounded-xl overflow-hidden max-h-40 overflow-y-auto">
@@ -286,7 +291,7 @@ export default function SendModal({
             ) : (
               <div>
                 <label className="block text-[11px] font-semibold text-gray-600 mb-1.5">
-                  Wallet address
+                  Wallet address (Base / Binance / OKX / MetaMask…)
                 </label>
                 <input
                   type="text"
@@ -295,13 +300,38 @@ export default function SendModal({
                   placeholder="0x…"
                   className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-[13px] font-mono outline-none focus:ring-2 focus:ring-downy-500"
                 />
+                <p className="text-[10px] text-amber-700 mt-1.5">
+                  External sends include a small network fee
+                </p>
               </div>
             )}
 
             <div>
-              <label className="block text-[11px] font-semibold text-gray-600 mb-1.5">
-                Amount (USDC)
-              </label>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-[11px] font-semibold text-gray-600">
+                  Amount ({kesMode ? "KES" : "USDC"})
+                </label>
+                <div className="flex bg-gray-100 rounded-lg p-0.5">
+                  <button
+                    type="button"
+                    onClick={() => setKesMode(true)}
+                    className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${
+                      kesMode ? "bg-downy-600 text-white" : "text-gray-500"
+                    }`}
+                  >
+                    KES
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setKesMode(false)}
+                    className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${
+                      !kesMode ? "bg-downy-600 text-white" : "text-gray-500"
+                    }`}
+                  >
+                    USDC
+                  </button>
+                </div>
+              </div>
               <div className="relative">
                 <input
                   type="text"
@@ -317,11 +347,15 @@ export default function SendModal({
                 <button
                   type="button"
                   onClick={() => {
-                    const max =
+                    const maxUsdc =
                       mode === "external"
                         ? Math.max(0, balance - internalTransferFee(balance))
                         : balance;
-                    setAmount(max.toFixed(3));
+                    setAmount(
+                      kesMode
+                        ? (maxUsdc * platformRate).toFixed(2)
+                        : maxUsdc.toFixed(3)
+                    );
                   }}
                   className="absolute right-2 top-1/2 -translate-y-1/2 text-[11px] font-bold text-downy-700 bg-transparent"
                 >
@@ -335,12 +369,12 @@ export default function SendModal({
                 <div className="flex justify-between text-gray-600">
                   <span>Fee</span>
                   <span className="font-semibold">
-                    {fee === 0 ? "Free" : `${fee.toFixed(2)} USDC`}
+                    {fee === 0 ? "Free" : formatBalance(fee)}
                   </span>
                 </div>
                 <div className="flex justify-between text-gray-900 font-bold">
                   <span>Total</span>
-                  <span>{total.toFixed(3)} USDC</span>
+                  <span>{formatBalance(total)}</span>
                 </div>
               </div>
             )}
@@ -355,7 +389,7 @@ export default function SendModal({
                   : "bg-downy-600 shadow-md shadow-downy-600/25"
               }`}
             >
-              {sending ? "Sending…" : "Send USDC"}
+              {sending ? "Sending…" : "Send"}
             </button>
           </div>
         </Dialog.Panel>

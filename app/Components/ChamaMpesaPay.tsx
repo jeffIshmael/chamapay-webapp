@@ -1,0 +1,323 @@
+"use client";
+
+import Image from "next/image";
+import React, { useEffect, useState } from "react";
+import { FiArrowLeft, FiCheck, FiSmartphone } from "react-icons/fi";
+import { showToast } from "./Toast";
+import { useAuth } from "@/app/context/AuthContext";
+import {
+  getExchangeRate,
+  pollPretiumPaymentStatus,
+  pretiumOnramp,
+  extractTransactionCode,
+} from "@/lib/pretiumService";
+import { isValidKenyaPhone, toKenyaE164 } from "@/lib/phoneUtils";
+import { useCurrencyStore } from "@/store/useCurrencyStore";
+import { useFormattedBalance } from "@/lib/useFormattedBalance";
+
+type Step =
+  | "idle"
+  | "initiating"
+  | "waiting_for_pin"
+  | "processing"
+  | "completed"
+  | "failed";
+
+const FALLBACK_RATE = 132;
+const MIN_KES = 10;
+const MAX_KES = 250000;
+
+export default function ChamaMpesaPay({
+  chamaId,
+  chamaName,
+  remainingAmount = 0,
+  contributionAmount = 0,
+  memberForId,
+  recipientName,
+  onBack,
+  onClose,
+  isLoading,
+  setIsLoading,
+}: {
+  chamaId: number;
+  chamaName: string;
+  remainingAmount?: number;
+  contributionAmount?: number;
+  memberForId?: number;
+  recipientName?: string;
+  onBack: () => void;
+  onClose: () => void;
+  isLoading: boolean;
+  setIsLoading: (v: boolean) => void;
+}) {
+  const { token, isAuthenticated } = useAuth();
+  const { currency, platformRate: storeRate } = useCurrencyStore();
+  const { formatBalance } = useFormattedBalance();
+  const [phone, setPhone] = useState("");
+  const [kes, setKes] = useState("");
+  const [usdc, setUsdc] = useState("");
+  const [kesMode, setKesMode] = useState(currency === "KES");
+  const [rate, setRate] = useState(storeRate > 0 ? storeRate : FALLBACK_RATE);
+  const [step, setStep] = useState<Step>("idle");
+
+  useEffect(() => {
+    getExchangeRate("KES").then((res) => {
+      const r =
+        Number(res?.data?.buying) ||
+        Number(res?.data?.rate) ||
+        Number(res?.buying) ||
+        Number(res?.rate) ||
+        storeRate;
+      if (r > 0) setRate(r);
+    });
+  }, [storeRate]);
+
+  useEffect(() => {
+    // Prefill outstanding / contribution when known
+    const usdcPrefill =
+      remainingAmount > 0
+        ? remainingAmount
+        : contributionAmount > 0
+          ? contributionAmount
+          : 0;
+    if (usdcPrefill <= 0) return;
+    setUsdc(usdcPrefill.toFixed(3));
+    if (rate > 0) setKes((usdcPrefill * rate).toFixed(2));
+  }, [remainingAmount, contributionAmount, rate]);
+
+  const onKesChange = (v: string) => {
+    if (v !== "" && !/^\d*\.?\d*$/.test(v)) return;
+    setKes(v);
+    const n = parseFloat(v);
+    setUsdc(n > 0 && rate > 0 ? (n / rate).toFixed(3) : "");
+  };
+
+  const onUsdcChange = (v: string) => {
+    if (v !== "" && !/^\d*\.?\d*$/.test(v)) return;
+    setUsdc(v);
+    const n = parseFloat(v);
+    setKes(n > 0 && rate > 0 ? (n * rate).toFixed(2) : "");
+  };
+
+  const kesAmt = parseFloat(kes) || 0;
+  const usdcAmt = parseFloat(usdc) || 0;
+  const busy = step !== "idle" && step !== "failed" && step !== "completed";
+
+  const handlePay = async () => {
+    if (!isAuthenticated || !token) {
+      showToast("Please sign in", "warning");
+      return;
+    }
+    if (!kesAmt || !usdcAmt) {
+      showToast("Enter an amount", "warning");
+      return;
+    }
+    if (!isValidKenyaPhone(phone)) {
+      showToast("Enter a valid M-Pesa number", "warning");
+      return;
+    }
+    if (kesAmt < MIN_KES) {
+      showToast(`Minimum is KES ${MIN_KES}`, "warning");
+      return;
+    }
+    if (kesAmt > MAX_KES) {
+      showToast(`Maximum is KES ${MAX_KES.toLocaleString()}`, "warning");
+      return;
+    }
+
+    setIsLoading(true);
+    setStep("initiating");
+    try {
+      const result = await pretiumOnramp(
+        toKenyaE164(phone),
+        Number(kesAmt.toFixed(2)),
+        rate,
+        usdcAmt,
+        false,
+        token,
+        chamaId,
+        memberForId
+      );
+      if (!result.success) {
+        if (result.code === "KYC_REQUIRED") {
+          setStep("idle");
+          showToast(
+            result.error || "Verify your identity to increase limits",
+            "warning"
+          );
+          return;
+        }
+        throw new Error(result.error || "Failed to start M-Pesa payment");
+      }
+
+      setStep("waiting_for_pin");
+      const code = extractTransactionCode(result);
+      if (!code) throw new Error("No transaction code received");
+      await pollPretiumPaymentStatus(
+        code,
+        token,
+        (status) => {
+          if (status === "pending") setStep("waiting_for_pin");
+          else if (["pending_transfer", "processing"].includes(status))
+            setStep("processing");
+          else if (["completed", "complete"].includes(status))
+            setStep("completed");
+        }
+      );
+      setStep("completed");
+      showToast(
+        `${formatBalance(usdcAmt)} paid to ${chamaName}${
+          recipientName ? ` for ${recipientName}` : ""
+        }`,
+        "success"
+      );
+      setTimeout(() => onClose(), 1000);
+    } catch (e: unknown) {
+      setStep("failed");
+      const err = e as { status?: string; message?: string; error?: string };
+      showToast(
+        err?.status === "cancelled"
+          ? "M-Pesa payment was cancelled"
+          : err?.status === "timeout"
+            ? "Payment timed out — try again"
+            : err?.message || err?.error || "Payment failed",
+        "error"
+      );
+      setTimeout(() => setStep("idle"), 1500);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center gap-2 mb-1">
+        <button
+          type="button"
+          onClick={onBack}
+          disabled={busy || isLoading}
+          className="h-8 w-8 rounded-full bg-gray-100 flex items-center justify-center"
+          aria-label="Back"
+        >
+          <FiArrowLeft size={16} />
+        </button>
+        <div className="flex items-center gap-2 flex-1 min-w-0">
+          <Image
+            src="/static/images/mpesa.png"
+            alt="M-Pesa"
+            width={36}
+            height={36}
+            className="rounded-lg"
+          />
+          <div className="min-w-0">
+            <h3 className="text-[15px] font-semibold text-gray-800">
+              Pay with M-Pesa
+            </h3>
+            <p className="text-[11px] text-gray-500 truncate">
+              {recipientName ? `For ${recipientName}` : chamaName}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {remainingAmount > 0 && (
+        <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-100 rounded-xl px-3 py-2">
+          Outstanding: {formatBalance(remainingAmount)}
+        </p>
+      )}
+
+      <div>
+        <div className="flex items-center justify-between mb-1.5">
+          <label className="text-[11px] font-semibold text-gray-600">
+            Amount ({kesMode ? "KES" : "USDC"})
+          </label>
+          <div className="flex bg-gray-100 rounded-lg p-0.5">
+            <button
+              type="button"
+              onClick={() => setKesMode(true)}
+              className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${
+                kesMode ? "bg-downy-600 text-white" : "text-gray-500"
+              }`}
+            >
+              KES
+            </button>
+            <button
+              type="button"
+              onClick={() => setKesMode(false)}
+              className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${
+                !kesMode ? "bg-downy-600 text-white" : "text-gray-500"
+              }`}
+            >
+              USDC
+            </button>
+          </div>
+        </div>
+        <input
+          type="text"
+          inputMode="decimal"
+          value={kesMode ? kes : usdc}
+          onChange={(e) =>
+            kesMode ? onKesChange(e.target.value) : onUsdcChange(e.target.value)
+          }
+          placeholder={kesMode ? "1000" : "5"}
+          disabled={busy || isLoading}
+          className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-[15px] font-bold outline-none focus:ring-2 focus:ring-downy-500"
+        />
+        <p className="text-[11px] text-gray-500 mt-1">
+          {kesMode
+            ? `≈ ${usdc || "0.000"} USDC`
+            : `≈ ${kes || "0.00"} KES`}
+        </p>
+      </div>
+
+      <div>
+        <label className="block text-[11px] font-semibold text-gray-600 mb-1.5">
+          M-Pesa number
+        </label>
+        <div className="relative">
+          <FiSmartphone
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+            size={15}
+          />
+          <input
+            type="tel"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            placeholder="07XX XXX XXX"
+            disabled={busy || isLoading}
+            className="w-full rounded-xl border border-gray-200 pl-9 pr-3 py-2.5 text-[13px] outline-none focus:ring-2 focus:ring-downy-500"
+          />
+        </div>
+      </div>
+
+      {step !== "idle" && step !== "failed" && (
+        <div className="bg-white rounded-2xl border border-downy-100 p-3.5 text-center">
+          {step === "completed" ? (
+            <FiCheck className="mx-auto text-emerald-500 mb-2" size={28} />
+          ) : (
+            <div className="h-8 w-8 mx-auto mb-2 rounded-full border-2 border-downy-600 border-t-transparent animate-spin" />
+          )}
+          <p className="text-[13px] font-bold text-gray-900">
+            {step === "initiating" && "Starting M-Pesa…"}
+            {step === "waiting_for_pin" && "Enter PIN on your phone"}
+            {step === "processing" && "Confirming payment…"}
+            {step === "completed" && "Payment complete"}
+          </p>
+        </div>
+      )}
+
+      <button
+        type="button"
+        onClick={handlePay}
+        disabled={busy || isLoading || !kes || !phone}
+        className={`w-full py-3 rounded-xl text-[13px] font-bold text-white ${
+          busy || isLoading || !kes || !phone
+            ? "bg-gray-300"
+            : "bg-downy-600 shadow-md shadow-downy-600/25"
+        }`}
+      >
+        {busy || isLoading ? "Processing…" : "Pay with M-Pesa"}
+      </button>
+    </div>
+  );
+}

@@ -18,6 +18,7 @@ import {
   FiUsers,
 } from "react-icons/fi";
 import { showToast } from "@/app/Components/Toast";
+import { useFormattedBalance } from "@/lib/useFormattedBalance";
 
 export default function GoalDetailsPage() {
   const params = useParams<{ slug: string }>();
@@ -25,6 +26,7 @@ export default function GoalDetailsPage() {
   const router = useRouter();
   const { token, isAuthenticated, isGuest, isLoading: authLoading } =
     useSessionAddress();
+  const { formatBalance } = useFormattedBalance();
 
   const [goal, setGoal] = useState<GoalRecord | null>(null);
   const [finance, setFinance] = useState<GoalFinance | null>(null);
@@ -140,7 +142,7 @@ export default function GoalDetailsPage() {
           <div className="flex justify-between text-[11px] mb-1.5">
             <span className="text-gray-500">Progress</span>
             <span className="font-semibold text-gray-800">
-              {balance.toFixed(2)} / {target.toFixed(2)} USDC
+              {formatBalance(balance)} / {formatBalance(target)}
             </span>
           </div>
           <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
@@ -155,7 +157,7 @@ export default function GoalDetailsPage() {
                 <FiTarget size={11} /> Target
               </div>
               <p className="font-bold text-[13px] text-gray-900">
-                {target.toFixed(2)} USDC
+                {formatBalance(target)}
               </p>
             </div>
             <div className="bg-slate-50 rounded-xl p-2.5">

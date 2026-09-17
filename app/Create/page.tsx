@@ -20,6 +20,7 @@ import { registerChamaToDatabase } from "@/lib/chamaService";
 import { createGoal, GoalType, goalTypeLabel } from "@/lib/goalService";
 import { useAuth } from "../context/AuthContext";
 import { useSessionAddress } from "@/lib/useSessionAddress";
+import { useCurrencyStore } from "@/store/useCurrencyStore";
 
 type CreateMode = "chama" | "goal";
 
@@ -103,6 +104,8 @@ function CreateContent() {
   const [startDate, setStartDate] = useState("");
   const [startTime, setStartTime] = useState("");
   const [contribution, setContribution] = useState("");
+  const [kesMode, setKesMode] = useState(false);
+  const { currency, platformRate } = useCurrencyStore();
 
   // Goal
   const [goalName, setGoalName] = useState("");
@@ -113,6 +116,10 @@ function CreateContent() {
   const [endDate, setEndDate] = useState("");
   const [yieldEnabled, setYieldEnabled] = useState(false);
   const [notifyPhone, setNotifyPhone] = useState("");
+
+  useEffect(() => {
+    if (currency === "KES") setKesMode(true);
+  }, [currency]);
 
   useEffect(() => {
     const m = searchParams.get("mode");
@@ -183,13 +190,19 @@ function CreateContent() {
         return;
       }
 
+      const contribNum = parseFloat(contribution);
+      const amountUsdc =
+        kesMode && platformRate > 0
+          ? contribNum / platformRate
+          : contribNum;
+
       const result = await registerChamaToDatabase(
         {
           name: chamaName.trim(),
           description: "",
           type: "Private",
           adminTerms: "[]",
-          amount: parseFloat(contribution).toString(),
+          amount: amountUsdc.toString(),
           cycleTime: parseInt(frequency, 10),
           maxNo: 0,
           startDate: new Date(`${startDate}T${startTime}:00`),
@@ -227,11 +240,15 @@ function CreateContent() {
     }
 
     try {
+      const targetNum = parseFloat(target);
+      const targetUsdc =
+        kesMode && platformRate > 0 ? targetNum / platformRate : targetNum;
+
       const result = await createGoal(token, {
         name: goalName.trim(),
         description: goalDescription.trim(),
         goalType,
-        targetAmount: parseFloat(target).toString(),
+        targetAmount: targetUsdc.toString(),
         endDate: new Date(`${endDate}T23:59:59`).toISOString(),
         yieldEnabled: goalType === "public" ? false : yieldEnabled,
         notifyPhone: notifyPhone.trim() || undefined,
@@ -422,12 +439,34 @@ function CreateContent() {
                 </div>
               </div>
 
-              <FieldLabel>
-                Contribution (USDC) <span className="text-red-500">*</span>
-              </FieldLabel>
+              <div className="flex items-center justify-between mb-1.5">
+                <FieldLabel>
+                  Contribution <span className="text-red-500">*</span>
+                </FieldLabel>
+                <div className="flex bg-gray-100 rounded-lg p-0.5">
+                  <button
+                    type="button"
+                    onClick={() => setKesMode(true)}
+                    className={`px-2.5 py-1 rounded-md text-[10px] font-bold ${
+                      kesMode ? "bg-downy-600 text-white" : "text-gray-500"
+                    }`}
+                  >
+                    KES
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setKesMode(false)}
+                    className={`px-2.5 py-1 rounded-md text-[10px] font-bold ${
+                      !kesMode ? "bg-downy-600 text-white" : "text-gray-500"
+                    }`}
+                  >
+                    USDC
+                  </button>
+                </div>
+              </div>
               <div className="flex items-center bg-white border border-gray-200 rounded-xl overflow-hidden">
                 <span className="px-3 py-2.5 bg-gray-50 border-r border-gray-200 text-[12px] font-bold text-gray-600">
-                  USDC
+                  {kesMode ? "KES" : "USDC"}
                 </span>
                 <input
                   type="text"
@@ -437,10 +476,22 @@ function CreateContent() {
                     const v = e.target.value;
                     if (v === "" || /^\d*\.?\d*$/.test(v)) setContribution(v);
                   }}
-                  placeholder="5"
+                  placeholder={kesMode ? "500" : "5"}
                   className="flex-1 px-3 py-2.5 text-gray-900 text-[13px] font-semibold border-0 focus:ring-0"
                 />
               </div>
+              {kesMode && contribution && platformRate > 0 && (
+                <p className="text-[11px] text-gray-500 mt-1">
+                  ≈ {(parseFloat(contribution) / platformRate || 0).toFixed(3)}{" "}
+                  USDC
+                </p>
+              )}
+              {!kesMode && contribution && platformRate > 0 && (
+                <p className="text-[11px] text-gray-500 mt-1">
+                  ≈ {(parseFloat(contribution) * platformRate || 0).toFixed(0)}{" "}
+                  KES
+                </p>
+              )}
             </div>
 
             <button
@@ -565,12 +616,34 @@ function CreateContent() {
               />
               <div className="space-y-4">
                 <div>
-                  <FieldLabel>
-                    Target amount <span className="text-red-500">*</span>
-                  </FieldLabel>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <FieldLabel>
+                      Target amount <span className="text-red-500">*</span>
+                    </FieldLabel>
+                    <div className="flex bg-gray-100 rounded-lg p-0.5">
+                      <button
+                        type="button"
+                        onClick={() => setKesMode(true)}
+                        className={`px-2.5 py-1 rounded-md text-[10px] font-bold ${
+                          kesMode ? "bg-downy-600 text-white" : "text-gray-500"
+                        }`}
+                      >
+                        KES
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setKesMode(false)}
+                        className={`px-2.5 py-1 rounded-md text-[10px] font-bold ${
+                          !kesMode ? "bg-downy-600 text-white" : "text-gray-500"
+                        }`}
+                      >
+                        USDC
+                      </button>
+                    </div>
+                  </div>
                   <div className="flex items-center bg-white border border-gray-200 rounded-xl overflow-hidden">
                     <span className="px-3 py-2.5 bg-gray-50 border-r border-gray-200 text-[12px] font-bold text-gray-600">
-                      USDC
+                      {kesMode ? "KES" : "USDC"}
                     </span>
                     <input
                       type="text"
@@ -580,10 +653,16 @@ function CreateContent() {
                         const v = e.target.value;
                         if (v === "" || /^\d*\.?\d*$/.test(v)) setTarget(v);
                       }}
-                      placeholder="400"
+                      placeholder={kesMode ? "50000" : "400"}
                       className="flex-1 px-3 py-2.5 text-gray-900 text-[13px] font-semibold border-0 focus:ring-0"
                     />
                   </div>
+                  {kesMode && target && platformRate > 0 && (
+                    <p className="text-[11px] text-gray-500 mt-1">
+                      ≈ {(parseFloat(target) / platformRate || 0).toFixed(3)}{" "}
+                      USDC
+                    </p>
+                  )}
                 </div>
 
                 <div>

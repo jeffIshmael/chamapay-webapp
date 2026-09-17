@@ -2,27 +2,31 @@
 
 import Image from "next/image";
 import React, { useEffect, useState } from "react";
-import ChamaNavbar from "@/app/Components/ChamaNav";
-import Members from "@/app/Components/Members";
+import ChamaOverview from "@/app/Components/ChamaOverview";
+import ScheduleTab from "@/app/Components/ScheduleTab";
+import MembersTab from "@/app/Components/MembersTab";
 import Chat from "@/app/Components/Chat";
-import Schedule from "@/app/Components/Schedule";
 import {
   getChamaBySlug as getChama,
   requestToJoinChama,
   addMemberToChama as addMemberToPublicChama,
   checkRequest,
+  transformChamaData,
 } from "@/lib/chamaService";
-import { duration, getPicture } from "@/utils/duration";
+import { duration, formatTimeRemaining, getPicture } from "@/utils/duration";
 import Pay from "@/app/Components/Pay";
-import { DotLottieReact } from "@lottiefiles/dotlottie-react";
 import { useRouter } from "next/navigation";
-import { FiAlertTriangle } from "react-icons/fi";
+import { FiAlertTriangle, FiShare2 } from "react-icons/fi";
 import { showToast } from "@/app/Components/Toast";
 import { HiArrowLeft } from "react-icons/hi";
-import ChamaSchedule from "@/app/Components/chamaSchedule";
 import Link from "next/link";
 import { useAuth } from "@/app/context/AuthContext";
 import { useSessionAddress } from "@/lib/useSessionAddress";
+import { JoinedChama } from "@/utils/typesUtils";
+import { useFormattedBalance } from "@/lib/useFormattedBalance";
+import { normalizeUsdcAmount, normalizeChamaBalance } from "@/lib/normalizeUsdc";
+
+type TabId = "overview" | "chat" | "schedule" | "members";
 
 interface User {
   chamaId: number;
@@ -41,7 +45,7 @@ interface User {
 }
 interface Chama {
   adminId: number;
-  amount: bigint;
+  amount: bigint | string | number;
   createdAt: Date;
   cycleTime: number;
   id: number;
@@ -65,15 +69,27 @@ interface Chama {
     isFarcaster: boolean;
     fid: number | null;
   };
-  userBalance?: string;
-  eachMemberBalance?: Record<string, string>;
+  userBalance?: string | string[];
+  eachMemberBalance?: Record<string, string> | [string[], string[][]];
 }
 
+const TABS: { id: TabId; label: string }[] = [
+  { id: "overview", label: "Overview" },
+  { id: "chat", label: "Chats" },
+  { id: "schedule", label: "Schedule" },
+  { id: "members", label: "Members" },
+];
+
 const ChamaDetails = ({ params }: { params: { slug: string } }) => {
-  const [activeSection, setActiveSection] = useState("Details");
+  const [activeTab, setActiveTab] = useState<TabId>("overview");
   const [chama, setChama] = useState<Chama | null>(null);
+  const [joined, setJoined] = useState<JoinedChama | null>(null);
   const [cycle, setCycle] = useState("");
   const [isOpen, setIsOpen] = useState(false);
+  const [payRecipient, setPayRecipient] = useState<{
+    userId: number;
+    userName: string;
+  } | null>(null);
   const [error, setError] = useState("");
   const { address, isAuthenticated, user } = useSessionAddress();
   const [chamaType, setChamaType] = useState("");
@@ -82,14 +98,22 @@ const ChamaDetails = ({ params }: { params: { slug: string } }) => {
   const [adminWallet, setAdminWallet] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [processing, setProcessing] = useState(false);
+  const [fetchingChama, setFetchingChama] = useState(true);
   const [hasRequest, setHasRequest] = useState(false);
   const [isFull, setIsFull] = useState(false);
   const [sendingRequest, setSendingRequest] = useState(false);
   const router = useRouter();
   const { token } = useAuth();
+  const { formatBalance } = useFormattedBalance();
 
-  const togglePayModal = () => {
-    setIsOpen(!isOpen);
+  const openPay = (recipient?: { userId: number; userName: string } | null) => {
+    setPayRecipient(recipient ?? null);
+    setIsOpen(true);
+  };
+
+  const closePay = () => {
+    setIsOpen(false);
+    setPayRecipient(null);
   };
 
   useEffect(() => {
@@ -100,6 +124,7 @@ const ChamaDetails = ({ params }: { params: { slug: string } }) => {
 
   useEffect(() => {
     const fetchChama = async () => {
+      setFetchingChama(true);
       const data = await getChama(
         params.slug,
         token || undefined,
@@ -112,6 +137,7 @@ const ChamaDetails = ({ params }: { params: { slug: string } }) => {
         const time = await duration(data.chama.cycleTime || 0);
         setCycle(time);
         setChamaType(data.chama.type || "");
+        setJoined(transformChamaData(data.chama, (address as string) || ""));
 
         const result = await checkRequest(
           address as string,
@@ -119,10 +145,14 @@ const ChamaDetails = ({ params }: { params: { slug: string } }) => {
           token || undefined
         );
         setHasRequest(Boolean(result));
-        if ((data.chama.members?.length ?? 0) >= (data.chama.maxNo ?? 0) && data.chama.maxNo > 0) {
+        if (
+          (data.chama.members?.length ?? 0) >= (data.chama.maxNo ?? 0) &&
+          data.chama.maxNo > 0
+        ) {
           setIsFull(true);
         }
       }
+      setFetchingChama(false);
     };
     if (isAuthenticated) fetchChama();
   }, [address, params.slug, token, isAuthenticated]);
@@ -200,14 +230,54 @@ const ChamaDetails = ({ params }: { params: { slug: string } }) => {
     }
   };
 
-  if (!chama) {
+  const contributionLabel = () => {
+    if (joined) {
+      return `${formatBalance(joined.contribution, true)} / ${joined.frequency}`;
+    }
+    const display = normalizeUsdcAmount(chama?.amount ?? 0);
+    return `${formatBalance(display, true)} / ${cycle}`;
+  };
+
+  const shareLink = () => {
+    if (!chama) return;
+    const url = `${window.location.origin}/Chama/${chama.slug}`;
+    if (navigator.share) {
+      navigator.share({ title: chama.name, url }).catch(() => {});
+    } else {
+      navigator.clipboard.writeText(url).catch(() => {});
+      showToast("Link copied", "success");
+    }
+  };
+
+  if (fetchingChama || !chama) {
     return (
-      <div className="flex justify-center items-center min-h-screen bg-downy-100">
-        <DotLottieReact
-          src="https://lottie.host/d054c6be-ba43-476e-a709-0b8c5a6eacce/9H9nV28mOT.json"
-          loop
-          autoplay
-        />
+      <div className="min-h-[100dvh] bg-gray-50">
+        <div className="bg-downy-800 rounded-b-2xl px-4 pt-4 pb-5 text-white">
+          <div className="flex items-center justify-between mb-3">
+            <div className="h-8 w-8 rounded-full bg-white/20 animate-pulse" />
+            <div className="flex-1 px-4 space-y-2">
+              <div className="h-4 w-32 mx-auto rounded bg-white/25 animate-pulse" />
+              <div className="h-3 w-16 mx-auto rounded-full bg-white/15 animate-pulse" />
+            </div>
+            <div className="h-8 w-8 rounded-full bg-white/20 animate-pulse" />
+          </div>
+          <div className="grid grid-cols-3 gap-2">
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="text-center space-y-1.5">
+                <div className="h-2.5 w-12 mx-auto rounded bg-white/20 animate-pulse" />
+                <div className="h-4 w-8 mx-auto rounded bg-white/25 animate-pulse" />
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="px-4 pt-3">
+          <div className="h-10 rounded-lg bg-gray-200 animate-pulse mb-4" />
+          <div className="space-y-3">
+            <div className="h-40 rounded-2xl bg-white border border-gray-100 animate-pulse" />
+            <div className="h-36 rounded-2xl bg-white border border-gray-100 animate-pulse" />
+            <div className="h-28 rounded-2xl bg-white border border-gray-100 animate-pulse" />
+          </div>
+        </div>
       </div>
     );
   }
@@ -231,253 +301,321 @@ const ChamaDetails = ({ params }: { params: { slug: string } }) => {
     );
   }
 
-  return (
-    <div>
-      {activeSection === "Details" && (
-        <div className="bg-downy-100 min-h-screen flex flex-col items-center py-1">
-          {showModal && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
-              <div className="bg-white p-6 rounded-xl shadow-lg w-96">
-                {error && (
-                  <div
-                    className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4"
-                    role="alert"
-                  >
-                    <FiAlertTriangle className="inline mr-2" />
-                    {error}
-                  </div>
-                )}
-                <h3 className="text-lg font-semibold mb-2">
-                  Join {chama.name}?
-                </h3>
-                <p className="text-sm text-gray-600 mb-4">
-                  You will lock the required collateral via your ChamaPay
-                  wallet.
-                </p>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => setShowModal(false)}
-                    className="flex-1 py-2 bg-gray-200 rounded-lg"
-                    disabled={loading || processing}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={joinPublicChama}
-                    disabled={loading || processing}
-                    className="flex-1 py-2 bg-downy-600 text-white rounded-lg"
-                  >
-                    {loading || processing ? "Joining..." : "Confirm"}
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-
-          <div className="w-full px-4">
-            <button
-              onClick={() => router.back()}
-              className="flex items-center text-downy-700 mb-2"
-            >
-              <HiArrowLeft className="mr-1" /> Back
-            </button>
-
-            <div className="bg-white rounded-2xl p-4 shadow-sm">
-              <div className="flex items-center space-x-3">
-                <Image
-                  src={`https://ipfs.io/ipfs/Qmd1VFua3zc65LT93Sv81VVu6BGa2QEuAakAFJexmRDGtX/${getPicture(
-                    Number(chama.id)
-                  )}.jpg`}
-                  alt={chama.name}
-                  width={56}
-                  height={56}
-                  className="rounded-full"
-                />
-                <div>
-                  <h1 className="text-xl font-bold text-gray-800">
-                    {chama.name}
-                  </h1>
-                  <p className="text-sm text-gray-500 capitalize">
-                    {chamaType} chama
-                  </p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3 mt-4 text-sm">
-                <div className="bg-downy-50 p-3 rounded-xl">
-                  <p className="text-gray-500">Contribution</p>
-                  <p className="font-semibold">
-                    {(Number(chama.amount) / 1e6).toFixed(2)} USDC / {cycle}
-                  </p>
-                </div>
-                <div className="bg-downy-50 p-3 rounded-xl">
-                  <p className="text-gray-500">Members</p>
-                  <p className="font-semibold">
-                    {chama.members?.length || 0}
-                    {chama.maxNo ? ` / ${chama.maxNo}` : ""}
-                  </p>
-                </div>
-                <div className="bg-downy-50 p-3 rounded-xl col-span-2">
-                  <p className="text-gray-500">
-                    {chama.started ? "Next payout" : "Starts"}
-                  </p>
-                  <p className="font-semibold">
-                    {new Date(
-                      chama.started ? chama.payDate : chama.startDate
-                    ).toLocaleDateString("en-GB", {
-                      day: "numeric",
-                      month: "short",
-                      year: "numeric",
-                    })}
-                  </p>
-                </div>
-              </div>
-
-              {!included && (
-                <div className="mt-4">
-                  {isFull ? (
-                    <p className="text-center text-gray-500">
-                      This chama is full
-                    </p>
-                  ) : chamaType?.toLowerCase() === "public" ? (
-                    <button
-                      onClick={() => setShowModal(true)}
-                      className="w-full py-3 bg-downy-600 text-white rounded-xl font-semibold"
-                    >
-                      Join Chama
-                    </button>
-                  ) : hasRequest ? (
-                    <p className="text-center text-gray-500">
-                      Join request pending approval
-                    </p>
-                  ) : (
-                    <button
-                      onClick={joinChama}
-                      disabled={sendingRequest}
-                      className="w-full py-3 bg-downy-600 text-white rounded-xl font-semibold"
-                    >
-                      {sendingRequest ? "Sending..." : "Request to Join"}
-                    </button>
-                  )}
+  // Discover / join view for non-members
+  if (!included) {
+    return (
+      <div className="bg-downy-100 min-h-screen flex flex-col items-center py-1">
+        {showModal && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black bg-opacity-40">
+            <div className="bg-white p-6 rounded-xl shadow-lg w-96">
+              {error && (
+                <div
+                  className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4"
+                  role="alert"
+                >
+                  <FiAlertTriangle className="inline mr-2" />
+                  {error}
                 </div>
               )}
+              <h3 className="text-lg font-semibold mb-2">Join {chama.name}?</h3>
+              <p className="text-sm text-gray-600 mb-4">
+                You will lock the required collateral via your ChamaPay wallet.
+              </p>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setShowModal(false)}
+                  className="flex-1 py-2 bg-gray-200 rounded-lg"
+                  disabled={loading || processing}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={joinPublicChama}
+                  disabled={loading || processing}
+                  className="flex-1 py-2 bg-downy-600 text-white rounded-lg"
+                >
+                  {loading || processing ? "Joining..." : "Confirm"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
-              {included && (
-                <div className="mt-4 flex gap-2">
-                  <button
-                    onClick={togglePayModal}
-                    className="flex-1 py-3 bg-downy-600 text-white rounded-xl font-semibold"
-                  >
-                    Pay
-                  </button>
-                  <button
-                    onClick={() => setActiveSection("Chats")}
-                    className="flex-1 py-3 bg-white border border-downy-300 text-downy-700 rounded-xl font-semibold"
-                  >
-                    Chat
-                  </button>
-                </div>
+        <div className="w-full px-4">
+          <button
+            onClick={() => router.back()}
+            className="flex items-center text-downy-700 mb-2"
+          >
+            <HiArrowLeft className="mr-1" /> Back
+          </button>
+
+          <div className="bg-white rounded-2xl p-4 shadow-sm">
+            <div className="flex items-center space-x-3">
+              <Image
+                src={`https://ipfs.io/ipfs/Qmd1VFua3zc65LT93Sv81VVu6BGa2QEuAakAFJexmRDGtX/${getPicture(
+                  Number(chama.id)
+                )}.jpg`}
+                alt={chama.name}
+                width={56}
+                height={56}
+                className="rounded-full"
+              />
+              <div>
+                <h1 className="text-xl font-bold text-gray-800">{chama.name}</h1>
+                <p className="text-sm text-gray-500 capitalize">
+                  {chamaType} chama
+                </p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 mt-4 text-sm">
+              <div className="bg-downy-50 p-3 rounded-xl">
+                <p className="text-gray-500">Contribution</p>
+                <p className="font-semibold">{contributionLabel()}</p>
+              </div>
+              <div className="bg-downy-50 p-3 rounded-xl">
+                <p className="text-gray-500">Members</p>
+                <p className="font-semibold">
+                  {chama.members?.length || 0}
+                  {chama.maxNo ? ` / ${chama.maxNo}` : ""}
+                </p>
+              </div>
+              <div className="bg-downy-50 p-3 rounded-xl col-span-2">
+                <p className="text-gray-500">
+                  {chama.started ? "Next payout" : "Starts"}
+                </p>
+                <p className="font-semibold">
+                  {new Date(
+                    chama.started ? chama.payDate : chama.startDate
+                  ).toLocaleDateString("en-GB", {
+                    day: "numeric",
+                    month: "short",
+                    year: "numeric",
+                  })}
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-4">
+              {isFull ? (
+                <p className="text-center text-gray-500">This chama is full</p>
+              ) : chamaType?.toLowerCase() === "public" ? (
+                <button
+                  onClick={() => setShowModal(true)}
+                  className="w-full py-3 bg-downy-600 text-white rounded-xl font-semibold"
+                >
+                  Join Chama
+                </button>
+              ) : hasRequest ? (
+                <p className="text-center text-gray-500">
+                  Join request pending approval
+                </p>
+              ) : (
+                <button
+                  onClick={joinChama}
+                  disabled={sendingRequest}
+                  className="w-full py-3 bg-downy-600 text-white rounded-xl font-semibold"
+                >
+                  {sendingRequest ? "Sending..." : "Request to Join"}
+                </button>
               )}
             </div>
           </div>
         </div>
-      )}
+      </div>
+    );
+  }
 
-      {activeSection === "Members" && (
-        <Members
-          imageSrc={`https://ipfs.io/ipfs/Qmd1VFua3zc65LT93Sv81VVu6BGa2QEuAakAFJexmRDGtX/${getPicture(
-            Number(chama.id)
-          ).toString()}.jpg`}
-          name={chama.name}
-          slug={chama.slug}
-          members={chama.members as any}
-          adminWallet={adminWallet || ""}
-          isFarcaster={false}
-          eachMemberBalance={chama.eachMemberBalance}
-        />
-      )}
-      {activeSection === "Chats" && (
-        <div className="bg-downy-100 h-[100vh] flex flex-col">
-          <div className="flex items-center w-full px-4 py-2 space-x-2 shadow-md bg-downy-200">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 24 24"
-              fill="currentColor"
-              className="w-6 h-6 cursor-pointer"
-              onClick={() => setActiveSection("Members")}
+  if (!joined) {
+    return (
+      <div className="min-h-[100dvh] bg-gray-50">
+        <div className="bg-downy-800 rounded-b-2xl px-4 pt-4 pb-4 text-white">
+          <div className="flex items-center justify-between mb-3">
+            <button
+              type="button"
+              onClick={() => router.back()}
+              className="p-2 rounded-full bg-white/10 text-white"
+              aria-label="Back"
             >
-              <path
-                fillRule="evenodd"
-                d="M11.03 3.97a.75.75 0 0 1 0 1.06l-6.22 6.22H21a.75.75 0 0 1 0 1.5H4.81l6.22 6.22a.75.75 0 1 1-1.06 1.06l-7.5-7.5a.75.75 0 0 1 0-1.06l7.5-7.5a.75.75 0 0 1 1.06 0Z"
-                clipRule="evenodd"
-              />
-            </svg>
-            <Image
-              src={`https://ipfs.io/ipfs/Qmd1VFua3zc65LT93Sv81VVu6BGa2QEuAakAFJexmRDGtX/${getPicture(
-                Number(chama.id)
-              )}.jpg`}
-              alt="logo"
-              width={40}
-              height={40}
-              className="rounded-full"
-            />
-            <div className="ml-3">
-              <h2 className="text-xl font-bold text-downy-600">{chama.name}</h2>
-              <p className="text-gray-500">
-                {chama.members.length} Member
-                <span>{chama.members.length > 1 ? "s" : ""}</span>
-              </p>
+              <HiArrowLeft size={18} />
+            </button>
+            <div className="flex-1 text-center px-2">
+              <h1 className="text-[16px] font-semibold truncate">
+                {chama.name}
+              </h1>
+              <span className="inline-flex mt-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-white/15">
+                Loading…
+              </span>
             </div>
+            <div className="w-9" />
           </div>
-          <div className="flex-1 overflow-hidden">
+          <div className="grid grid-cols-3 gap-2 text-center">
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="space-y-1.5">
+                <div className="h-2.5 w-12 mx-auto rounded bg-white/20 animate-pulse" />
+                <div className="h-4 w-8 mx-auto rounded bg-white/25 animate-pulse" />
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="px-4 pt-3 space-y-3">
+          <div className="h-10 rounded-lg bg-gray-200 animate-pulse" />
+          <div className="h-40 rounded-2xl bg-white border border-gray-100 animate-pulse" />
+          <div className="h-36 rounded-2xl bg-white border border-gray-100 animate-pulse" />
+        </div>
+      </div>
+    );
+  }
+
+  const hasSchedule = (joined.payoutSchedule?.length || 0) > 0;
+  const isActive = joined.status === "active";
+
+  return (
+    <div className="min-h-[100dvh] bg-gray-50 flex flex-col">
+      {/* Header — matches Application joined-chama-details */}
+      <div className="bg-downy-800 rounded-b-2xl px-4 pt-4 pb-4 text-white shrink-0">
+        <div className="flex items-center justify-between mb-3">
+          <button
+            type="button"
+            onClick={() => router.back()}
+            className="p-2 rounded-full bg-white/10 text-white"
+            aria-label="Back"
+          >
+            <HiArrowLeft size={18} />
+          </button>
+          <div className="flex-1 text-center px-2">
+            <h1 className="text-[16px] font-semibold truncate">{joined.name}</h1>
+            <span
+              className={`inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                joined.isPublic ? "bg-emerald-500/30" : "bg-white/15"
+              }`}
+            >
+              {joined.isPublic ? "🌍 Public" : "🔒 Private"}
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={shareLink}
+            className="p-2 rounded-full bg-white/10 text-white"
+            aria-label="Share"
+          >
+            <FiShare2 size={18} />
+          </button>
+        </div>
+
+        <div className="grid grid-cols-3 gap-2 text-center">
+          <div>
+            <p className="text-emerald-100 text-[10px]">My Position</p>
+            <p className="text-[15px] font-semibold mt-0.5">
+              {hasSchedule && joined.myPosition ? `#${joined.myPosition}` : "--"}
+            </p>
+          </div>
+          <div>
+            <p className="text-emerald-100 text-[10px]">Next Position</p>
+            <p className="text-[15px] font-semibold mt-0.5">
+              {hasSchedule ? `#${joined.currentTurnMemberPosition}` : "--"}
+            </p>
+          </div>
+          <div>
+            <p className="text-emerald-100 text-[10px]">My Turn in</p>
+            <p className="text-[15px] font-semibold mt-0.5">
+              {hasSchedule ? formatTimeRemaining(joined.myTurnDate) : "--"}
+            </p>
+          </div>
+        </div>
+
+        {!isActive && !hasSchedule && (
+          <div className="mt-3 bg-amber-500/20 border border-amber-300/40 rounded-xl px-3 py-2 text-center">
+            <p className="text-[12px] font-semibold text-amber-50">
+              Schedule pending
+            </p>
+            <p className="text-[11px] text-amber-100/90 mt-0.5">
+              Payout order appears when the chama begins
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* Top tabs — matches Application TabButton row */}
+      <div className={`pt-3 ${activeTab === "chat" ? "px-4" : "px-4"}`}>
+        <div className="flex bg-gray-100 rounded-lg p-1 gap-0.5">
+          {TABS.map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex-1 py-2.5 px-1 rounded-md text-[12px] font-medium transition ${
+                activeTab === tab.id
+                  ? "bg-downy-200 text-downy-700"
+                  : "bg-transparent text-gray-600"
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Tab content */}
+      <div className="flex-1 min-h-0">
+        {activeTab === "overview" && (
+          <div className="px-4 pt-3 overflow-y-auto">
+            <ChamaOverview
+              chama={joined}
+              userAddress={(address as string) || ""}
+              onPay={openPay}
+            />
+          </div>
+        )}
+
+        {activeTab === "chat" && (
+          <div className="h-[calc(100dvh-11rem)] flex flex-col mt-2">
             <Chat chamaId={Number(chama.id)} />
           </div>
-        </div>
-      )}
+        )}
 
-      {activeSection === "Schedule" && (
-        <Schedule
-          chama={chama}
-          type={chamaType}
-          payoutOrder={chama.payOutOrder ? chama.payOutOrder : null}
-        />
-      )}
-      {activeSection === "chamaSchedule" && (
-        <ChamaSchedule
-          chama={chama as any}
-          payoutOrder={chama.payOutOrder ? chama.payOutOrder : null}
-          address={address as string}
-        />
-      )}
-
-      {activeSection !== "Chats" && (
-        <ChamaNavbar
-          activeSection={activeSection}
-          setActiveSection={setActiveSection}
-          isMember={included}
-        />
-      )}
-
-      {isOpen && (
-        <>
-          <div
-            className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex justify-center items-end transition duration-300 ease-in-out"
-            onClick={togglePayModal}
-          ></div>
-          <div
-            onClick={(e) => {
-              e.stopPropagation();
-            }}
-          >
-            <Pay
-              openModal={isOpen}
-              closeModal={() => setIsOpen(false)}
-              chamaId={Number(chama.id)}
-              chamaName={chama.name}
-              chamaBlockchainId={Number(chama.blockchainId)}
+        {activeTab === "schedule" && (
+          <div className="px-4 pt-3 overflow-y-auto">
+            <ScheduleTab
+              payoutSchedule={joined.payoutSchedule || []}
+              currentUserAddress={(address as string) || ""}
+              chamaStatus={joined.status}
+              members={joined.members}
+              contributionAmount={joined.contribution}
+              totalPayout={joined.nextPayoutAmount}
+              currentCycle={joined.currentCycle}
+              currentRound={joined.currentRound}
             />
           </div>
-        </>
+        )}
+
+        {activeTab === "members" && (
+          <div className="px-4 pt-3 overflow-y-auto">
+            <MembersTab
+              members={joined.members}
+              eachMemberBalances={joined.eachMemberBalance || null}
+              isPublic={joined.isPublic}
+              contributionAmount={joined.contribution}
+            />
+          </div>
+        )}
+      </div>
+
+      {isOpen && joined && (
+        <Pay
+          openModal={isOpen}
+          closeModal={closePay}
+          chamaId={Number(chama.id)}
+          chamaName={chama.name}
+          chamaBlockchainId={Number(chama.blockchainId)}
+          recipient={payRecipient}
+          remainingAmount={Math.max(
+            0,
+            (Number(joined.contribution) || 0) -
+              normalizeChamaBalance(joined.userBalance)
+          )}
+          contributionAmount={joined.contribution}
+        />
       )}
     </div>
   );

@@ -73,7 +73,7 @@ export default function BottomNavbar({
 
   return (
     <nav
-      className="bottom-nav-dock pointer-events-none z-50 px-3"
+      className="bottom-nav-dock pointer-events-none z-40 px-3"
       style={{ paddingBottom: "max(0.35rem, env(safe-area-inset-bottom))" }}
     >
       <div className="pointer-events-auto mx-auto mb-1 flex items-center justify-between gap-0.5 rounded-[1.35rem] bg-white/95 backdrop-blur-lg border border-downy-100/80 shadow-[0_8px_30px_rgba(15,47,50,0.12)] px-1.5 py-1.5">

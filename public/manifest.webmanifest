@@ -1,0 +1,25 @@
+{
+  "name": "ChamaPay",
+  "short_name": "ChamaPay",
+  "description": "Circular savings — chamas, goals, and earn",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0d3d3f",
+  "theme_color": "#1a6b6b",
+  "icons": [
+    {
+      "src": "/icon.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/logo-icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

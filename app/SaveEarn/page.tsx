@@ -18,12 +18,14 @@ import {
 } from "@/lib/moonwellService";
 import { useAuth } from "../context/AuthContext";
 import { useSessionAddress } from "@/lib/useSessionAddress";
+import { useFormattedBalance } from "@/lib/useFormattedBalance";
 
 export default function SaveEarnPage() {
   const router = useRouter();
   const { token, user } = useAuth();
   const { isAuthenticated, isGuest, isLoading: authLoading } =
     useSessionAddress();
+  const { formatBalance } = useFormattedBalance();
   const [activeSection, setActiveSection] = useState("SaveEarn");
   const [snapshot, setSnapshot] = useState<MoonwellUsdcSnapshot | null>(null);
   const [loading, setLoading] = useState(true);
@@ -68,8 +70,8 @@ export default function SaveEarnPage() {
 
   const apy =
     snapshot?.supplyApy != null ? `${snapshot.supplyApy.toFixed(2)}%` : "—";
-  const invested = (snapshot?.principalUsdc ?? 0).toFixed(3);
-  const earned = (snapshot?.earnedUsdc ?? 0).toFixed(3);
+  const invested = formatBalance(snapshot?.principalUsdc ?? 0);
+  const earned = formatBalance(snapshot?.earnedUsdc ?? 0);
   const liquidity = snapshot?.liquidityUsd;
   const needed = snapshot?.totalBalanceUsdc ?? 0;
   const canWithdraw =
@@ -165,7 +167,7 @@ export default function SaveEarnPage() {
                 <div className="h-4 w-16 bg-gray-200 rounded" />
               ) : (
                 <p className="text-[12px] font-bold text-gray-900 font-mono">
-                  {invested} USDC
+                  {invested}
                 </p>
               )}
             </div>
@@ -178,7 +180,7 @@ export default function SaveEarnPage() {
                 <div className="h-4 w-14 bg-gray-200 rounded ml-auto" />
               ) : (
                 <p className="text-[12px] font-bold text-emerald-600 font-mono">
-                  +{earned} USDC
+                  +{earned}
                 </p>
               )}
             </div>

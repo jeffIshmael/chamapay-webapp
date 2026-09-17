@@ -7,8 +7,13 @@ import { usdcContractAddress } from "@/app/ChamaPayABI/ChamaPayContract";
 import erc20Abi from "@/app/ChamaPayABI/ERC20.json";
 import { toast } from "sonner";
 import { DotLottieReact } from "@lottiefiles/dotlottie-react";
-import { getUser } from "@/lib/chama";
-import { getRecentActivity } from "@/lib/chamaService";
+import {
+  getTheUserTx,
+  getMoonwellActivitySubtitle,
+  getMoonwellActivityTitle,
+  isMoonwellTx,
+  WalletTransaction,
+} from "@/lib/walletServices";
 import { useSessionAddress } from "@/lib/useSessionAddress";
 import { motion } from "framer-motion";
 import {
@@ -20,42 +25,33 @@ import {
   FiArrowDownLeft,
   FiDownload,
   FiUpload,
+  FiExternalLink,
+  FiX,
 } from "react-icons/fi";
 import { HiOutlineQrcode } from "react-icons/hi";
-import { useRouter } from "next/navigation";
 import SendModal from "./sendModal";
 import QRCodeModal from "./QRCodeModal";
 import DepositModal from "./DepositModal";
 import WithdrawModal from "./WithdrawModal";
 import Link from "next/link";
 import { useFormattedBalance } from "@/lib/useFormattedBalance";
+import { getRelativeTime } from "@/utils/duration";
 
-interface Payment {
-  id: number;
-  amount: string;
-  txHash: string;
-  userId: number;
-  chamaId?: number;
-  type: "payment" | "payout" | "deposit" | "withdrawal" | "contribution";
-  doneAt?: string;
-  createdAt?: string;
-  chama?: {
-    id: number;
-    name: string;
-    slug: string;
-  };
-}
+const shortAddress = (value?: string) => {
+  if (!value) return "Unknown";
+  if (value.startsWith("0x") && value.length > 10) {
+    return `${value.slice(0, 6)}…${value.slice(-4)}`;
+  }
+  return value;
+};
 
 const Wallet = () => {
   const { address, token, isAuthenticated } = useSessionAddress();
-  const { formatBalanceParts, currency } = useFormattedBalance();
+  const { formatBalance, formatBalanceParts, currency } = useFormattedBalance();
   const [loadingPayments, setLoadingPayments] = useState(false);
-  const [loadingUser, setLoadingUser] = useState(false);
   const [balanceVisible, setBalanceVisible] = useState(true);
-  const [userId, setUserId] = useState<number | null>(null);
-  const [payments, setPayments] = useState<Payment[]>([]);
-  const [chamaNames, setChamaNames] = useState<{ [key: number]: string }>({});
-  const router = useRouter();
+  const [transactions, setTransactions] = useState<WalletTransaction[]>([]);
+  const [selectedTx, setSelectedTx] = useState<WalletTransaction | null>(null);
   const { data: balanceData } = useReadContract({
     chainId: celo.id,
     address: usdcContractAddress,
@@ -72,9 +68,9 @@ const Wallet = () => {
   const closeModal = () => setActiveModal(null);
 
   const refreshActivity = () => {
-    if (!userId || !token) return;
-    getRecentActivity(userId, token)
-      .then((activityData) => setPayments(activityData))
+    if (!token) return;
+    getTheUserTx(token, { limit: 20 })
+      .then((data) => setTransactions(data?.transactions || []))
       .catch(() => {});
   };
 
@@ -90,48 +86,68 @@ const Wallet = () => {
   };
 
   useEffect(() => {
-    const fetchUserId = async () => {
-      if (!address) return;
-      setLoadingUser(true);
-      try {
-        const userData = await getUser(address);
-        setUserId(userData?.id || null);
-      } catch {
-        toast.error("Failed to load user data");
-      } finally {
-        setLoadingUser(false);
-      }
-    };
-    fetchUserId();
-  }, [address]);
-
-  useEffect(() => {
     const fetchData = async () => {
-      if (!userId || !token) return;
+      if (!token || !isAuthenticated) {
+        setTransactions([]);
+        return;
+      }
       setLoadingPayments(true);
       try {
-        const activityData = await getRecentActivity(userId, token);
-        setPayments(activityData);
-        const names: { [key: number]: string } = { ...chamaNames };
-        activityData.forEach((item: Payment & { chamaId?: number }) => {
-          if (item.chama?.name) {
-            names[item.chamaId || item.id] = item.chama.name;
-          }
-        });
-        setChamaNames(names);
+        const data = await getTheUserTx(token, { limit: 20 });
+        setTransactions(data?.transactions || []);
       } catch {
         toast.error("Failed to load activity history");
+        setTransactions([]);
       } finally {
         setLoadingPayments(false);
       }
     };
     fetchData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userId, token]);
+  }, [token, isAuthenticated]);
 
-  function openTxLink(txHash: string) {
-    window.open(`https://celoscan.io/tx/${txHash}`, "_blank");
-  }
+  const getIconColor = (type: WalletTransaction["type"]) => {
+    switch (type) {
+      case "sent":
+        return "#f56c6c";
+      case "received":
+        return "#10b981";
+      case "deposited":
+        return "#3b82f6";
+      case "withdrew":
+        return "#f97316";
+      default:
+        return "#6b7280";
+    }
+  };
+
+  const getTextColor = (type: WalletTransaction["type"]) => {
+    switch (type) {
+      case "sent":
+      case "withdrew":
+        return "text-red-500";
+      case "received":
+      case "deposited":
+        return "text-emerald-600";
+      default:
+        return "text-gray-700";
+    }
+  };
+
+  const subtitleFor = (tx: WalletTransaction) => {
+    if (isMoonwellTx(tx)) return getMoonwellActivitySubtitle(tx);
+    if (tx.isPretiumTx) {
+      return tx.type === "deposited"
+        ? `From: ${tx.sender || "M-PESA"}`
+        : `To: ${tx.recipient || "M-PESA"}`;
+    }
+    if (tx.type === "sent" || tx.type === "withdrew") {
+      return `To: ${shortAddress(tx.recipient)}`;
+    }
+    return `From: ${shortAddress(tx.sender)}`;
+  };
+
+  const titleFor = (tx: WalletTransaction) =>
+    isMoonwellTx(tx) ? getMoonwellActivityTitle(tx) : tx.type;
 
   return (
     <div className="min-h-[100dvh] bg-downy-50 pb-nav">
@@ -235,11 +251,21 @@ const Wallet = () => {
       </div>
 
       <div className="px-4 mt-4">
-        <h2 className="text-[15px] font-bold text-gray-900 mb-2.5">
-          Recent activity
-        </h2>
+        <div className="flex items-center justify-between mb-2.5">
+          <h2 className="text-[15px] font-bold text-gray-900">
+            Recent activity
+          </h2>
+          {transactions.length > 0 && (
+            <Link
+              href="/Wallet/activity"
+              className="text-[11px] font-bold text-downy-700 bg-downy-50 px-2.5 py-1 rounded-full"
+            >
+              See all
+            </Link>
+          )}
+        </div>
 
-        {loadingUser || loadingPayments ? (
+        {loadingPayments ? (
           <div className="flex flex-col items-center justify-center py-8">
             <DotLottieReact
               src="https://lottie.host/965b1986-c9d6-4db5-a74d-375f05d98f59/M8KKZyk0j4.json"
@@ -253,7 +279,7 @@ const Wallet = () => {
           <p className="text-center text-[12px] text-gray-500 py-6">
             Sign in to view transactions
           </p>
-        ) : payments.length === 0 ? (
+        ) : transactions.length === 0 ? (
           <p className="text-center text-[12px] text-gray-500 py-6">
             No transactions yet
           </p>
@@ -263,90 +289,175 @@ const Wallet = () => {
             animate={{ opacity: 1 }}
             className="space-y-2"
           >
-            {payments.slice(0, 10).map((payment) => {
-              const isPayout = payment.type === "payout";
-              const chamaName =
-                payment.chama?.name ||
-                chamaNames[payment.chamaId || 0] ||
-                "Unknown Chama";
-
+            {transactions.slice(0, 6).map((tx) => {
+              const color = getIconColor(tx.type);
+              const isOut = tx.type === "sent" || tx.type === "withdrew";
               return (
-                <div
-                  key={payment.id}
-                  className="bg-white p-3 rounded-2xl shadow-sm border border-downy-100/70 flex items-center justify-between"
+                <button
+                  key={tx.id}
+                  type="button"
+                  onClick={() => setSelectedTx(tx)}
+                  className="w-full bg-white p-3.5 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between text-left"
                 >
-                  <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="flex items-center gap-3 min-w-0">
                     <div
-                      className={`p-2 rounded-xl shrink-0 ${
-                        isPayout
-                          ? "bg-emerald-50 text-emerald-600"
-                          : "bg-downy-50 text-downy-600"
-                      }`}
+                      className="w-11 h-11 rounded-full flex items-center justify-center shrink-0"
+                      style={{ backgroundColor: `${color}20` }}
                     >
-                      {isPayout ? (
-                        <FiArrowDownLeft size={16} />
+                      {isOut ? (
+                        <FiArrowUpRight size={18} style={{ color }} />
                       ) : (
-                        <FiArrowUpRight size={16} />
+                        <FiArrowDownLeft size={18} style={{ color }} />
                       )}
                     </div>
-
                     <div className="min-w-0">
-                      <h3 className="text-[12px] text-gray-800 truncate">
-                        {isPayout ? "From " : "To "}
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const chamaSlug =
-                              payment.chama?.slug ||
-                              chamaName.toLowerCase().replace(/\s+/g, "-");
-                            router.push(`/Chama/${chamaSlug}`);
-                          }}
-                          className="text-downy-600 font-semibold bg-transparent border-none p-0"
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <h3
+                          className={`text-[13px] font-semibold text-gray-900 ${
+                            isMoonwellTx(tx) ? "" : "capitalize"
+                          }`}
                         >
-                          {chamaName}
-                        </button>
-                      </h3>
-                      <p className="text-gray-400 text-[10px] mt-0.5 font-medium uppercase tracking-wide">
-                        {new Date(
-                          payment.doneAt || payment.createdAt || ""
-                        ).toLocaleDateString("en-GB", {
-                          day: "2-digit",
-                          month: "short",
-                        })}
-                        <span className="mx-1">•</span>
-                        {new Date(
-                          payment.doneAt || payment.createdAt || ""
-                        ).toLocaleTimeString([], {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
+                          {titleFor(tx)}
+                        </h3>
+                        {tx.isPretiumTx && (
+                          <span className="bg-purple-100 text-purple-700 text-[9px] font-bold px-1.5 py-0.5 rounded-full">
+                            M-PESA
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[11px] text-gray-500 mt-0.5 truncate">
+                        {subtitleFor(tx)}
                       </p>
                     </div>
                   </div>
 
-                  <div className="flex flex-col items-end shrink-0 ml-2">
-                    <span
-                      className={`text-[12px] font-bold ${
-                        isPayout ? "text-emerald-600" : "text-gray-700"
-                      }`}
-                    >
-                      {isPayout ? "+" : "-"}
-                      {Number(payment.amount).toFixed(3)}
-                    </span>
-                    <button
-                      onClick={() => openTxLink(payment.txHash)}
-                      className="text-gray-400 text-[11px] bg-transparent"
-                      type="button"
-                    >
-                      ↗
-                    </button>
+                  <div className="text-right shrink-0 ml-2">
+                    <p className={`text-[13px] font-bold ${getTextColor(tx.type)}`}>
+                      {isOut ? "-" : "+"}
+                      {currency === "KES" && tx.fiatAmount
+                        ? ` ${tx.fiatAmount.toLocaleString("en-KE", {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })} KES`
+                        : ` ${formatBalance(tx.amount)}`}
+                    </p>
+                    {currency === "KES" && (
+                      <p className="text-[10px] text-gray-400">
+                        (
+                        {parseFloat(tx.amount).toLocaleString("en-US", {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 4,
+                        })}{" "}
+                        USDC)
+                      </p>
+                    )}
+                    <p className="text-[10px] text-gray-400 mt-0.5">
+                      {getRelativeTime(tx.date)}
+                    </p>
                   </div>
-                </div>
+                </button>
               );
             })}
           </motion.div>
         )}
       </div>
+
+      {selectedTx && (
+        <div className="app-modal-layer">
+          <div className="app-modal-backdrop" />
+          <div className="app-modal-sheet bg-white p-5 pb-[max(2rem,env(safe-area-inset-bottom))] shadow-xl">
+            <div className="flex items-center justify-between mb-4">
+              <div className="w-8" />
+              <div className="w-10 h-1 bg-gray-200 rounded-full" />
+              <button
+                type="button"
+                onClick={() => setSelectedTx(null)}
+                className="h-8 w-8 rounded-full bg-gray-100 flex items-center justify-center"
+                aria-label="Close"
+              >
+                <FiX size={14} />
+              </button>
+            </div>
+
+            <div className="flex flex-col items-center text-center mb-4">
+              <div
+                className="w-14 h-14 rounded-full flex items-center justify-center mb-3"
+                style={{
+                  backgroundColor: `${getIconColor(selectedTx.type)}20`,
+                }}
+              >
+                {selectedTx.type === "sent" || selectedTx.type === "withdrew" ? (
+                  <FiArrowUpRight
+                    size={24}
+                    style={{ color: getIconColor(selectedTx.type) }}
+                  />
+                ) : (
+                  <FiArrowDownLeft
+                    size={24}
+                    style={{ color: getIconColor(selectedTx.type) }}
+                  />
+                )}
+              </div>
+              <div className="flex items-center gap-1.5">
+                <p
+                  className={`text-[15px] font-bold capitalize ${
+                    isMoonwellTx(selectedTx) ? "normal-case" : ""
+                  }`}
+                >
+                  {titleFor(selectedTx)}
+                </p>
+                {selectedTx.isPretiumTx && (
+                  <span className="bg-purple-100 text-purple-700 text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+                    M-PESA
+                  </span>
+                )}
+              </div>
+              <p className="text-[12px] text-gray-500 mt-1">
+                {subtitleFor(selectedTx)}
+              </p>
+              <p
+                className={`text-[1.75rem] font-extrabold mt-3 ${getTextColor(
+                  selectedTx.type
+                )}`}
+              >
+                {selectedTx.type === "sent" || selectedTx.type === "withdrew"
+                  ? "-"
+                  : "+"}
+                {currency === "KES" && selectedTx.fiatAmount
+                  ? ` ${selectedTx.fiatAmount.toLocaleString("en-KE", {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })} KES`
+                  : ` ${formatBalance(selectedTx.amount)}`}
+              </p>
+              {currency === "KES" && (
+                <p className="text-[11px] text-gray-400 mt-0.5">
+                  (
+                  {parseFloat(selectedTx.amount).toLocaleString("en-US", {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 4,
+                  })}{" "}
+                  USDC)
+                </p>
+              )}
+              <p className="text-[11px] text-gray-400 mt-1">
+                {getRelativeTime(selectedTx.date)}
+              </p>
+            </div>
+
+            {selectedTx.hash && selectedTx.hash !== "N/A" ? (
+              <a
+                href={`https://basescan.org/tx/${selectedTx.hash}`}
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center justify-center gap-1.5 w-full py-3 rounded-xl bg-downy-600 text-white text-[12px] font-bold"
+              >
+                View on BaseScan <FiExternalLink size={14} />
+              </a>
+            ) : null}
+          </div>
+        </div>
+      )}
 
       {activeModal === "deposit" && (
         <DepositModal

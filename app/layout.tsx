@@ -5,6 +5,7 @@ import { BlockchainProviders } from "@/Providers/BlockchainProviders";
 import { Toaster } from "sonner";
 import { IsFarcasterProvider } from "./context/isFarcasterContext";
 import { AuthProvider } from "./context/AuthContext";
+import AddToHomeScreen from "./Components/AddToHomeScreen";
 
 const jakarta = Plus_Jakarta_Sans({
   subsets: ["latin"],
@@ -15,10 +16,15 @@ const jakarta = Plus_Jakarta_Sans({
 export const metadata: Metadata = {
   title: "ChamaPay",
   description: "Circular savings — chamas, goals, and earn",
+  manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
     title: "ChamaPay",
+  },
+  icons: {
+    icon: "/icon.png",
+    apple: "/icon.png",
   },
 };
 
@@ -46,6 +52,7 @@ export default function RootLayout({
                   <AuthProvider>
                     <Toaster position="top-center" richColors closeButton />
                     {children}
+                    <AddToHomeScreen />
                   </AuthProvider>
                 </IsFarcasterProvider>
               </BlockchainProviders>

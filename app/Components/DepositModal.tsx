@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { Dialog } from "@headlessui/react";
-import { FiArrowLeft, FiCheck, FiSmartphone } from "react-icons/fi";
+import { FiX, FiCheck, FiSmartphone } from "react-icons/fi";
+import Image from "next/image";
 import { showToast } from "./Toast";
 import { useAuth } from "@/app/context/AuthContext";
 import {
@@ -23,7 +24,7 @@ type Step =
 const FALLBACK_RATE = 132;
 const MIN_KES = 100;
 const MAX_KES = 250000;
-const PRESETS = [5, 10, 20, 50];
+const PRESETS_KES = [500, 1000, 2000, 5000];
 
 export default function DepositModal({
   isOpen,
@@ -36,9 +37,7 @@ export default function DepositModal({
 }) {
   const { token, isAuthenticated } = useAuth();
   const [phone, setPhone] = useState("");
-  const [usdc, setUsdc] = useState("");
   const [kes, setKes] = useState("");
-  const [kesMode, setKesMode] = useState(true);
   const [rate, setRate] = useState(FALLBACK_RATE);
   const [step, setStep] = useState<Step>("idle");
 
@@ -56,38 +55,23 @@ export default function DepositModal({
 
   const reset = () => {
     setPhone("");
-    setUsdc("");
     setKes("");
     setStep("idle");
-  };
-
-  const close = () => {
-    if (step !== "idle" && step !== "completed" && step !== "failed") return;
-    reset();
-    onClose();
   };
 
   const onKesChange = (v: string) => {
     if (v !== "" && !/^\d*\.?\d*$/.test(v)) return;
     setKes(v);
-    const n = parseFloat(v);
-    setUsdc(n > 0 && rate > 0 ? (n / rate).toFixed(3) : "");
   };
 
-  const onUsdcChange = (v: string) => {
-    if (v !== "" && !/^\d*\.?\d*$/.test(v)) return;
-    setUsdc(v);
-    const n = parseFloat(v);
-    setKes(n > 0 && rate > 0 ? (n * rate).toFixed(2) : "");
-  };
+  const kesAmt = parseFloat(kes) || 0;
+  const usdcAmt = kesAmt > 0 && rate > 0 ? kesAmt / rate : 0;
 
   const handleDeposit = async () => {
     if (!isAuthenticated || !token) {
       showToast("Please sign in", "warning");
       return;
     }
-    const kesAmt = parseFloat(kes);
-    const usdcAmt = parseFloat(usdc);
     if (!kesAmt || !usdcAmt) {
       showToast("Enter an amount", "warning");
       return;
@@ -97,7 +81,7 @@ export default function DepositModal({
       return;
     }
     if (kesAmt < MIN_KES) {
-      showToast(`Minimum deposit is ~KES ${MIN_KES}`, "warning");
+      showToast(`Minimum deposit is KES ${MIN_KES}`, "warning");
       return;
     }
     if (kesAmt > MAX_KES) {
@@ -140,7 +124,7 @@ export default function DepositModal({
         }
       );
       setStep("completed");
-      showToast(`Deposited ${usdcAmt.toFixed(3)} USDC`, "success");
+      showToast(`Deposited KES ${kesAmt.toLocaleString()}`, "success");
       onSuccess?.();
       setTimeout(() => {
         reset();
@@ -148,13 +132,21 @@ export default function DepositModal({
       }, 1200);
     } catch (e: unknown) {
       setStep("failed");
-      const err = e as { status?: string; details?: { message?: string }; message?: string; error?: string };
+      const err = e as {
+        status?: string;
+        details?: { message?: string };
+        message?: string;
+        error?: string;
+      };
       const msg =
         err?.status === "cancelled"
           ? "M-Pesa payment was cancelled"
           : err?.status === "timeout"
             ? "Payment timed out — try again"
-            : err?.details?.message || err?.message || err?.error || "Deposit failed";
+            : err?.details?.message ||
+              err?.message ||
+              err?.error ||
+              "Deposit failed";
       showToast(msg, "error");
       setTimeout(() => setStep("idle"), 1500);
     }
@@ -162,83 +154,77 @@ export default function DepositModal({
 
   const busy = step !== "idle" && step !== "failed";
 
+  const close = () => {
+    if (step !== "idle" && step !== "completed" && step !== "failed") return;
+    reset();
+    onClose();
+  };
+
   return (
-    <Dialog open={isOpen} onClose={close} className="relative z-50">
-      <div className="fixed inset-0 bg-black/40" aria-hidden="true" />
-      <div className="fixed inset-0 flex items-end sm:items-center justify-center">
-        <Dialog.Panel className="w-full max-w-[var(--app-max)] max-h-[92dvh] overflow-y-auto rounded-t-3xl sm:rounded-3xl bg-downy-50 shadow-xl">
+    <Dialog open={isOpen} onClose={() => {}} className="relative z-[100]">
+      <div className="app-modal-layer !pointer-events-auto">
+        <div className="app-modal-backdrop" aria-hidden="true" />
+        <Dialog.Panel className="app-modal-sheet bg-downy-50 max-h-[92%] overflow-y-auto">
           <div className="sticky top-0 z-10 bg-gradient-to-br from-downy-800 to-emerald-900 text-white px-4 pt-3 pb-4 rounded-t-3xl">
-            <div className="flex items-center gap-3 min-h-[40px]">
+            <div className="flex items-center justify-between min-h-[40px]">
+              <div className="w-8" />
+              <Dialog.Title className="text-[15px] font-bold">
+                Deposit with M-Pesa
+              </Dialog.Title>
               <button
                 type="button"
                 onClick={close}
                 className="h-8 w-8 rounded-full bg-white/20 flex items-center justify-center"
+                aria-label="Close"
               >
-                <FiArrowLeft size={16} />
+                <FiX size={16} />
               </button>
-              <Dialog.Title className="text-[15px] font-bold flex-1 text-center pr-8">
-                Deposit
-              </Dialog.Title>
             </div>
-            <p className="text-[11px] text-white/75 text-center mt-1">
-              Add USDC via M-Pesa · rate ~{rate.toFixed(2)} KES
-            </p>
+            <div className="flex items-center justify-center gap-2 mt-3">
+              <Image
+                src="/static/images/mpesa.png"
+                alt="M-Pesa"
+                width={40}
+                height={40}
+                className="rounded-lg bg-white p-0.5"
+              />
+              <p className="text-[12px] text-white/85 font-medium">
+                Top up your wallet via M-Pesa
+              </p>
+            </div>
           </div>
 
           <div className="px-4 py-4 space-y-3">
-            <div className="flex bg-white rounded-xl p-0.5 border border-downy-100">
-              <button
-                type="button"
-                onClick={() => setKesMode(true)}
-                className={`flex-1 py-2 rounded-[10px] text-[12px] font-semibold ${
-                  kesMode ? "bg-downy-600 text-white" : "bg-transparent text-gray-500"
-                }`}
-              >
-                KES
-              </button>
-              <button
-                type="button"
-                onClick={() => setKesMode(false)}
-                className={`flex-1 py-2 rounded-[10px] text-[12px] font-semibold ${
-                  !kesMode ? "bg-downy-600 text-white" : "bg-transparent text-gray-500"
-                }`}
-              >
-                USDC
-              </button>
-            </div>
-
             <div>
               <label className="block text-[11px] font-semibold text-gray-600 mb-1.5">
-                Amount ({kesMode ? "KES" : "USDC"})
+                Amount (KES)
               </label>
-              <input
-                type="text"
-                inputMode="decimal"
-                value={kesMode ? kes : usdc}
-                onChange={(e) =>
-                  kesMode ? onKesChange(e.target.value) : onUsdcChange(e.target.value)
-                }
-                placeholder={kesMode ? "1000" : "5"}
-                disabled={busy}
-                className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-[15px] font-bold outline-none focus:ring-2 focus:ring-downy-500"
-              />
-              <p className="text-[11px] text-gray-500 mt-1">
-                {kesMode
-                  ? `≈ ${usdc || "0.000"} USDC`
-                  : `≈ ${kes || "0.00"} KES`}
-              </p>
+              <div className="flex items-center bg-white border border-gray-200 rounded-xl overflow-hidden">
+                <span className="px-3 py-2.5 bg-gray-50 border-r border-gray-200 text-[12px] font-bold text-gray-600">
+                  KES
+                </span>
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={kes}
+                  onChange={(e) => onKesChange(e.target.value)}
+                  placeholder="1000"
+                  disabled={busy}
+                  className="flex-1 px-3 py-2.5 text-[15px] font-bold outline-none border-0"
+                />
+              </div>
             </div>
 
             <div className="flex gap-1.5 flex-wrap">
-              {PRESETS.map((p) => (
+              {PRESETS_KES.map((p) => (
                 <button
                   key={p}
                   type="button"
                   disabled={busy}
-                  onClick={() => onUsdcChange(String(p))}
+                  onClick={() => onKesChange(String(p))}
                   className="px-2.5 py-1 rounded-full bg-white border border-downy-100 text-[11px] font-bold text-downy-800"
                 >
-                  {p} USDC
+                  {p.toLocaleString()} KES
                 </button>
               ))}
             </div>
@@ -282,9 +268,9 @@ export default function DepositModal({
             <button
               type="button"
               onClick={handleDeposit}
-              disabled={busy || !usdc || !phone}
+              disabled={busy || !kes || !phone}
               className={`w-full py-3 rounded-xl text-[13px] font-bold text-white ${
-                busy || !usdc || !phone
+                busy || !kes || !phone
                   ? "bg-gray-300"
                   : "bg-downy-600 shadow-md shadow-downy-600/25"
               }`}

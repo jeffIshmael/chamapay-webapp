@@ -18,13 +18,13 @@ import { motion } from "framer-motion";
 import {
   FiUsers,
   FiArrowRight,
-  FiClock,
   FiCalendar,
   FiDollarSign,
   FiTarget,
   FiPlus,
 } from "react-icons/fi";
-import { utcToLocalTime } from "@/utils/duration";
+import { formatTimeRemaining } from "@/utils/duration";
+import { useFormattedBalance } from "@/lib/useFormattedBalance";
 import PayoutCongrats from "../Components/PayoutCongrats";
 import { JoinedChama } from "@/utils/typesUtils";
 import { useSessionAddress } from "@/lib/useSessionAddress";
@@ -272,7 +272,7 @@ function MyHomeContent() {
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                className="space-y-2.5"
+                className="space-y-6"
               >
                 {error && (
                   <p className="text-[12px] text-amber-700 bg-amber-50 px-3 py-2 rounded-xl">
@@ -344,67 +344,81 @@ function MyHomeContent() {
   );
 }
 
-const ChamaCard = ({ chama }: { chama: JoinedChama }) => (
-  <Link href={`/Chama/${chama.slug}`}>
-    <motion.div
-      whileTap={{ scale: 0.99 }}
-      className="bg-white rounded-2xl shadow-sm border border-downy-100/70 overflow-hidden"
-    >
-      <div className="p-3.5">
-        <div className="flex items-start gap-2.5">
-          <div className="flex-1 min-w-0">
-            <div className="flex justify-between items-start gap-2">
-              <h3 className="font-bold text-[13px] text-gray-900 truncate">
-                {chama.name}
-              </h3>
-              <div className="flex items-center bg-downy-50 px-1.5 py-0.5 rounded-full shrink-0">
-                <FiDollarSign className="text-downy-600 mr-0.5" size={11} />
-                <span className="text-[10px] font-semibold text-downy-700">
-                  {chama.contribution} {chama.currency}/{chama.frequency}
-                </span>
+const ChamaCard = ({ chama }: { chama: JoinedChama }) => {
+  const { formatBalance } = useFormattedBalance();
+  const hasSchedule = (chama.payoutSchedule?.length || 0) > 0;
+  const recipientName = chama.myTurn ? "#You" : chama.currentTurnMember;
+  const scheduleFallback = chama.nextPayout
+    ? formatTimeRemaining(
+        new Date(new Date(chama.nextPayout).getTime() - 3 * 60 * 60 * 1000)
+      )
+    : chama.nextPayoutDate;
+
+  return (
+    <Link href={`/Chama/${chama.slug}`}>
+      <motion.div
+        whileTap={{ scale: 0.99 }}
+        className="bg-white rounded-2xl shadow-sm border border-downy-100/70 overflow-hidden"
+      >
+        <div className="p-3.5">
+          <div className="flex items-start gap-2.5">
+            <div className="flex-1 min-w-0">
+              <div className="flex justify-between items-start gap-2">
+                <h3 className="font-bold text-[13px] text-gray-900 truncate">
+                  {chama.name}
+                </h3>
+                <div className="flex items-center bg-downy-50 px-1.5 py-0.5 rounded-full shrink-0">
+                  <FiDollarSign className="text-downy-600 mr-0.5" size={11} />
+                  <span className="text-[10px] font-semibold text-downy-700">
+                    {formatBalance(chama.contribution)}/{chama.frequency}
+                  </span>
+                </div>
               </div>
-            </div>
-            <div className="flex items-center text-gray-500 text-[11px] mt-1.5">
-              <FiCalendar className="mr-1 shrink-0" size={12} />
-              <span className="truncate">
-                {chama.status === "active"
-                  ? `Pay: ${utcToLocalTime(chama.contributionDueDate)}`
-                  : `Starts: ${utcToLocalTime(chama.startDate)}`}
-              </span>
-            </div>
-            <div className="flex items-center justify-between gap-1 mt-1.5">
-              <div className="flex items-center gap-1">
-                <FiUsers className="text-gray-400" size={12} />
-                <span className="text-[11px] font-medium text-gray-500">
-                  {chama.members.length}{" "}
-                  {chama.members.length === 1 ? "member" : "members"}
-                </span>
+
+              <div className="flex items-center justify-between gap-2 mt-2.5 pt-2.5 border-t border-gray-100">
+                <div className="flex items-center gap-1 text-[11px] text-gray-500">
+                  <FiUsers className="text-gray-400" size={12} />
+                  <span>
+                    {chama.members.length}{" "}
+                    {chama.members.length === 1 ? "member" : "members"}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  {chama.myTurn && (
+                    <span className="text-[9px] font-bold bg-emerald-600 text-white px-1.5 py-0.5 rounded-full">
+                      Your Turn
+                    </span>
+                  )}
+                  <FiArrowRight className="text-emerald-500" size={16} />
+                </div>
               </div>
-              <div className="flex items-center text-[11px] text-gray-500">
-                <FiClock
-                  size={12}
-                  className={`${
-                    chama.status === "active" ? "text-emerald-500" : "text-gray-400"
-                  } mr-1`}
-                />
-                <span
-                  className={
-                    chama.status === "active" ? "text-emerald-600 font-semibold" : ""
-                  }
-                >
-                  {chama.status === "active" ? "Active" : "Not started"}
-                </span>
+
+              <div className="flex items-center text-gray-600 text-[11px] mt-1.5 min-w-0">
+                <FiCalendar className="mr-1.5 shrink-0 text-gray-400" size={13} />
+                {hasSchedule ? (
+                  <span className="truncate font-medium">
+                    Next payout:{" "}
+                    <span className="text-downy-700 font-semibold">
+                      {recipientName}
+                    </span>{" "}
+                    <span className="text-gray-500">({chama.nextPayoutDate})</span>
+                  </span>
+                ) : (
+                  <span className="truncate font-medium">
+                    Schedule in: {scheduleFallback}
+                  </span>
+                )}
               </div>
             </div>
           </div>
-          <FiArrowRight className="text-gray-300 mt-1 shrink-0" size={16} />
         </div>
-      </div>
-    </motion.div>
-  </Link>
-);
+      </motion.div>
+    </Link>
+  );
+};
 
 const GoalCard = ({ goal }: { goal: GoalRecord }) => {
+  const { formatBalance } = useFormattedBalance();
   const members = goal._count?.members ?? goal.members?.length ?? 1;
   return (
     <Link href={`/Goal/${goal.slug}`}>
@@ -439,7 +453,7 @@ const GoalCard = ({ goal }: { goal: GoalRecord }) => {
               </p>
               <div className="flex items-center justify-between mt-2.5 pt-2 border-t border-gray-100">
                 <span className="text-[12px] font-bold text-downy-800">
-                  Target {goal.targetAmount} USDC
+                  Target {formatBalance(Number(goal.targetAmount) || 0)}
                 </span>
                 <span className="text-[11px] text-gray-500">
                   {members} {members === 1 ? "member" : "members"}

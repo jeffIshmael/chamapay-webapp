@@ -34,6 +34,8 @@ export interface Member {
   role: string;
   contributions: number;
   address?: string;
+  smartAddress?: string;
+  profilePicture?: string;
 }
 
 export interface Message {
@@ -54,9 +56,9 @@ export interface PayoutScheduleItem {
 }
 
 export interface Transaction {
-  id: number;
+  id: number | string;
   type: string;
-  amount: number;
+  amount: number | null;
   date: string;
   status: string;
   description: string;
@@ -127,14 +129,16 @@ export interface JoinedChama {
   status: "not started" | "active";
   unreadMessages: number;
   isPublic: boolean;
+  currentCycle: number;
+  currentRound: number;
   messages: Message[];
   payoutSchedule: PayoutScheduleItem[];
   members: Member[];
   recentTransactions: Transaction[];
   roundOutcome: RoundOutcome[];
   payOuts: PayOut[];
-  userBalance?: string;
-  eachMemberBalance?: Record<string, string>;
+  userBalance?: string | string[];
+  eachMemberBalance?: Record<string, string> | [string[], string[][]];
 }
 
 

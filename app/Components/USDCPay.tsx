@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useReadContract } from "wagmi";
 import { celo } from "viem/chains";
 import erc20Abi from "@/app/ChamaPayABI/ERC20.json";
@@ -10,6 +10,8 @@ import { showToast } from "./Toast";
 import { useAuth } from "../context/AuthContext";
 import { useSessionAddress } from "@/lib/useSessionAddress";
 import { serverUrl } from "@/lib/serverUrl";
+import { useFormattedBalance } from "@/lib/useFormattedBalance";
+import { useCurrencyStore } from "@/store/useCurrencyStore";
 
 const USDCPay = ({
   chamaId,
@@ -18,6 +20,8 @@ const USDCPay = ({
   onClose,
   isLoading,
   setIsLoading,
+  memberForId,
+  remainingAmount = 0,
 }: {
   chamaId: number;
   chamaBlockchainId: number;
@@ -25,10 +29,25 @@ const USDCPay = ({
   onClose: () => void;
   isLoading: boolean;
   setIsLoading: (isLoading: boolean) => void;
+  memberForId?: number;
+  remainingAmount?: number;
 }) => {
   const { address, isAuthenticated } = useSessionAddress();
   const [amount, setAmount] = useState("");
   const { token } = useAuth();
+  const { formatBalance, platformRate } = useFormattedBalance();
+  const { currency } = useCurrencyStore();
+  const [kesMode, setKesMode] = useState(currency === "KES");
+  const isKES = kesMode && platformRate > 0;
+
+  useEffect(() => {
+    if (remainingAmount <= 0) return;
+    setAmount(
+      isKES
+        ? (remainingAmount * platformRate).toFixed(2)
+        : remainingAmount.toFixed(3)
+    );
+  }, [remainingAmount, isKES, platformRate]);
 
   const {
     data: balanceData,
@@ -42,6 +61,8 @@ const USDCPay = ({
     args: [address],
   });
 
+  const walletUsdc = balanceData ? Number(balanceData) / 1e6 : 0;
+
   const handlePayment = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!isAuthenticated || !address || !token) {
@@ -49,34 +70,34 @@ const USDCPay = ({
       return;
     }
 
-    const formData = new FormData(e.target as HTMLFormElement);
-    const data = Object.fromEntries(formData.entries());
-    const payAmount = parseFloat(data.amount as string);
-
-    if (isNaN(payAmount) || payAmount <= 0) {
+    const entered = parseFloat(amount);
+    if (isNaN(entered) || entered <= 0) {
       showToast("Invalid amount", "warning");
       return;
     }
 
-    const balance = Number(balanceData) / 10 ** 6;
-    if (payAmount > balance) {
+    const payAmountUsdc = isKES ? entered / platformRate : entered;
+    if (payAmountUsdc > walletUsdc) {
       showToast("Insufficient USDC balance", "error");
       return;
     }
 
     try {
       setIsLoading(true);
+      const body: Record<string, unknown> = {
+        amount: payAmountUsdc.toFixed(6),
+        blockchainId: chamaBlockchainId,
+        chamaId,
+      };
+      if (memberForId) body.memberForId = memberForId;
+
       const response = await fetch(`${serverUrl}/chama/deposit`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({
-          amount: payAmount.toString(),
-          blockchainId: chamaBlockchainId,
-          chamaId,
-        }),
+        body: JSON.stringify(body),
       });
       const result = await response.json().catch(() => ({}));
       if (!response.ok || result?.error) {
@@ -84,7 +105,12 @@ const USDCPay = ({
         return;
       }
 
-      showToast(`${payAmount} USDC paid to ${name}`, "success");
+      showToast(
+        `${formatBalance(payAmountUsdc)} paid to ${name}${
+          memberForId ? " (on behalf)" : ""
+        }`,
+        "success"
+      );
       onClose();
     } catch (error) {
       console.error("Payment error:", error);
@@ -92,12 +118,6 @@ const USDCPay = ({
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const formatBalance = (balance: bigint | undefined) => {
-    if (isBalanceLoading) return "Loading...";
-    if (isBalanceError || balance === undefined) return "---";
-    return (Number(balance) / 10 ** 6).toFixed(3);
   };
 
   return (
@@ -111,53 +131,85 @@ const USDCPay = ({
           className="rounded-full"
         />
         <div>
-          <h3 className="text-lg font-semibold text-gray-800">Pay with USDC</h3>
-          <p className="text-xs text-gray-500">Chama: {name}</p>
+          <h3 className="text-[15px] font-semibold text-gray-800">
+            Pay from account
+          </h3>
+          <p className="text-[11px] text-gray-500">Chama: {name}</p>
         </div>
       </div>
 
+      {remainingAmount > 0 && (
+        <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-100 rounded-xl px-3 py-2 mb-3">
+          Outstanding: {formatBalance(remainingAmount)}
+        </p>
+      )}
+
       <form onSubmit={handlePayment} className="space-y-3">
         <div className="space-y-1">
-          <label htmlFor="amount" className="text-sm font-medium text-gray-700">
-            Amount (USDC)
-          </label>
-          <div className="relative">
-            <input
-              type="number"
-              id="amount"
-              name="amount"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              placeholder="0.00"
-              step="0.0001"
-              min="0"
-              className="w-full p-2 pl-8 border border-gray-300 rounded-md focus:ring focus:ring-downy-200 focus:border-blue-500"
-              required
-              disabled={isLoading}
-            />
-            <span className="absolute left-2 top-2.5 text-gray-500">$</span>
+          <div className="flex items-center justify-between">
+            <label htmlFor="amount" className="text-[12px] font-medium text-gray-700">
+              Amount ({isKES ? "KES" : "USDC"})
+            </label>
+            <div className="flex bg-gray-100 rounded-lg p-0.5">
+              <button
+                type="button"
+                onClick={() => setKesMode(true)}
+                className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${
+                  kesMode ? "bg-downy-600 text-white" : "text-gray-500"
+                }`}
+              >
+                KES
+              </button>
+              <button
+                type="button"
+                onClick={() => setKesMode(false)}
+                className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${
+                  !kesMode ? "bg-downy-600 text-white" : "text-gray-500"
+                }`}
+              >
+                USDC
+              </button>
+            </div>
           </div>
+          <input
+            type="text"
+            inputMode="decimal"
+            id="amount"
+            value={amount}
+            onChange={(e) => {
+              const v = e.target.value;
+              if (v === "" || /^\d*\.?\d*$/.test(v)) setAmount(v);
+            }}
+            placeholder="0.00"
+            className="w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-downy-200 text-[14px] font-semibold"
+            required
+            disabled={isLoading}
+          />
         </div>
 
-        <div className="text-sm space-y-1 ">
-          <div className="flex justify-end text-gray-600 gap-1">
-            <span>Available: </span>
+        <div className="flex justify-end text-[12px] text-gray-600">
+          <span>
+            Available:{" "}
             <span className="font-medium">
-              {formatBalance(balanceData as bigint)} USDC
+              {isBalanceLoading
+                ? "…"
+                : isBalanceError
+                  ? "—"
+                  : formatBalance(walletUsdc)}
             </span>
-          </div>
+          </span>
         </div>
 
         <button
           type="submit"
           disabled={isLoading || !amount || parseFloat(amount) <= 0}
-          className={`w-full py-2 px-4 rounded-md font-medium transition-colors ${
+          className={`w-full py-3 px-4 rounded-xl font-bold text-[13px] transition-colors ${
             isLoading
               ? "bg-downy-300 text-gray-600 cursor-not-allowed"
-              : "bg-downy-500 text-white hover:bg-downy-600"
+              : "bg-downy-600 text-white hover:bg-downy-700"
           }`}
         >
-          {isLoading ? "Processing..." : "make payment"}
+          {isLoading ? "Processing…" : "Make payment"}
         </button>
       </form>
     </div>

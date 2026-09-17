@@ -124,6 +124,58 @@ body.modal-open {
   }
 }
 
+/* Bottom sheets / modals: same width as the phone app shell */
+.app-modal-layer {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  top: 0;
+  bottom: 0;
+  width: 100%;
+  max-width: var(--app-max);
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  pointer-events: none;
+}
+
+.app-modal-layer > * {
+  pointer-events: auto;
+}
+
+.app-modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+}
+
+.app-modal-sheet {
+  position: relative;
+  width: 100%;
+  max-height: 92%;
+  overflow-y: auto;
+  border-radius: 1.5rem 1.5rem 0 0;
+  background: #fff;
+  box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.18);
+}
+
+@media (min-width: 480px) {
+  .app-modal-layer {
+    top: 1.25rem;
+    bottom: 1.25rem;
+    height: min(860px, calc(100dvh - 2.5rem));
+    max-height: calc(100dvh - 2.5rem);
+    width: min(var(--app-max), calc(100% - 2rem));
+    border-radius: 1.75rem;
+    overflow: hidden;
+  }
+
+  .app-modal-sheet {
+    border-radius: 1.5rem 1.5rem 0 0;
+  }
+}
+
 @font-face {
   font-family: "Playwrite US Trad";
   src: url("/fonts/PlaywriteUSTrad-VariableFont_wght.ttf") format("truetype");

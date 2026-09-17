@@ -1,12 +1,13 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { FiAlertTriangle, FiTarget } from "react-icons/fi";
 import { showToast } from "./Toast";
 import { createGoal, GoalType } from "@/lib/goalService";
 import { useAuth } from "../context/AuthContext";
 import { useSessionAddress } from "@/lib/useSessionAddress";
+import { useCurrencyStore } from "@/store/useCurrencyStore";
 
 const GOAL_TYPES: Array<{ type: GoalType; label: string; hint: string }> = [
   {
@@ -35,9 +36,15 @@ const CreateGoalForm = () => {
   const [yieldEnabled, setYieldEnabled] = useState(false);
   const [isPending, setIsPending] = useState(false);
   const [errorText, setErrorText] = useState("");
+  const [kesMode, setKesMode] = useState(false);
   const router = useRouter();
   const { token } = useAuth();
   const { isAuthenticated } = useSessionAddress();
+  const { currency, platformRate } = useCurrencyStore();
+
+  useEffect(() => {
+    if (currency === "KES") setKesMode(true);
+  }, [currency]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -72,12 +79,15 @@ const CreateGoalForm = () => {
       return;
     }
 
+    const amountUsdc =
+      kesMode && platformRate > 0 ? targetNum / platformRate : targetNum;
+
     try {
       const result = await createGoal(token, {
         name: name.trim(),
         description: description.trim(),
         goalType,
-        targetAmount: targetNum.toString(),
+        targetAmount: amountUsdc.toFixed(6),
         endDate: new Date(`${endDate}T23:59:59`).toISOString(),
         yieldEnabled: goalType === "public" ? false : yieldEnabled,
       });
@@ -162,21 +172,58 @@ const CreateGoalForm = () => {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Target (USDC)
-          </label>
-          <input
-            type="text"
-            inputMode="decimal"
-            value={target}
-            onChange={(e) => {
-              const v = e.target.value;
-              if (v === "" || /^\d*\.?\d*$/.test(v)) setTarget(v);
-            }}
-            required
-            placeholder="e.g. 400"
-            className="block w-full rounded-xl border-downy-200 shadow-sm focus:border-downy-500 focus:ring-downy-500 sm:text-sm h-12"
-          />
+          <div className="flex items-center justify-between mb-1">
+            <label className="block text-sm font-medium text-gray-700">
+              Target amount
+            </label>
+            <div className="flex bg-gray-100 rounded-lg p-0.5">
+              <button
+                type="button"
+                onClick={() => setKesMode(true)}
+                className={`px-2.5 py-1 rounded-md text-[10px] font-bold ${
+                  kesMode ? "bg-downy-600 text-white" : "text-gray-500"
+                }`}
+              >
+                KES
+              </button>
+              <button
+                type="button"
+                onClick={() => setKesMode(false)}
+                className={`px-2.5 py-1 rounded-md text-[10px] font-bold ${
+                  !kesMode ? "bg-downy-600 text-white" : "text-gray-500"
+                }`}
+              >
+                USDC
+              </button>
+            </div>
+          </div>
+          <div className="flex items-center bg-white border border-downy-200 rounded-xl overflow-hidden">
+            <span className="px-3 py-3 bg-gray-50 border-r border-gray-200 text-[12px] font-bold text-gray-600">
+              {kesMode ? "KES" : "USDC"}
+            </span>
+            <input
+              type="text"
+              inputMode="decimal"
+              value={target}
+              onChange={(e) => {
+                const v = e.target.value;
+                if (v === "" || /^\d*\.?\d*$/.test(v)) setTarget(v);
+              }}
+              required
+              placeholder={kesMode ? "50000" : "400"}
+              className="flex-1 px-3 py-3 text-sm font-semibold border-0 focus:ring-0"
+            />
+          </div>
+          {kesMode && target && platformRate > 0 && (
+            <p className="text-[11px] text-gray-500 mt-1">
+              ≈ {(parseFloat(target) / platformRate || 0).toFixed(3)} USDC
+            </p>
+          )}
+          {!kesMode && target && platformRate > 0 && (
+            <p className="text-[11px] text-gray-500 mt-1">
+              ≈ {(parseFloat(target) * platformRate || 0).toFixed(0)} KES
+            </p>
+          )}
         </div>
 
         <div>

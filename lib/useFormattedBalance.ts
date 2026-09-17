@@ -47,9 +47,9 @@ export function useFormattedBalance() {
       })} KES`;
     }
 
-    const usdcValue = Math.ceil(numericBalance * 1000) / 1000;
+    const usdcValue = Math.round(numericBalance * 1000) / 1000;
     return `${usdcValue.toLocaleString("en-US", {
-      minimumFractionDigits: 0,
+      minimumFractionDigits: noDecimals ? 0 : 3,
       maximumFractionDigits: 3,
     })} USDC`;
   };
@@ -76,8 +76,8 @@ export function useFormattedBalance() {
       minFrac = noDecimals ? 0 : 2;
       maxFrac = noDecimals ? 0 : 2;
     } else {
-      value = Math.ceil(numericBalance * 1000) / 1000;
-      minFrac = 0;
+      value = Math.round(numericBalance * 1000) / 1000;
+      minFrac = noDecimals ? 0 : 3;
       maxFrac = 3;
     }
 

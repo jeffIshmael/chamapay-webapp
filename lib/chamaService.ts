@@ -3,6 +3,7 @@ import { JoinedChama, Message, RoundOutcome, PayOut } from "@/utils/typesUtils";
 import { serverUrl } from "@/lib/serverUrl";
 import { formatDays, formatTimeRemaining } from "@/utils/duration";
 import { Notification } from "@/utils/typesUtils";
+import { normalizeUsdcAmount } from "@/lib/normalizeUsdc";
 
 // User service functions
 export const checkUsernameAvailability = async (
@@ -94,6 +95,7 @@ export interface ChamaMember {
     email: string;
     profileImageUrl?: string;
     address?: string;
+    smartAddress?: string;
   };
 }
 
@@ -108,6 +110,7 @@ export interface BackendChama {
   slug: string;
   startDate: Date;
   started: boolean;
+  status?: string;
   adminTerms: string | null;
   payDate: Date;
   blockchainId: string;
@@ -131,8 +134,8 @@ export interface BackendChama {
   _count?: {
     members: number;
   };
-  userBalance?: string;
-  eachMemberBalance?: Record<string, string>;
+  userBalance?: string | string[];
+  eachMemberBalance?: Record<string, string> | [string[], string[][]];
 }
 
 
@@ -498,6 +501,16 @@ export const transformChamaData = (
     ? nextPayoutEntry.payDate
     : backendChama.payDate;
 
+  const statusStr = String(backendChama.status || "").toLowerCase();
+  const looksStarted =
+    backendChama.started === true ||
+    statusStr === "active" ||
+    payoutArray.length > 0 ||
+    (backendChama.cycle ?? 1) > 1 ||
+    (backendChama.round ?? 1) > 1 ||
+    (backendChama.payments?.length ?? 0) > 0 ||
+    (backendChama.payOuts?.length ?? 0) > 0;
+
   return {
     id: backendChama.id,
     slug: backendChama.slug,
@@ -507,8 +520,9 @@ export const transformChamaData = (
 
     totalMembers: memberCount,
     maxMembers: backendChama.maxNo,
-    contribution: parseFloat(backendChama.amount),
-    totalContributions: parseFloat(backendChama.amount) * memberCount,
+    contribution: normalizeUsdcAmount(backendChama.amount),
+    totalContributions:
+      normalizeUsdcAmount(backendChama.amount) * memberCount,
 
     startDate: backendChama.startDate,
 
@@ -516,16 +530,18 @@ export const transformChamaData = (
     nextPayoutDate: formatTimeRemaining(nextPayoutDate),
     myTurnDate: myTurnDate,
 
-    nextPayoutAmount: parseFloat(backendChama.amount) * memberCount,
+    nextPayoutAmount:
+      normalizeUsdcAmount(backendChama.amount) * memberCount,
 
     // Current turn member = entry with first unpaid or fallback to first
     currentTurnMember:
       (nextPayoutEntry &&
-        backendChama.members?.find(
-          (m) =>
-            m.user.address?.toLowerCase() ===
-            nextPayoutEntry.userAddress?.toLowerCase()
-        )?.user?.userName) ||
+        backendChama.members?.find((m) => {
+          const next = nextPayoutEntry.userAddress?.toLowerCase();
+          const addr = m.user.address?.toLowerCase();
+          const smart = (m.user as { smartAddress?: string }).smartAddress?.toLowerCase();
+          return addr === next || smart === next;
+        })?.user?.userName) ||
       "Not assigned",
     currentTurnMemberPosition: safeNextPayoutIndex + 1,
     currentTurnMemberAddress: nextPayoutEntry?.userAddress,
@@ -548,7 +564,8 @@ export const transformChamaData = (
         : backendChama.adminTerms
       : [],
 
-    collateralAmount: parseFloat(backendChama.amount) * backendChama.maxNo,
+    collateralAmount:
+      normalizeUsdcAmount(backendChama.amount) * backendChama.maxNo,
 
     nextPayout: nextPayoutDate ? nextPayoutDate : null,
 
@@ -558,12 +575,14 @@ export const transformChamaData = (
 
     nextTurnMember: backendChama.members?.[1]?.user?.userName || "Not assigned",
 
-    status: (backendChama.started ? "active" : "not started") as
+    status: (looksStarted ? "active" : "not started") as
       | "active"
       | "not started",
 
     unreadMessages: 0,
     isPublic: backendChama.type === "Public",
+    currentCycle: backendChama.cycle || 1,
+    currentRound: backendChama.round || 1,
     blockchainId: backendChama.blockchainId,
 
     messages: backendChama.messages,
@@ -577,28 +596,103 @@ export const transformChamaData = (
         phone: "",
         email: member.user.email,
         role: member.user.id === backendChama.admin.id ? "Admin" : "Member",
-        contributions: parseFloat(backendChama.amount),
-        address: member.user.address || "",
+        contributions: normalizeUsdcAmount(backendChama.amount),
+        address: member.user.address || member.user.smartAddress || "",
+        smartAddress: member.user.smartAddress || member.user.address || "",
+        profilePicture: member.user.profileImageUrl || "",
       })) || [],
 
-    recentTransactions:
-      backendChama.payments?.map((payment) => ({
-        id: payment.id,
-        amount: payment.amount,
-        type: payment.description ? "contribution" : "payment",
-        date: payment.doneAt,
+    recentTransactions: [
+      ...(() => {
+        const payments = backendChama.payments || [];
+        const byTxHash = new Map<string, any[]>();
+        const noHash: any[] = [];
+        for (const payment of payments) {
+          const hash = payment.txHash ? String(payment.txHash) : "";
+          if (!hash) {
+            noHash.push(payment);
+            continue;
+          }
+          const list = byTxHash.get(hash) || [];
+          list.push(payment);
+          byTxHash.set(hash, list);
+        }
+
+        const preferPayerRow = (rows: any[]) => {
+          if (rows.length === 1) return rows[0];
+          const depositedFor = rows.find((p) =>
+            String(p.description || "")
+              .toLowerCase()
+              .includes("deposited for @")
+          );
+          if (depositedFor) return depositedFor;
+          const notOnBehalf = rows.find(
+            (p) =>
+              !String(p.description || "")
+                .toLowerCase()
+                .includes("on behalf of")
+          );
+          return notOnBehalf || rows[0];
+        };
+
+        const dedupedPayments = [
+          ...Array.from(byTxHash.values()).map(preferPayerRow),
+          ...noHash.filter(
+            (p) =>
+              !String(p.description || "")
+                .toLowerCase()
+                .includes("on behalf of")
+          ),
+        ];
+
+        const isOnBehalfDescription = (description?: string | null) => {
+          const d = String(description || "").toLowerCase();
+          return d.includes("on behalf of") || d.includes("deposited for @");
+        };
+
+        return dedupedPayments.map((payment) => ({
+          id: `payment-${payment.id}`,
+          amount: normalizeUsdcAmount(payment.amount),
+          type: isOnBehalfDescription(payment.description)
+            ? "deposit_on_behalf"
+            : payment.description?.toLowerCase().includes("deposit") ||
+                payment.description?.toLowerCase().includes("locked")
+              ? "contribution"
+              : "withdrawal",
+          date: payment.doneAt,
+          status: "completed",
+          description: payment.description || "Contribution",
+          txHash: payment.txHash,
+          userId: payment.userId,
+          user: {
+            id: payment.user?.id ?? 0,
+            name: payment.user?.userName || "Member",
+            email: payment.user?.email || "",
+            profileImageUrl: payment.user?.profileImageUrl || "",
+            address: payment.user?.smartAddress || payment.user?.address || "",
+          },
+        }));
+      })(),
+      ...(backendChama.payOuts?.map((payout: any) => ({
+        id: `payout-${payout.id}`,
+        amount: normalizeUsdcAmount(payout.amount),
+        type: "payout",
+        date: payout.doneAt,
         status: "completed",
-        description: payment.description || "Contribution",
-        txHash: payment.txHash,
-        userId: payment.userId,
+        description: "Payout",
+        txHash: payout.txHash || "",
+        userId: payout.userId,
         user: {
-          id: payment.user.id,
-          name: payment.user.userName,
-          email: payment.user.email,
-          profileImageUrl: payment.user.profileImageUrl,
-          address: payment.user.smartAddress,
+          id: payout.user?.id ?? 0,
+          name: payout.user?.userName || "Member",
+          email: "",
+          profileImageUrl: payout.user?.profileImageUrl || "",
+          address: payout.user?.smartAddress || "",
         },
-      })) || [],
+      })) || []),
+    ].sort(
+      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+    ),
     roundOutcome: backendChama.roundOutcome || [],
     payOuts: backendChama.payOuts || [],
     userBalance: backendChama.userBalance,
@@ -894,7 +988,8 @@ export const transformNotification = async (
     const transformedNotifications: Notification[] = [];
 
     // Transform regular notifications
-    notifications.forEach((notif) => {
+    const list = Array.isArray(notifications) ? notifications : [];
+    list.forEach((notif) => {
       const transformed: Notification = {
         id: notif.id.toString(),
         type: mapNotificationType(notif.type),
@@ -913,7 +1008,8 @@ export const transformNotification = async (
 
     // Transform join requests into notifications
     // Only show pending requests as actionable notifications
-    const pendingRequests = requests.filter((req) => req.status === "pending");
+    const reqList = Array.isArray(requests) ? requests : [];
+    const pendingRequests = reqList.filter((req) => req.status === "pending");
 
     pendingRequests.forEach((request) => {
       const transformed: Notification = {

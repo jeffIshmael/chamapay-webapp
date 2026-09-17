@@ -71,7 +71,7 @@ export default function ChamaNavbar({
                 clipRule="evenodd"
               />
             </svg>
-            <span className="text-xs mt-1">Details</span>
+            <span className="text-xs mt-1">Overview</span>
           </button>
 
           <button
