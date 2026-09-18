@@ -55,7 +55,14 @@ export default function AuthScreen() {
   const googleBtnRef = useRef<HTMLDivElement>(null);
   const codeInputRef = useRef<HTMLInputElement>(null);
   const verifyingRef = useRef(false);
-  const googleToastId = useRef<string | number | null>(null);
+  const googleToastId = useRef<string | number | undefined>(undefined);
+
+  const dismissGoogleToast = useCallback(() => {
+    if (googleToastId.current !== undefined) {
+      toast.dismiss(googleToastId.current);
+      googleToastId.current = undefined;
+    }
+  }, []);
 
   const clientId =
     process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ||
@@ -82,32 +89,26 @@ export default function AuthScreen() {
   useEffect(() => {
     if (!isLoading && isAuthenticated) {
       authDebug("AuthScreen already authenticated → /MyChamas");
-      if (googleToastId.current != null) {
-        toast.dismiss(googleToastId.current);
-        googleToastId.current = null;
-      }
+      dismissGoogleToast();
       router.replace("/MyChamas");
     }
-  }, [isAuthenticated, isLoading, router]);
+  }, [isAuthenticated, isLoading, router, dismissGoogleToast]);
 
   useEffect(() => {
     if (pendingProfile?.email) {
       setEmail(pendingProfile.email);
       setShowSetup(true);
       setShowVerifyModal(false);
-      if (googleToastId.current != null) {
-        toast.dismiss(googleToastId.current);
-        googleToastId.current = null;
-      }
+      dismissGoogleToast();
     }
-  }, [pendingProfile]);
+  }, [pendingProfile, dismissGoogleToast]);
 
   const handleGoogleCredential = useCallback(
     async (response: { credential: string }) => {
       authDebug("google credential received", {
         hasCredential: Boolean(response?.credential),
       });
-      if (googleToastId.current != null) toast.dismiss(googleToastId.current);
+      dismissGoogleToast();
       googleToastId.current = toast.loading("Signing in…", {
         position: "bottom-center",
       });
@@ -116,29 +117,25 @@ export default function AuthScreen() {
         const result = await loginWithGoogle(response.credential, "id");
         authDebug("google login result", { result });
         if (result === "ok") {
-          toast.dismiss(googleToastId.current);
-          googleToastId.current = null;
+          dismissGoogleToast();
           router.replace("/MyChamas");
           return;
         }
         if (result === "register") {
-          toast.dismiss(googleToastId.current);
-          googleToastId.current = null;
+          dismissGoogleToast();
           setShowSetup(true);
           return;
         }
-        toast.dismiss(googleToastId.current);
-        googleToastId.current = null;
+        dismissGoogleToast();
       } catch (e) {
         authDebug("google credential handler error", e);
-        toast.dismiss(googleToastId.current);
-        googleToastId.current = null;
+        dismissGoogleToast();
         showToast("Google sign-in failed", "error");
       } finally {
         setBusy(false);
       }
     },
-    [loginWithGoogle, router]
+    [loginWithGoogle, router, dismissGoogleToast]
   );
 
   useEffect(() => {
