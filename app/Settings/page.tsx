@@ -441,7 +441,7 @@ export default function SettingsPage() {
           </div>
           <div className="space-y-1.5">
             <Link
-              href="/info?type=privacy"
+              href="/info?type=privacy&from=settings"
               className="flex items-center justify-between gap-2.5 rounded-lg bg-gray-50 p-2.5"
             >
               <div className="flex items-center gap-2.5 min-w-0">
@@ -461,7 +461,7 @@ export default function SettingsPage() {
             </Link>
 
             <Link
-              href="/info?type=terms"
+              href="/info?type=terms&from=settings"
               className="flex items-center justify-between gap-2.5 rounded-lg bg-gray-50 p-2.5"
             >
               <div className="flex items-center gap-2.5 min-w-0">
@@ -525,7 +525,7 @@ export default function SettingsPage() {
             </a>
 
             <Link
-              href="/info?type=about"
+              href="/info?type=about&from=settings"
               className="flex items-center justify-between gap-2.5 rounded-lg bg-gray-50 p-2.5"
             >
               <div className="flex items-center gap-2.5 min-w-0">

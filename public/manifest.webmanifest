@@ -1,13 +1,13 @@
 {
   "name": "Chamapay",
   "short_name": "Chamapay",
-  "description": "Circular savings — chamas, goals, and earn",
+  "description": "Save as a circle. Grow as one.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#f4fbfa",
-  "theme_color": "#1a6b6b",
+  "background_color": "#ffffff",
+  "theme_color": "#1c8584",
   "icons": [
     {
       "src": "/icon.png",
@@ -19,7 +19,13 @@
       "src": "/logo-icon.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "/splash-icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ]
 }

@@ -204,6 +204,9 @@ function InfoCard({
 function InfoPageContent() {
   const searchParams = useSearchParams();
   const type = searchParams.get("type") || "about";
+  const from = searchParams.get("from");
+  const backHref =
+    from === "auth" ? "/" : from === "settings" || !from ? "/Settings" : "/Settings";
 
   const pageData = useMemo(
     () =>
@@ -223,9 +226,9 @@ function InfoPageContent() {
       >
         <div className="flex items-center gap-3 min-h-[32px]">
           <Link
-            href="/Settings"
+            href={backHref}
             className="h-8 w-8 rounded-full bg-white/20 flex items-center justify-center"
-            aria-label="Back to settings"
+            aria-label="Go back"
           >
             <FiArrowLeft size={16} />
           </Link>
@@ -239,9 +242,15 @@ function InfoPageContent() {
       </div>
 
       <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 pt-4 pb-8 [-webkit-overflow-scrolling:touch]">
-        {pageData.sections.map((section, idx) => (
-          <InfoCard key={section.title} index={idx} {...section} />
-        ))}
+        {pageData.sections.length === 0 ? (
+          <p className="text-center text-[13px] text-gray-500 py-10">
+            Content not found.
+          </p>
+        ) : (
+          pageData.sections.map((section, idx) => (
+            <InfoCard key={section.title} index={idx} {...section} />
+          ))
+        )}
       </div>
     </div>
   );
