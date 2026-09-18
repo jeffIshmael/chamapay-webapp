@@ -9,6 +9,31 @@ export interface GoalCreator {
   smartAddress: string;
 }
 
+export interface GoalContribution {
+  id: number;
+  amount: string;
+  contributorAddress?: string;
+  payerAddress?: string;
+  isGuest?: boolean;
+  guestDisplayName?: string | null;
+  txHash?: string;
+  pretiumTxCode?: string | null;
+  createdAt: string;
+  contributorUser?: {
+    id: number;
+    userName: string;
+    profileImageUrl?: string | null;
+  } | null;
+}
+
+export interface GoalWithdrawal {
+  id: number;
+  amount: string;
+  mode: string;
+  txHash?: string;
+  createdAt: string;
+}
+
 export interface GoalRecord {
   id: number;
   name: string;
@@ -31,7 +56,11 @@ export interface GoalRecord {
     userId: number;
     user: GoalCreator;
   }>;
+  contributions?: GoalContribution[];
+  withdrawals?: GoalWithdrawal[];
   _count?: { members: number; contributions: number };
+  /** Optional list enrichment from finance / my-goals */
+  totalBalance?: string;
 }
 
 export interface GoalFinance {
@@ -119,12 +148,158 @@ export async function getGoalBySlug(
       }
     );
     if (!response.ok) {
-      const data = await response.json().catch(() => ({}));
-      return { success: false, error: data.error || "Goal not found" };
+      const err = await response.json().catch(() => ({}));
+      return {
+        success: false,
+        error: (err as { error?: string }).error || "Goal not found",
+      };
     }
     return await response.json();
   } catch {
     return { success: false, error: "Failed to fetch goal" };
+  }
+}
+
+export async function uploadGoalCover(
+  goalId: number,
+  file: File,
+  token: string
+): Promise<{ success: boolean; coverImageUrl?: string; error?: string }> {
+  try {
+    const formData = new FormData();
+    formData.append("image", file);
+    const response = await fetch(`${serverUrl}/goal/${goalId}/cover`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+      body: formData,
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        success: false,
+        error:
+          (data as { error?: string }).error ||
+          (data as { message?: string }).message ||
+          "Upload failed",
+      };
+    }
+    return {
+      success: true,
+      coverImageUrl: (data as { coverImageUrl?: string }).coverImageUrl,
+    };
+  } catch {
+    return { success: false, error: "Upload failed" };
+  }
+}
+
+export async function setGoalYieldEnabled(
+  goalId: number,
+  enabled: boolean,
+  token: string
+): Promise<{ success: boolean; yieldEnabled?: boolean; error?: string }> {
+  try {
+    const response = await fetch(`${serverUrl}/goal/${goalId}/yield`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ enabled }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        success: false,
+        error: (data as { error?: string }).error || "Failed to toggle yield",
+      };
+    }
+    return {
+      success: true,
+      yieldEnabled: Boolean((data as { yieldEnabled?: boolean }).yieldEnabled),
+    };
+  } catch {
+    return { success: false, error: "Failed to toggle yield" };
+  }
+}
+
+export async function addGoalMember(
+  goalId: number,
+  memberId: number,
+  token: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const response = await fetch(`${serverUrl}/goal/${goalId}/members`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ memberId }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        success: false,
+        error: (data as { error?: string }).error || "Failed to add member",
+      };
+    }
+    return { success: true };
+  } catch {
+    return { success: false, error: "Failed to add member" };
+  }
+}
+
+export async function withdrawFromGoal(
+  goalId: number,
+  token: string,
+  opts: { mode: "all" | "yield" | "principal" | "amount"; amount?: string }
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const response = await fetch(`${serverUrl}/goal/${goalId}/withdraw`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(opts),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        success: false,
+        error: (data as { error?: string }).error || "Withdrawal failed",
+      };
+    }
+    return { success: true };
+  } catch {
+    return { success: false, error: "Withdrawal failed" };
+  }
+}
+
+export async function contributeToGoal(
+  goalId: number,
+  amount: string,
+  token: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const response = await fetch(`${serverUrl}/goal/${goalId}/contribute`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ amount }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        success: false,
+        error: (data as { error?: string }).error || "Deposit failed",
+      };
+    }
+    return { success: true };
+  } catch {
+    return { success: false, error: "Deposit failed" };
   }
 }
 

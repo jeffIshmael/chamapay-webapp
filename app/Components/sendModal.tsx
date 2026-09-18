@@ -1,14 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Dialog } from "@headlessui/react";
-import { FiSearch, FiUser, FiX } from "react-icons/fi";
+import { FiCheck, FiSearch, FiUser, FiX } from "react-icons/fi";
+import { isAddress } from "viem";
 import { showToast } from "./Toast";
 import { useAuth } from "@/app/context/AuthContext";
 import { serverUrl } from "@/lib/serverUrl";
 import { internalTransferFee } from "@/lib/transactionFees";
 import { useCurrencyStore } from "@/store/useCurrencyStore";
-import { useFormattedBalance } from "@/lib/useFormattedBalance";
 
 type SendMode = "chamapay" | "external";
 
@@ -19,6 +19,26 @@ type SearchUser = {
   smartAddress: string;
   profileImageUrl: string | null;
 };
+
+/** Format a USDC amount using the modal’s KES/USDC toggle (not the app-wide preference). */
+function formatInUnit(
+  usdcAmount: number,
+  kesMode: boolean,
+  platformRate: number
+) {
+  if (kesMode && platformRate > 0) {
+    const kes = Math.ceil(usdcAmount * platformRate * 100) / 100;
+    return `${kes.toLocaleString("en-KE", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })} KES`;
+  }
+  const usdc = Math.round(usdcAmount * 1000) / 1000;
+  return `${usdc.toLocaleString("en-US", {
+    minimumFractionDigits: 3,
+    maximumFractionDigits: 3,
+  })} USDC`;
+}
 
 export default function SendModal({
   isOpen,
@@ -33,7 +53,6 @@ export default function SendModal({
 }) {
   const { token, isAuthenticated } = useAuth();
   const { currency, platformRate } = useCurrencyStore();
-  const { formatBalance } = useFormattedBalance();
   const [mode, setMode] = useState<SendMode>("chamapay");
   const [kesMode, setKesMode] = useState(currency === "KES");
   const [query, setQuery] = useState("");
@@ -43,6 +62,11 @@ export default function SendModal({
   const [amount, setAmount] = useState("");
   const [searching, setSearching] = useState(false);
   const [sending, setSending] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    setKesMode(currency === "KES");
+  }, [isOpen, currency]);
 
   useEffect(() => {
     if (!isOpen || mode !== "chamapay") return;
@@ -95,6 +119,20 @@ export default function SendModal({
       : 0;
   const total = parsedAmount + fee;
 
+  const externalAddressOk = useMemo(
+    () => isAddress(recipient.trim() as `0x${string}`),
+    [recipient]
+  );
+  const recipientReady =
+    mode === "chamapay"
+      ? Boolean(selected?.smartAddress && isAddress(selected.smartAddress))
+      : externalAddressOk;
+  const canSend =
+    !sending &&
+    recipientReady &&
+    parsedAmount > 0 &&
+    total <= balance + 0.0000001;
+
   const handleSend = async () => {
     if (!isAuthenticated || !token) {
       showToast("Please sign in", "warning");
@@ -104,7 +142,7 @@ export default function SendModal({
     const to =
       mode === "chamapay" ? selected?.smartAddress : recipient.trim();
 
-    if (!to || !to.startsWith("0x") || to.length !== 42) {
+    if (!to || !isAddress(to as `0x${string}`)) {
       showToast(
         mode === "chamapay"
           ? "Select a Chamapay user"
@@ -166,15 +204,13 @@ export default function SendModal({
               <button
                 type="button"
                 onClick={close}
-                className="h-8 w-8 rounded-full bg-white/20 flex items-center justify-center"
+                disabled={sending}
+                className="h-8 w-8 rounded-full bg-white/20 flex items-center justify-center disabled:opacity-50"
                 aria-label="Close"
               >
                 <FiX size={16} />
               </button>
             </div>
-            <p className="text-[11px] text-white/75 text-center mt-1">
-              Balance {formatBalance(balance)}
-            </p>
           </div>
 
           <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 py-4 space-y-3">
@@ -294,13 +330,35 @@ export default function SendModal({
                 <input
                   type="text"
                   value={recipient}
-                  onChange={(e) => setRecipient(e.target.value)}
+                  onChange={(e) => setRecipient(e.target.value.trim())}
                   placeholder="0x…"
-                  className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-[13px] font-mono outline-none focus:ring-2 focus:ring-downy-500"
+                  spellCheck={false}
+                  autoCapitalize="off"
+                  autoCorrect="off"
+                  className={`w-full rounded-xl border px-3 py-2.5 text-[13px] font-mono outline-none focus:ring-2 focus:ring-downy-500 ${
+                    recipient.length > 0 && !externalAddressOk
+                      ? "border-rose-300 bg-rose-50/40"
+                      : externalAddressOk
+                        ? "border-emerald-300 bg-emerald-50/30"
+                        : "border-gray-200"
+                  }`}
                 />
-                <p className="text-[10px] text-amber-700 mt-1.5">
-                  External sends include a small network fee
-                </p>
+                {recipient.length === 0 && (
+                  <p className="text-[10px] text-amber-700 mt-1.5">
+                    External sends include a small network fee
+                  </p>
+                )}
+                {recipient.length > 0 && !externalAddressOk && (
+                  <p className="text-[10px] text-rose-600 mt-1.5 font-medium">
+                    Not a valid wallet address
+                  </p>
+                )}
+                {externalAddressOk && (
+                  <p className="text-[10px] text-emerald-700 mt-1.5 font-semibold inline-flex items-center gap-1">
+                    <FiCheck size={12} />
+                    Wallet verified — address looks good
+                  </p>
+                )}
               </div>
             )}
 
@@ -360,6 +418,12 @@ export default function SendModal({
                   Max
                 </button>
               </div>
+              <p className="text-[11px] text-gray-500 mt-1.5">
+                Available{" "}
+                <span className="font-semibold text-gray-800">
+                  {formatInUnit(balance, kesMode, platformRate)}
+                </span>
+              </p>
             </div>
 
             {parsedAmount > 0 && (
@@ -367,12 +431,14 @@ export default function SendModal({
                 <div className="flex justify-between text-gray-600">
                   <span>Fee</span>
                   <span className="font-semibold">
-                    {fee === 0 ? "Free" : formatBalance(fee)}
+                    {fee === 0
+                      ? "Free"
+                      : formatInUnit(fee, kesMode, platformRate)}
                   </span>
                 </div>
                 <div className="flex justify-between text-gray-900 font-bold">
                   <span>Total</span>
-                  <span>{formatBalance(total)}</span>
+                  <span>{formatInUnit(total, kesMode, platformRate)}</span>
                 </div>
               </div>
             )}
@@ -380,14 +446,21 @@ export default function SendModal({
             <button
               type="button"
               onClick={handleSend}
-              disabled={sending || !amount}
-              className={`w-full py-3 rounded-xl text-[13px] font-bold text-white ${
-                sending || !amount
+              disabled={!canSend}
+              className={`w-full py-3 rounded-xl text-[13px] font-bold text-white flex items-center justify-center gap-2 ${
+                !canSend
                   ? "bg-gray-300"
                   : "bg-downy-600 shadow-md shadow-downy-600/25"
               }`}
             >
-              {sending ? "Sending…" : "Send"}
+              {sending ? (
+                <>
+                  <span className="h-4 w-4 rounded-full border-2 border-white border-t-transparent animate-spin" />
+                  Sending…
+                </>
+              ) : (
+                "Send"
+              )}
             </button>
           </div>
         </Dialog.Panel>

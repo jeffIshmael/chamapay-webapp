@@ -11,6 +11,7 @@ import {
 } from "@/lib/chamaService";
 import {
   getMyGoals,
+  getGoalBySlug,
   goalTypeLabel,
   GoalRecord,
 } from "@/lib/goalService";
@@ -125,10 +126,35 @@ function MyHomeContent() {
       setGoalsLoading(true);
       const response = await getMyGoals(token);
       if (response.success && response.goals) {
-        setGoals(response.goals);
-      } else {
-        setGoals([]);
+        const list = response.goals;
+        setGoals(list);
+        setGoalsLoading(false);
+        // Enrich balances in the background for progress footers
+        void Promise.all(
+          list.map(async (g) => {
+            try {
+              const detail = await getGoalBySlug(g.slug, token);
+              return {
+                id: g.id,
+                totalBalance: detail.finance?.totalBalance ?? "0",
+              };
+            } catch {
+              return { id: g.id, totalBalance: "0" };
+            }
+          })
+        ).then((balances) => {
+          const byId = new Map(balances.map((b) => [b.id, b.totalBalance]));
+          setGoals((prev) =>
+            prev.map((g) =>
+              byId.has(g.id)
+                ? { ...g, totalBalance: byId.get(g.id) }
+                : g
+            )
+          );
+        });
+        return;
       }
+      setGoals([]);
     } catch (err) {
       authDebug("fetchGoals error", err);
       setGoals([]);
@@ -420,13 +446,22 @@ const ChamaCard = ({ chama }: { chama: JoinedChama }) => {
 const GoalCard = ({ goal }: { goal: GoalRecord }) => {
   const { formatBalance } = useFormattedBalance();
   const members = goal._count?.members ?? goal.members?.length ?? 1;
+  const target = Number(goal.targetAmount) || 0;
+  const balance = Number(goal.totalBalance) || 0;
+  const progressPct =
+    target > 0 ? Math.min(100, Math.max(0, (balance / target) * 100)) : 0;
+  const isGreen = progressPct >= 60;
+  const fillColor = isGreen
+    ? "rgba(16, 185, 129, 0.38)"
+    : "rgba(245, 158, 11, 0.38)";
+
   return (
     <Link href={`/Goal/${goal.slug}`}>
       <motion.div
         whileTap={{ scale: 0.99 }}
         className="bg-white rounded-2xl shadow-sm border border-downy-100/70 overflow-hidden"
       >
-        <div className="p-3.5">
+        <div className="p-3.5 pb-3">
           <div className="flex items-start justify-between gap-2.5">
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-1.5 mb-1.5">
@@ -451,16 +486,38 @@ const GoalCard = ({ goal }: { goal: GoalRecord }) => {
               <p className="text-[12px] text-gray-500 line-clamp-2">
                 {goal.description || "No description"}
               </p>
-              <div className="flex items-center justify-between mt-2.5 pt-2 border-t border-gray-100">
-                <span className="text-[12px] font-bold text-downy-800">
-                  Target {formatBalance(Number(goal.targetAmount) || 0)}
-                </span>
-                <span className="text-[11px] text-gray-500">
-                  {members} {members === 1 ? "member" : "members"}
-                </span>
-              </div>
             </div>
             <FiArrowRight className="text-gray-300 mt-0.5 shrink-0" size={16} />
+          </div>
+        </div>
+
+        {/* Footer = full-width progress track; fill grows with amount / target */}
+        <div className="relative overflow-hidden border-t border-gray-100">
+          <div
+            aria-hidden
+            className="absolute inset-y-0 left-0 transition-[width,background-color] duration-500 ease-out"
+            style={{
+              width: `${progressPct}%`,
+              backgroundColor: fillColor,
+            }}
+          />
+          <div className="relative z-[1] flex items-center justify-between gap-2 px-3.5 py-2.5">
+            <span
+              className={`text-[12px] font-bold ${
+                isGreen ? "text-emerald-900" : "text-amber-950"
+              }`}
+            >
+              Target {formatBalance(target)}
+            </span>
+            <span
+              className={`text-[11px] font-semibold tabular-nums ${
+                isGreen ? "text-emerald-800" : "text-amber-900/80"
+              }`}
+            >
+              {goal.totalBalance != null
+                ? `${formatBalance(balance)} · ${progressPct.toFixed(0)}%`
+                : `${members} ${members === 1 ? "member" : "members"}`}
+            </span>
           </div>
         </div>
       </motion.div>

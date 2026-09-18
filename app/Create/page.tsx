@@ -10,7 +10,10 @@ import {
   FiClock,
   FiInfo,
   FiTarget,
+  FiTrendingUp,
   FiUsers,
+  FiX,
+  FiZap,
 } from "react-icons/fi";
 import BottomNavbar from "../Components/BottomNavbar";
 import AppHeader from "../Components/AppHeader";
@@ -115,6 +118,7 @@ function CreateContent() {
   const [target, setTarget] = useState("");
   const [endDate, setEndDate] = useState("");
   const [yieldEnabled, setYieldEnabled] = useState(false);
+  const [showYieldInfoModal, setShowYieldInfoModal] = useState(false);
   const [notifyPhone, setNotifyPhone] = useState("");
 
   useEffect(() => {
@@ -139,6 +143,7 @@ function CreateContent() {
     setTarget("");
     setEndDate("");
     setYieldEnabled(false);
+    setShowYieldInfoModal(false);
     setNotifyPhone("");
     setErrorText("");
     setLoading(false);
@@ -690,21 +695,32 @@ function CreateContent() {
                         : "bg-gray-50 border-gray-200"
                     }`}
                   >
-                    <div className="flex-1 pr-3">
+                    <button
+                      type="button"
+                      onClick={() => setShowYieldInfoModal(true)}
+                      className="flex-1 pr-3 text-left bg-transparent"
+                    >
                       <div className="flex items-center gap-1.5">
                         <p className="text-[12px] font-bold text-gray-900">
-                          Put money to work
+                          Put your savings to work
                         </p>
                         <FiInfo className="text-emerald-600 text-sm" />
                       </div>
                       <p className="text-[11px] text-gray-500 mt-0.5 leading-4">
-                        Idle funds earn on Moonwell. You can turn this off later.
+                        Idle funds earn on Moonwell. Tap for details.
                       </p>
-                    </div>
+                    </button>
                     <input
                       type="checkbox"
                       checked={yieldEnabled}
-                      onChange={(e) => setYieldEnabled(e.target.checked)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setYieldEnabled(true);
+                          setShowYieldInfoModal(true);
+                        } else {
+                          setYieldEnabled(false);
+                        }
+                      }}
                       className="rounded border-gray-300 text-downy-600 focus:ring-downy-500 h-5 w-5"
                     />
                   </div>
@@ -752,6 +768,105 @@ function CreateContent() {
         activeSection={activeSection}
         setActiveSection={setActiveSection}
       />
+
+      {showYieldInfoModal && (
+        <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/55">
+          <div
+            className="absolute inset-0"
+            onClick={() => setShowYieldInfoModal(false)}
+            aria-hidden
+          />
+          <div className="relative w-full max-w-md bg-white rounded-t-3xl px-5 pt-4 pb-8 shadow-xl max-h-[90%] overflow-y-auto">
+            <div className="w-10 h-1 rounded-full bg-gray-200 mx-auto mb-4" />
+            <div className="flex items-center gap-3 mb-2">
+              <span className="h-10 w-10 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0">
+                <FiZap size={18} />
+              </span>
+              <h2 className="text-[1.15rem] font-extrabold text-gray-900 leading-tight flex-1">
+                Put your savings to work
+              </h2>
+              <button
+                type="button"
+                onClick={() => setShowYieldInfoModal(false)}
+                className="h-8 w-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-500"
+                aria-label="Close"
+              >
+                <FiX size={16} />
+              </button>
+            </div>
+            <p className="text-[13px] text-gray-500 mb-4 leading-relaxed">
+              Here’s what happens when you turn this on for your goal.
+            </p>
+
+            <div className="mb-3 rounded-2xl border border-gray-200 bg-gray-50 px-3.5 py-3 flex items-start gap-3">
+              <span className="h-8 w-8 rounded-lg bg-white flex items-center justify-center text-teal-700 shrink-0 mt-0.5">
+                <FiUsers size={15} />
+              </span>
+              <div className="min-w-0">
+                <p className="text-[13px] font-bold text-gray-900 mb-0.5">
+                  Supplied to Moonwell
+                </p>
+                <p className="text-[12px] text-gray-500 leading-relaxed">
+                  Your goal funds are supplied to a Moonwell pool (a third-party
+                  DeFi pool) to provide liquidity. ChamaPay does not hold this
+                  yield pool itself.
+                </p>
+              </div>
+            </div>
+
+            <div className="mb-3 rounded-2xl border border-gray-200 bg-gray-50 px-3.5 py-3 flex items-start gap-3">
+              <span className="h-8 w-8 rounded-lg bg-white flex items-center justify-center text-teal-700 shrink-0 mt-0.5">
+                <FiTrendingUp size={15} />
+              </span>
+              <div className="min-w-0">
+                <p className="text-[13px] font-bold text-gray-900 mb-0.5">
+                  APY is relative
+                </p>
+                <p className="text-[12px] text-gray-500 leading-relaxed">
+                  The APY you see can go up or down over time — it depends on
+                  borrowing demand in the pool and is not guaranteed.
+                </p>
+              </div>
+            </div>
+
+            <div className="mb-5 rounded-2xl border border-amber-200 bg-amber-50 px-3.5 py-3 flex items-start gap-3">
+              <span className="h-8 w-8 rounded-lg bg-white flex items-center justify-center text-amber-600 shrink-0 mt-0.5">
+                <FiAlertTriangle size={15} />
+              </span>
+              <div className="min-w-0">
+                <p className="text-[13px] font-bold text-amber-900 mb-0.5">
+                  Withdrawal risk
+                </p>
+                <p className="text-[12px] text-amber-800/80 leading-relaxed">
+                  You can withdraw only when the money is not borrowed yet. If
+                  the pool’s cash is currently borrowed, your balance is still
+                  yours and keeps earning — try again when free cash returns.
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setShowYieldInfoModal(false)}
+              className="w-full py-3.5 rounded-2xl bg-downy-600 text-white text-[15px] font-bold"
+            >
+              Got it
+            </button>
+            {yieldEnabled && (
+              <button
+                type="button"
+                onClick={() => {
+                  setYieldEnabled(false);
+                  setShowYieldInfoModal(false);
+                }}
+                className="w-full py-3 mt-1 text-[13px] font-medium text-gray-500"
+              >
+                Turn off instead
+              </button>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
