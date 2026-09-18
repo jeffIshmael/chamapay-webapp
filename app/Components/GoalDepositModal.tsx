@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useEffect, useState } from "react";
-import { FiArrowLeft, FiArrowRight, FiCheck } from "react-icons/fi";
+import { FiArrowLeft, FiArrowRight } from "react-icons/fi";
 import { useAuth } from "@/app/context/AuthContext";
 import { useSessionAddress } from "@/lib/useSessionAddress";
 import { useFormattedBalance } from "@/lib/useFormattedBalance";
@@ -10,6 +10,7 @@ import { useCurrencyStore } from "@/store/useCurrencyStore";
 import { contributeToGoal } from "@/lib/goalService";
 import { getUserBalance } from "@/lib/walletServices";
 import ChamaMpesaPay from "./ChamaMpesaPay";
+import GoalDepositSuccess from "./GoalDepositSuccess";
 import { showToast } from "./Toast";
 
 type Method = "" | "account" | "mpesa";
@@ -36,16 +37,18 @@ export default function GoalDepositModal({
   const [walletUsdc, setWalletUsdc] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [success, setSuccess] = useState(false);
   const [mpesaLoading, setMpesaLoading] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
+  const [successLabel, setSuccessLabel] = useState<string | undefined>();
 
   useEffect(() => {
     if (!isOpen) {
       setMethod("");
       setAmount("");
       setError("");
-      setSuccess(false);
       setLoading(false);
+      setShowSuccess(false);
+      setSuccessLabel(undefined);
       return;
     }
     if (!token || token === "guest" || isGuest) return;
@@ -70,6 +73,19 @@ export default function GoalDepositModal({
       ? `KSh ${Math.floor(walletUsdc * platformRate).toLocaleString()}`
       : `${walletUsdc.toFixed(3)} USDC`;
 
+  const finishAfterSuccess = () => {
+    setShowSuccess(false);
+    setMethod("");
+    setAmount("");
+    onSuccess?.();
+    onClose();
+  };
+
+  const triggerSuccess = (label?: string) => {
+    setSuccessLabel(label);
+    setShowSuccess(true);
+  };
+
   const submitAccount = async () => {
     if (!canSubmit || !token) return;
     setLoading(true);
@@ -84,8 +100,8 @@ export default function GoalDepositModal({
         setError(result.error || "Deposit failed");
         return;
       }
-      setSuccess(true);
       showToast("Deposited to goal", "success");
+      triggerSuccess(`+${formatBalance(usdcAmount)}`);
     } catch {
       setError("Failed to process deposit. Please try again.");
     } finally {
@@ -93,19 +109,13 @@ export default function GoalDepositModal({
     }
   };
 
-  const finish = () => {
-    setSuccess(false);
-    setMethod("");
-    setAmount("");
-    onSuccess?.();
-    onClose();
-  };
-
   return (
     <div className="app-modal-layer">
       <div
         className="app-modal-backdrop"
-        onClick={() => !loading && !mpesaLoading && onClose()}
+        onClick={() =>
+          !loading && !mpesaLoading && !showSuccess && onClose()
+        }
       />
       <div className="app-modal-sheet bg-white max-h-[92%] flex flex-col overflow-hidden pb-[max(1.25rem,env(safe-area-inset-bottom))]">
         {!method ? (
@@ -173,83 +183,60 @@ export default function GoalDepositModal({
           </div>
         ) : method === "account" ? (
           <div className="p-4">
-            {success ? (
-              <div className="text-center py-6">
-                <div className="mx-auto h-16 w-16 rounded-full bg-downy-100 flex items-center justify-center mb-4">
-                  <FiCheck className="text-emerald-600" size={28} />
-                </div>
-                <h3 className="text-[18px] font-bold text-gray-900 mb-1">
-                  Deposit Successful
-                </h3>
-                <p className="text-[13px] text-gray-500 mb-5">
-                  Added {formatBalance(usdcAmount)} to {goalName}
-                </p>
-                <button
-                  type="button"
-                  onClick={finish}
-                  className="w-full py-3 rounded-xl bg-gray-500 text-white font-bold text-[14px]"
-                >
-                  Close
-                </button>
-              </div>
-            ) : (
-              <>
-                <div className="relative flex items-center justify-center mb-6 min-h-[36px]">
-                  <button
-                    type="button"
-                    onClick={() => setMethod("")}
-                    className="absolute left-0 h-9 w-9 rounded-full bg-gray-100 flex items-center justify-center"
-                    aria-label="Back"
-                  >
-                    <FiArrowLeft size={18} />
-                  </button>
-                  <h2 className="text-[16px] font-semibold text-gray-900">
-                    Deposit from account
-                  </h2>
-                </div>
+            <div className="relative flex items-center justify-center mb-6 min-h-[36px]">
+              <button
+                type="button"
+                onClick={() => setMethod("")}
+                className="absolute left-0 h-9 w-9 rounded-full bg-gray-100 flex items-center justify-center"
+                aria-label="Back"
+              >
+                <FiArrowLeft size={18} />
+              </button>
+              <h2 className="text-[16px] font-semibold text-gray-900">
+                Deposit from account
+              </h2>
+            </div>
 
-                <div className="flex items-center justify-center gap-2 bg-gray-50 rounded-2xl px-4 py-4 mb-2">
-                  <span className="text-[18px] font-bold text-gray-900">
-                    {currency === "KES" ? "KSh" : "USDC"}
-                  </span>
-                  <input
-                    type="text"
-                    inputMode="decimal"
-                    value={amount}
-                    onChange={(e) => {
-                      const v = e.target.value;
-                      if (v === "" || /^\d*\.?\d*$/.test(v)) {
-                        setAmount(v);
-                        setError("");
-                      }
-                    }}
-                    placeholder="0.00"
-                    className="text-[2rem] font-bold text-gray-900 bg-transparent border-0 outline-none w-full max-w-[10rem] text-center"
-                    autoFocus
-                  />
-                </div>
-                <p className="text-center text-[12px] text-gray-500 mb-2">
-                  Balance: {displayBalance}
-                </p>
-                {(error || tooHigh) && (
-                  <p className="text-center text-[12px] text-red-500 mb-3">
-                    {error ||
-                      `Insufficient balance. You have ${displayBalance} available`}
-                  </p>
-                )}
-
-                <button
-                  type="button"
-                  onClick={submitAccount}
-                  disabled={!canSubmit}
-                  className={`w-full py-3.5 rounded-xl text-[15px] font-bold text-white ${
-                    !canSubmit ? "bg-gray-300" : "bg-downy-600"
-                  }`}
-                >
-                  {loading ? "Processing…" : "Deposit"}
-                </button>
-              </>
+            <div className="flex items-center justify-center gap-2 bg-gray-50 rounded-2xl px-4 py-4 mb-2">
+              <span className="text-[18px] font-bold text-gray-900">
+                {currency === "KES" ? "KSh" : "USDC"}
+              </span>
+              <input
+                type="text"
+                inputMode="decimal"
+                value={amount}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  if (v === "" || /^\d*\.?\d*$/.test(v)) {
+                    setAmount(v);
+                    setError("");
+                  }
+                }}
+                placeholder="0.00"
+                className="text-[2rem] font-bold text-gray-900 bg-transparent border-0 outline-none w-full max-w-[10rem] text-center"
+                autoFocus
+              />
+            </div>
+            <p className="text-center text-[12px] text-gray-500 mb-2">
+              Balance: {displayBalance}
+            </p>
+            {(error || tooHigh) && (
+              <p className="text-center text-[12px] text-red-500 mb-3">
+                {error ||
+                  `Insufficient balance. You have ${displayBalance} available`}
+              </p>
             )}
+
+            <button
+              type="button"
+              onClick={submitAccount}
+              disabled={!canSubmit}
+              className={`w-full py-3.5 rounded-xl text-[15px] font-bold text-white ${
+                !canSubmit ? "bg-gray-300" : "bg-downy-600"
+              }`}
+            >
+              {loading ? "Processing…" : "Deposit"}
+            </button>
           </div>
         ) : (
           <div className="p-4 overflow-y-auto">
@@ -261,8 +248,7 @@ export default function GoalDepositModal({
               goalId={goalId}
               onBack={() => setMethod("")}
               onClose={() => {
-                onSuccess?.();
-                onClose();
+                triggerSuccess();
               }}
               isLoading={mpesaLoading}
               setIsLoading={setMpesaLoading}
@@ -270,6 +256,12 @@ export default function GoalDepositModal({
           </div>
         )}
       </div>
+
+      <GoalDepositSuccess
+        open={showSuccess}
+        amountLabel={successLabel}
+        onDone={finishAfterSuccess}
+      />
     </div>
   );
 }

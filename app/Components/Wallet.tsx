@@ -210,8 +210,9 @@ const Wallet = () => {
     isMoonwellTx(tx) ? getMoonwellActivityTitle(tx) : tx.type;
 
   return (
-    <div className="min-h-[100dvh] bg-downy-50 pb-nav">
-      <div className="px-4 pt-4 safe-top">
+    <div className="h-[100dvh] bg-downy-50 pb-nav flex flex-col overflow-hidden">
+      {/* Fixed: balance card → actions → Recent activity header */}
+      <div className="shrink-0 px-4 pt-4 safe-top">
         <div
           className="rounded-2xl p-3.5 text-white shadow-md shadow-downy-700/20 relative overflow-hidden"
           style={{ backgroundColor: "#1a6b6b" }}
@@ -360,10 +361,8 @@ const Wallet = () => {
             </motion.button>
           ))}
         </div>
-      </div>
 
-      <div className="px-4 mt-4">
-        <div className="flex items-center justify-between mb-2.5">
+        <div className="flex items-center justify-between mt-4 mb-2.5">
           <h2 className="text-[15px] font-bold text-gray-900">
             Recent activity
           </h2>
@@ -372,12 +371,15 @@ const Wallet = () => {
               href="/Wallet/activity"
               className="text-[11px] font-bold text-downy-700 bg-downy-50 px-2.5 py-1 rounded-full"
             >
-              See all
+              View all
             </Link>
           )}
         </div>
-        <div className="h-px bg-gray-200 mb-3" />
+        <div className="h-px bg-gray-200" />
+      </div>
 
+      {/* Scrollable transactions only */}
+      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 pt-3 [-webkit-overflow-scrolling:touch]">
         {loadingPayments ? (
           <div className="flex flex-col items-center justify-center py-8">
             <DotLottieReact
@@ -400,7 +402,7 @@ const Wallet = () => {
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="space-y-2"
+            className="space-y-2 pb-4"
           >
             {transactions.slice(0, 6).map((tx) => {
               const color = getIconColor(tx.type);
