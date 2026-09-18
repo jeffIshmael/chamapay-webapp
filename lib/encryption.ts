@@ -61,6 +61,27 @@ export function generateChamaShareUrl(slug: string): string {
   return `https://chamapay.com/chama/${encryptedSlug}`;
 }
 
+/** Obfuscated guest pay link for Save-for-Goal */
+export function encryptGoalSlug(slug: string): string {
+  return encryptChamaSlug(slug);
+}
+
+export function decryptGoalSlug(token: string): string {
+  return decryptChamaSlug(token);
+}
+
+export function generateGoalPayUrl(slug: string, origin?: string): string {
+  const token = encryptGoalSlug(slug);
+  const base =
+    origin?.replace(/\/$/, "") ||
+    (typeof window !== "undefined" ? window.location.origin : "https://chamapay.com");
+  // Prefer app path when on the web origin; production marketing host uses /goal/pay/
+  if (base.includes("chamapay.com") && !base.includes("localhost")) {
+    return `https://chamapay.com/goal/pay/${token}`;
+  }
+  return `${base}/Goal/pay/${token}`;
+}
+
 // Parse shareable URL to extract encrypted slug
 export function parseChamaShareUrl(url: string): string | null {
   try {

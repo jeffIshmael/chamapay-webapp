@@ -14,6 +14,7 @@ import {
 } from "@/lib/goalService";
 import { useSessionAddress } from "@/lib/useSessionAddress";
 import { useAuth } from "@/app/context/AuthContext";
+import { generateGoalPayUrl } from "@/lib/encryption";
 import {
   FiArrowLeft,
   FiArrowDownCircle,
@@ -34,6 +35,8 @@ import ProfileAvatar from "@/app/Components/ProfileAvatar";
 import GoalAddMemberModal from "@/app/Components/GoalAddMemberModal";
 import GoalWithdrawModal from "@/app/Components/GoalWithdrawModal";
 import GoalDepositModal from "@/app/Components/GoalDepositModal";
+import CoverCropModal from "@/app/Components/CoverCropModal";
+import { getMoonwellUsdcSnapshot } from "@/lib/moonwellService";
 
 type TabId = "members" | "history";
 
@@ -99,11 +102,12 @@ export default function GoalDetailsPage() {
   const params = useParams<{ slug: string }>();
   const slug = params?.slug;
   const router = useRouter();
-  const { token, isAuthenticated, isGuest, isLoading: authLoading } =
+  const { token, address, isAuthenticated, isGuest, isLoading: authLoading } =
     useSessionAddress();
   const { user: authUser } = useAuth();
   const { formatBalance } = useFormattedBalance();
   const fileRef = useRef<HTMLInputElement>(null);
+  const cropObjectUrlRef = useRef<string | null>(null);
 
   const [goal, setGoal] = useState<GoalRecord | null>(null);
   const [finance, setFinance] = useState<GoalFinance | null>(null);
@@ -111,6 +115,9 @@ export default function GoalDetailsPage() {
   const [isCreator, setIsCreator] = useState(false);
   const [loading, setLoading] = useState(true);
   const [coverUploading, setCoverUploading] = useState(false);
+  const [cropSrc, setCropSrc] = useState<string | null>(null);
+  const [showCropModal, setShowCropModal] = useState(false);
+  const [moonwellApy, setMoonwellApy] = useState<number | null>(null);
   const [tab, setTab] = useState<TabId>("members");
   const [yieldBusy, setYieldBusy] = useState(false);
   const [showYieldModal, setShowYieldModal] = useState(false);
@@ -137,7 +144,7 @@ export default function GoalDetailsPage() {
             Number(authUser.id) === Number(res.goal.creatorId));
         setIsCreator(creatorMatch);
         setPayLink(
-          res.payLink || `https://chamapay.com/goal/${res.goal.slug}`
+          res.payLink || generateGoalPayUrl(res.goal.slug)
         );
       } else {
         setGoal(null);
@@ -156,6 +163,29 @@ export default function GoalDetailsPage() {
     load();
   }, [authLoading, isAuthenticated, load, router]);
 
+  useEffect(() => {
+    if (!token || token === "guest" || isGuest) return;
+    let cancelled = false;
+    getMoonwellUsdcSnapshot(address || "", 0, token).then((snap) => {
+      if (cancelled) return;
+      if (typeof snap.supplyApy === "number" && Number.isFinite(snap.supplyApy)) {
+        setMoonwellApy(snap.supplyApy);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [token, isGuest, address]);
+
+  useEffect(() => {
+    return () => {
+      if (cropObjectUrlRef.current) {
+        URL.revokeObjectURL(cropObjectUrlRef.current);
+        cropObjectUrlRef.current = null;
+      }
+    };
+  }, []);
+
   const copyLink = async () => {
     try {
       await navigator.clipboard.writeText(payLink);
@@ -165,12 +195,32 @@ export default function GoalDetailsPage() {
     }
   };
 
-  const handleCoverPick = async (file: File | undefined) => {
+  const clearCropPreview = () => {
+    if (cropObjectUrlRef.current) {
+      URL.revokeObjectURL(cropObjectUrlRef.current);
+      cropObjectUrlRef.current = null;
+    }
+    setCropSrc(null);
+    setShowCropModal(false);
+  };
+
+  const handleCoverFileSelected = (file: File | undefined) => {
     if (!file || !goal || !token || token === "guest") return;
     if (!isCreator) {
       showToast("Only the creator can change the photo", "warning");
       return;
     }
+    if (cropObjectUrlRef.current) {
+      URL.revokeObjectURL(cropObjectUrlRef.current);
+    }
+    const url = URL.createObjectURL(file);
+    cropObjectUrlRef.current = url;
+    setCropSrc(url);
+    setShowCropModal(true);
+  };
+
+  const handleCroppedCover = async (file: File) => {
+    if (!goal || !token || token === "guest") return;
     setCoverUploading(true);
     try {
       const res = await uploadGoalCover(goal.id, file, token);
@@ -180,6 +230,7 @@ export default function GoalDetailsPage() {
       }
       setGoal((g) => (g ? { ...g, coverImageUrl: res.coverImageUrl } : g));
       showToast("Cover photo updated", "success");
+      clearCropPreview();
     } catch {
       showToast("Upload failed", "error");
     } finally {
@@ -481,7 +532,7 @@ export default function GoalDetailsPage() {
           className="hidden"
           onChange={(e) => {
             const f = e.target.files?.[0];
-            void handleCoverPick(f);
+            handleCoverFileSelected(f);
             e.target.value = "";
           }}
         />
@@ -502,6 +553,17 @@ export default function GoalDetailsPage() {
                   / {formatBalance(target)}
                 </span>
               </p>
+              {yieldOn && (
+                <p className="text-[12px] font-semibold text-downy-600 tabular-nums mt-0.5">
+                  Yield +{formatBalance(yieldEarned)}
+                  {moonwellApy != null && (
+                    <span className="text-downy-500/80 font-medium">
+                      {" "}
+                      · {moonwellApy.toFixed(2)}% APY
+                    </span>
+                  )}
+                </p>
+              )}
             </div>
             <p
               className={`text-[1.15rem] font-extrabold tabular-nums ${
@@ -645,6 +707,12 @@ export default function GoalDetailsPage() {
                   {yieldOn
                     ? "Earning on Moonwell"
                     : "Earn yield while you save"}
+                  {moonwellApy != null && (
+                    <span className="text-downy-600 font-bold">
+                      {" "}
+                      · {moonwellApy.toFixed(2)}% APY
+                    </span>
+                  )}
                 </p>
               </div>
             </div>
@@ -901,97 +969,109 @@ export default function GoalDetailsPage() {
             onClick={() => !yieldBusy && setShowYieldModal(false)}
             aria-hidden
           />
-          <div className="relative w-full max-w-md bg-white rounded-t-3xl px-5 pt-4 pb-8 shadow-xl max-h-[90%] overflow-y-auto">
-            <div className="w-10 h-1 rounded-full bg-gray-200 mx-auto mb-4" />
+          <div className="relative w-full max-w-md bg-white rounded-t-3xl shadow-xl max-h-[min(92dvh,92%)] flex flex-col overflow-hidden">
+            <div className="shrink-0 px-5 pt-4">
+              <div className="w-10 h-1 rounded-full bg-gray-200 mx-auto mb-4" />
 
-            <div className="flex items-center gap-3 mb-2">
-              <span className="h-10 w-10 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0">
-                <FiZap size={18} />
-              </span>
-              <h2 className="text-[1.15rem] font-extrabold text-gray-900 leading-tight flex-1">
-                Put your savings to work
-              </h2>
+              <div className="flex items-center gap-3 mb-2">
+                <span className="h-10 w-10 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0">
+                  <FiZap size={18} />
+                </span>
+                <h2 className="text-[1.15rem] font-extrabold text-gray-900 leading-tight flex-1">
+                  Put your savings to work
+                </h2>
+                <button
+                  type="button"
+                  disabled={yieldBusy}
+                  onClick={() => setShowYieldModal(false)}
+                  className="h-8 w-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-500"
+                  aria-label="Close"
+                >
+                  <FiX size={16} />
+                </button>
+              </div>
+              <p className="text-[13px] text-gray-500 mb-3 leading-relaxed">
+                Here’s what happens when you turn this on for your goal.
+              </p>
+            </div>
+
+            <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-5 [-webkit-overflow-scrolling:touch]">
+              <div className="mb-3 rounded-2xl border border-gray-200 bg-gray-50 px-3.5 py-3 flex items-start gap-3">
+                <span className="h-8 w-8 rounded-lg bg-white flex items-center justify-center text-teal-700 shrink-0 mt-0.5">
+                  <FiUsers size={15} />
+                </span>
+                <div className="min-w-0">
+                  <p className="text-[13px] font-bold text-gray-900 mb-0.5">
+                    Supplied to Moonwell
+                  </p>
+                  <p className="text-[12px] text-gray-500 leading-relaxed">
+                    Your goal funds are supplied to a Moonwell pool (a third-party
+                    DeFi pool) to provide liquidity. ChamaPay does not hold this
+                    yield pool itself.
+                  </p>
+                </div>
+              </div>
+
+              <div className="mb-3 rounded-2xl border border-gray-200 bg-gray-50 px-3.5 py-3 flex items-start gap-3">
+                <span className="h-8 w-8 rounded-lg bg-white flex items-center justify-center text-teal-700 shrink-0 mt-0.5">
+                  <FiTrendingUp size={15} />
+                </span>
+                <div className="min-w-0">
+                  <p className="text-[13px] font-bold text-gray-900 mb-0.5">
+                    APY is relative
+                    {moonwellApy != null && (
+                      <span className="text-downy-600 font-extrabold">
+                        {" "}
+                        · {moonwellApy.toFixed(2)}% now
+                      </span>
+                    )}
+                  </p>
+                  <p className="text-[12px] text-gray-500 leading-relaxed">
+                    The APY you see can go up or down over time — it depends on
+                    borrowing demand in the pool and is not guaranteed.
+                  </p>
+                </div>
+              </div>
+
+              <div className="mb-2 rounded-2xl border border-amber-200 bg-amber-50 px-3.5 py-3 flex items-start gap-3">
+                <span className="h-8 w-8 rounded-lg bg-white flex items-center justify-center text-amber-600 shrink-0 mt-0.5">
+                  <FiAlertTriangle size={15} />
+                </span>
+                <div className="min-w-0">
+                  <p className="text-[13px] font-bold text-amber-900 mb-0.5">
+                    Withdrawal risk
+                  </p>
+                  <p className="text-[12px] text-amber-800/80 leading-relaxed">
+                    You can withdraw only when the money is not borrowed yet. If
+                    the pool’s cash is currently borrowed, your balance is still
+                    yours and keeps earning — try again when free cash returns.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="shrink-0 px-5 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))] border-t border-gray-100 bg-white">
+              <button
+                type="button"
+                disabled={yieldBusy}
+                onClick={() => void applyYieldToggle(true)}
+                className="w-full py-3.5 rounded-2xl bg-downy-600 text-white text-[15px] font-bold flex items-center justify-center shadow-md shadow-downy-600/20"
+              >
+                {yieldBusy ? (
+                  <span className="h-4 w-4 rounded-full border-2 border-white border-t-transparent animate-spin" />
+                ) : (
+                  "Turn on"
+                )}
+              </button>
               <button
                 type="button"
                 disabled={yieldBusy}
                 onClick={() => setShowYieldModal(false)}
-                className="h-8 w-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-500"
-                aria-label="Close"
+                className="w-full py-3 mt-0.5 text-[13px] font-medium text-gray-500"
               >
-                <FiX size={16} />
+                Not now
               </button>
             </div>
-            <p className="text-[13px] text-gray-500 mb-4 leading-relaxed">
-              Here’s what happens when you turn this on for your goal.
-            </p>
-
-            <div className="mb-3 rounded-2xl border border-gray-200 bg-gray-50 px-3.5 py-3 flex items-start gap-3">
-              <span className="h-8 w-8 rounded-lg bg-white flex items-center justify-center text-teal-700 shrink-0 mt-0.5">
-                <FiUsers size={15} />
-              </span>
-              <div className="min-w-0">
-                <p className="text-[13px] font-bold text-gray-900 mb-0.5">
-                  Supplied to Moonwell
-                </p>
-                <p className="text-[12px] text-gray-500 leading-relaxed">
-                  Your goal funds are supplied to a Moonwell pool (a third-party
-                  DeFi pool) to provide liquidity. ChamaPay does not hold this
-                  yield pool itself.
-                </p>
-              </div>
-            </div>
-
-            <div className="mb-3 rounded-2xl border border-gray-200 bg-gray-50 px-3.5 py-3 flex items-start gap-3">
-              <span className="h-8 w-8 rounded-lg bg-white flex items-center justify-center text-teal-700 shrink-0 mt-0.5">
-                <FiTrendingUp size={15} />
-              </span>
-              <div className="min-w-0">
-                <p className="text-[13px] font-bold text-gray-900 mb-0.5">
-                  APY is relative
-                </p>
-                <p className="text-[12px] text-gray-500 leading-relaxed">
-                  The APY you see can go up or down over time — it depends on
-                  borrowing demand in the pool and is not guaranteed.
-                </p>
-              </div>
-            </div>
-
-            <div className="mb-5 rounded-2xl border border-amber-200 bg-amber-50 px-3.5 py-3 flex items-start gap-3">
-              <span className="h-8 w-8 rounded-lg bg-white flex items-center justify-center text-amber-600 shrink-0 mt-0.5">
-                <FiAlertTriangle size={15} />
-              </span>
-              <div className="min-w-0">
-                <p className="text-[13px] font-bold text-amber-900 mb-0.5">
-                  Withdrawal risk
-                </p>
-                <p className="text-[12px] text-amber-800/80 leading-relaxed">
-                  You can withdraw only when the money is not borrowed yet. If
-                  the pool’s cash is currently borrowed, your balance is still
-                  yours and keeps earning — try again when free cash returns.
-                </p>
-              </div>
-            </div>
-
-            <button
-              type="button"
-              disabled={yieldBusy}
-              onClick={() => void applyYieldToggle(true)}
-              className="w-full py-3.5 rounded-2xl bg-downy-600 text-white text-[15px] font-bold flex items-center justify-center shadow-md shadow-downy-600/20"
-            >
-              {yieldBusy ? (
-                <span className="h-4 w-4 rounded-full border-2 border-white border-t-transparent animate-spin" />
-              ) : (
-                "Turn on"
-              )}
-            </button>
-            <button
-              type="button"
-              disabled={yieldBusy}
-              onClick={() => setShowYieldModal(false)}
-              className="w-full py-3 mt-1 text-[13px] font-medium text-gray-500"
-            >
-              Not now
-            </button>
           </div>
         </div>
       )}
@@ -1022,6 +1102,13 @@ export default function GoalDetailsPage() {
         onSuccess={() => void load({ silent: true })}
         goalId={goal.id}
         goalName={goal.name}
+      />
+
+      <CoverCropModal
+        open={showCropModal}
+        imageSrc={cropSrc}
+        onCancel={clearCropPreview}
+        onConfirm={handleCroppedCover}
       />
     </div>
   );

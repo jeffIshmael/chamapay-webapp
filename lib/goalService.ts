@@ -309,3 +309,103 @@ export function goalTypeLabel(type: string): string {
   if (type === "public") return "Public / Harambee";
   return type;
 }
+
+export type PublicGoalPreview = {
+  id: number;
+  name: string;
+  slug: string;
+  description?: string | null;
+  goalType: string;
+  targetAmount: string;
+  endDate?: string | null;
+  coverImageUrl?: string | null;
+  status: string;
+  creator?: { userName: string; profileImageUrl?: string | null } | null;
+  totalBalance?: string;
+  progress?: number;
+};
+
+export async function getPublicGoalByPayToken(
+  token: string
+): Promise<{ success: boolean; goal?: PublicGoalPreview; error?: string }> {
+  try {
+    const response = await fetch(
+      `${serverUrl}/goal/pay/${encodeURIComponent(token)}`
+    );
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        success: false,
+        error: (data as { error?: string }).error || "Goal not found",
+      };
+    }
+    return {
+      success: true,
+      goal: (data as { goal: PublicGoalPreview }).goal,
+    };
+  } catch {
+    return { success: false, error: "Failed to load goal" };
+  }
+}
+
+export async function initiateGoalPayOnramp(
+  token: string,
+  body: {
+    amount: number;
+    phoneNo: string;
+    guestDisplayName?: string;
+    exchangeRate?: number;
+  }
+): Promise<{
+  success: boolean;
+  transactionCode?: string;
+  error?: string;
+}> {
+  try {
+    const response = await fetch(
+      `${serverUrl}/goal/pay/${encodeURIComponent(token)}/onramp`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      }
+    );
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        success: false,
+        error: (data as { error?: string }).error || "Payment failed to start",
+      };
+    }
+    return {
+      success: true,
+      transactionCode: (data as { transactionCode?: string }).transactionCode,
+    };
+  } catch {
+    return { success: false, error: "Payment failed to start" };
+  }
+}
+
+export async function getGoalPayStatus(
+  code: string
+): Promise<{ success: boolean; complete?: boolean; status?: string; error?: string }> {
+  try {
+    const response = await fetch(
+      `${serverUrl}/goal/pay/status/${encodeURIComponent(code)}`
+    );
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        success: false,
+        error: (data as { error?: string }).error || "Status check failed",
+      };
+    }
+    return {
+      success: true,
+      complete: Boolean((data as { complete?: boolean }).complete),
+      status: (data as { status?: string }).status,
+    };
+  } catch {
+    return { success: false, error: "Status check failed" };
+  }
+}

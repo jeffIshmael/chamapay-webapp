@@ -39,6 +39,7 @@ export default function ChamaMpesaPay({
   isLoading,
   setIsLoading,
   isMoonwellDeposit = false,
+  goalId,
 }: {
   chamaId: number;
   chamaName: string;
@@ -51,6 +52,8 @@ export default function ChamaMpesaPay({
   isLoading: boolean;
   setIsLoading: (v: boolean) => void;
   isMoonwellDeposit?: boolean;
+  /** When set, Pretium credits this Save-for-Goal pool after release */
+  goalId?: number;
 }) {
   const { token, isAuthenticated } = useAuth();
   const { currency, platformRate: storeRate } = useCurrencyStore();
@@ -133,11 +136,12 @@ export default function ChamaMpesaPay({
         kesWhole,
         rate,
         usdcAmt,
-        isMoonwellDeposit ? true : false,
+        isMoonwellDeposit || Boolean(goalId) ? true : false,
         token,
-        isMoonwellDeposit ? undefined : chamaId,
+        isMoonwellDeposit || goalId ? undefined : chamaId,
         memberForId,
-        isMoonwellDeposit
+        isMoonwellDeposit,
+        goalId
       );
       if (!result.success) {
         if (result.code === "KYC_REQUIRED") {

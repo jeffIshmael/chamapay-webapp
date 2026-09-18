@@ -18,7 +18,8 @@ export async function pretiumOnramp(
   token: string,
   chamaId?: number,
   memberForId?: number,
-  isMoonwellDeposit?: boolean
+  isMoonwellDeposit?: boolean,
+  goalId?: number
 ) {
   try {
     const response = await fetch(`${serverUrl}/pretium/onramp`, {
@@ -36,6 +37,7 @@ export async function pretiumOnramp(
         chamaId,
         memberForId,
         isMoonwellDeposit,
+        goalId,
       }),
     });
     const data = await response.json();
