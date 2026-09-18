@@ -310,6 +310,38 @@ export function goalTypeLabel(type: string): string {
   return type;
 }
 
+/** Badge styles for goal-type tags on home / lists */
+export function goalTypeTagColors(type: string): {
+  color: string;
+  bg: string;
+  border: string;
+} {
+  switch (type) {
+    case "personal":
+      return { color: "#6d28d9", bg: "#f5f3ff", border: "#ede9fe" }; // violet
+    case "invite":
+      return { color: "#0369a1", bg: "#f0f9ff", border: "#e0f2fe" }; // sky
+    case "public":
+      return { color: "#b45309", bg: "#fffbeb", border: "#fef3c7" }; // amber
+    default:
+      return { color: "#4b5563", bg: "#f3f4f6", border: "#e5e7eb" };
+  }
+}
+
+/** Tailwind class string (bg + text). Prefer goalTypeTagColors + inline style if purge drops dynamic classes. */
+export function goalTypeTagClass(type: string): string {
+  switch (type) {
+    case "personal":
+      return "bg-violet-50 text-violet-700 border border-violet-100";
+    case "invite":
+      return "bg-sky-50 text-sky-700 border border-sky-100";
+    case "public":
+      return "bg-amber-50 text-amber-800 border border-amber-100";
+    default:
+      return "bg-gray-100 text-gray-600 border border-gray-200";
+  }
+}
+
 export type PublicGoalPreview = {
   id: number;
   name: string;

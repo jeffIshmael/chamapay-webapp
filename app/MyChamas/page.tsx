@@ -13,6 +13,7 @@ import {
   getMyGoals,
   getGoalBySlug,
   goalTypeLabel,
+  goalTypeTagColors,
   GoalRecord,
 } from "@/lib/goalService";
 import { motion } from "framer-motion";
@@ -298,7 +299,7 @@ function MyHomeContent() {
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                className="space-y-8"
+                className="flex flex-col gap-3"
               >
                 {error && (
                   <p className="text-[12px] text-amber-700 bg-amber-50 px-3 py-2 rounded-xl">
@@ -344,7 +345,7 @@ function MyHomeContent() {
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                className="space-y-2.5"
+                className="flex flex-col gap-2.5"
               >
                 {goals.map((goal) => (
                   <GoalCard key={goal.id} goal={goal} />
@@ -381,7 +382,7 @@ const ChamaCard = ({ chama }: { chama: JoinedChama }) => {
     : chama.nextPayoutDate;
 
   return (
-    <Link href={`/Chama/${chama.slug}`}>
+    <Link href={`/Chama/${chama.slug}`} className="block">
       <motion.div
         whileTap={{ scale: 0.99 }}
         className="bg-white rounded-2xl shadow-md border border-downy-100 overflow-hidden"
@@ -454,9 +455,10 @@ const GoalCard = ({ goal }: { goal: GoalRecord }) => {
   const fillColor = isGreen
     ? "rgba(16, 185, 129, 0.38)"
     : "rgba(245, 158, 11, 0.38)";
+  const typeColors = goalTypeTagColors(goal.goalType);
 
   return (
-    <Link href={`/Goal/${goal.slug}`}>
+    <Link href={`/Goal/${goal.slug}`} className="block">
       <motion.div
         whileTap={{ scale: 0.99 }}
         className="bg-white rounded-2xl shadow-sm border border-downy-100/70 overflow-hidden"
@@ -471,7 +473,14 @@ const GoalCard = ({ goal }: { goal: GoalRecord }) => {
                 </h3>
               </div>
               <div className="flex flex-wrap gap-1.5 mb-1.5">
-                <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800">
+                <span
+                  className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full border"
+                  style={{
+                    color: typeColors.color,
+                    backgroundColor: typeColors.bg,
+                    borderColor: typeColors.border,
+                  }}
+                >
                   {goalTypeLabel(goal.goalType)}
                 </span>
                 {goal.yieldEnabled && (

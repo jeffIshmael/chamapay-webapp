@@ -114,10 +114,10 @@ const Page = () => {
       <AppHeader pageTitle="Notifications" />
 
       <div className="px-4 pt-3 pb-6">
-        <div className="flex items-center justify-between mb-3">
-          <p className="text-[11px] text-gray-500">
+        <div className="flex items-center justify-end mb-3">
+          {/* <p className="text-[11px] text-gray-500">
             Activity from your chamas and goals
-          </p>
+          </p> */}
           {notifications.length > 0 && (
             <span className="bg-downy-100 text-downy-800 text-[10px] font-bold px-2 py-0.5 rounded-full">
               {notifications.filter((n) => !n.read).length || notifications.length}{" "}

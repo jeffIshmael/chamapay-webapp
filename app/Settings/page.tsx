@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -16,6 +17,7 @@ import {
   FiInfo,
   FiLogOut,
 } from "react-icons/fi";
+import { FaWhatsapp } from "react-icons/fa";
 import { useAuth } from "@/app/context/AuthContext";
 import { showToast } from "@/app/Components/Toast";
 import { serverUrl } from "@/lib/serverUrl";
@@ -438,70 +440,62 @@ export default function SettingsPage() {
             </p>
           </div>
           <div className="space-y-1.5">
-            {(
-              [
-                {
-                  href: "https://chamapay.com/privacy",
-                  title: "Privacy Policy",
-                  sub: "Read our privacy policy",
-                  iconBg: "bg-blue-100 text-blue-600",
-                  icon: <FiFileText size={14} />,
-                },
-                {
-                  href: "https://chamapay.com/terms",
-                  title: "Terms of Service",
-                  sub: "Review our terms and conditions",
-                  iconBg: "bg-green-100 text-emerald-600",
-                  icon: <FiFileText size={14} />,
-                },
-              ] as const
-            ).map((item) => (
-              <a
-                key={item.href}
-                href={item.href}
-                target="_blank"
-                rel="noreferrer"
-                className="flex items-center justify-between gap-2.5 rounded-lg bg-gray-50 p-2.5"
-              >
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <span
-                    className={`h-8 w-8 rounded-md flex items-center justify-center shrink-0 ${item.iconBg}`}
-                  >
-                    {item.icon}
-                  </span>
-                  <div className="min-w-0">
-                    <p className="text-[12px] font-semibold text-gray-900">
-                      {item.title}
-                    </p>
-                    <p className="text-[10px] text-gray-500">{item.sub}</p>
-                  </div>
+            <Link
+              href="/info?type=privacy"
+              className="flex items-center justify-between gap-2.5 rounded-lg bg-gray-50 p-2.5"
+            >
+              <div className="flex items-center gap-2.5 min-w-0">
+                <span className="h-8 w-8 rounded-md bg-blue-100 text-blue-600 flex items-center justify-center shrink-0">
+                  <FiFileText size={14} />
+                </span>
+                <div className="min-w-0">
+                  <p className="text-[12px] font-semibold text-gray-900">
+                    Privacy Policy
+                  </p>
+                  <p className="text-[10px] text-gray-500">
+                    Read our privacy policy
+                  </p>
                 </div>
-                <FiExternalLink size={14} className="text-gray-400 shrink-0" />
-              </a>
-            ))}
+              </div>
+              <FiChevronRight size={16} className="text-gray-400 shrink-0" />
+            </Link>
+
+            <Link
+              href="/info?type=terms"
+              className="flex items-center justify-between gap-2.5 rounded-lg bg-gray-50 p-2.5"
+            >
+              <div className="flex items-center gap-2.5 min-w-0">
+                <span className="h-8 w-8 rounded-md bg-green-100 text-emerald-600 flex items-center justify-center shrink-0">
+                  <FiFileText size={14} />
+                </span>
+                <div className="min-w-0">
+                  <p className="text-[12px] font-semibold text-gray-900">
+                    Terms of Service
+                  </p>
+                  <p className="text-[10px] text-gray-500">
+                    Review our terms and conditions
+                  </p>
+                </div>
+              </div>
+              <FiChevronRight size={16} className="text-gray-400 shrink-0" />
+            </Link>
 
             <a
-              href="https://t.me/chamapay"
+              href="https://wa.me/2547571149628"
               target="_blank"
               rel="noreferrer"
               className="flex items-center justify-between gap-2.5 rounded-lg bg-gray-50 p-2.5"
             >
               <div className="flex items-center gap-2.5 min-w-0">
-                <span className="h-8 w-8 rounded-md overflow-hidden shrink-0 relative">
-                  <Image
-                    src="/brand/telegram.jpg"
-                    alt=""
-                    fill
-                    className="object-cover"
-                    unoptimized
-                  />
+                <span className="h-8 w-8 rounded-md bg-[#25D366]/15 text-[#25D366] flex items-center justify-center shrink-0">
+                  <FaWhatsapp size={18} />
                 </span>
                 <div className="min-w-0">
                   <p className="text-[12px] font-semibold text-gray-900">
                     Help & Support
                   </p>
                   <p className="text-[10px] text-gray-500">
-                    Join our Telegram community
+                    Message us on WhatsApp
                   </p>
                 </div>
               </div>
@@ -530,7 +524,10 @@ export default function SettingsPage() {
               <FiExternalLink size={14} className="text-gray-400 shrink-0" />
             </a>
 
-            <div className="flex items-center justify-between gap-2.5 rounded-lg bg-gray-50 p-2.5">
+            <Link
+              href="/info?type=about"
+              className="flex items-center justify-between gap-2.5 rounded-lg bg-gray-50 p-2.5"
+            >
               <div className="flex items-center gap-2.5 min-w-0">
                 <span className="h-8 w-8 rounded-md bg-violet-100 text-violet-600 flex items-center justify-center shrink-0">
                   <FiInfo size={14} />
@@ -540,11 +537,12 @@ export default function SettingsPage() {
                     About Chamapay
                   </p>
                   <p className="text-[10px] text-gray-500">
-                    Group savings, goals, and yield on Base
+                    Learn more about what we do
                   </p>
                 </div>
               </div>
-            </div>
+              <FiChevronRight size={16} className="text-gray-400 shrink-0" />
+            </Link>
           </div>
         </div>
 

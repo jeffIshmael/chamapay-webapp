@@ -13,6 +13,7 @@ import {
   formatDate,
   formatTimeRemaining,
   getRelativeTime,
+  isDueWithinDays,
 } from "@/utils/duration";
 import { useFormattedBalance } from "@/lib/useFormattedBalance";
 import { normalizeUsdcAmount, normalizeChamaBalance } from "@/lib/normalizeUsdc";
@@ -21,6 +22,7 @@ import { Member } from "@/utils/typesUtils";
 import { useAuth } from "@/app/context/AuthContext";
 import ProfileAvatar from "@/app/Components/ProfileAvatar";
 import { getMemberRemainingAmount } from "@/lib/memberBalances";
+import { useRouter } from "next/navigation";
 
 function txLabel(tx: Transaction) {
   if (tx.type === "payout") return "Cycle & Round Payout";
@@ -74,6 +76,7 @@ export default function ChamaOverview({
 }: Props) {
   const { formatBalance, currency, platformRate } = useFormattedBalance();
   const { user } = useAuth();
+  const router = useRouter();
   const [selectedTx, setSelectedTx] = useState<Transaction | null>(null);
   const [showWithdraw, setShowWithdraw] = useState(false);
   const [showRecipient, setShowRecipient] = useState(false);
@@ -84,6 +87,8 @@ export default function ChamaOverview({
   );
   const contribution = Number(chama.contribution) || 0;
   const remainingAmount = Math.max(0, contribution - myContributions);
+  const showOutstanding =
+    remainingAmount > 0 && isDueWithinDays(chama.contributionDueDate, 3);
   const remainingKes = Math.ceil(remainingAmount * platformRate);
   const normalizedAddress = (userAddress || "").toLowerCase();
   const hasSchedule = (chama.payoutSchedule?.length || 0) > 0;
@@ -120,6 +125,18 @@ export default function ChamaOverview({
     });
   };
 
+  const openAllTransactions = () => {
+    try {
+      sessionStorage.setItem(
+        `chama-tx-${chama.slug}`,
+        JSON.stringify(chama.recentTransactions || [])
+      );
+    } catch {
+      /* ignore quota / private mode */
+    }
+    router.push(`/Chama/${chama.slug}/transactions`);
+  };
+
   return (
     <div className="space-y-3 pb-8">
       {/* Balance card */}
@@ -147,7 +164,7 @@ export default function ChamaOverview({
 
           {balanceLoading ? (
             <div className="mt-3 h-14 rounded-xl bg-gray-100 animate-pulse" />
-          ) : remainingAmount > 0 ? (
+          ) : showOutstanding ? (
             <div className="mt-3 bg-orange-50 border border-orange-200 rounded-xl p-3">
               <p className="text-orange-800 font-semibold text-[12px]">
                 Outstanding Payment
@@ -166,7 +183,7 @@ export default function ChamaOverview({
                 {formatDate(chama.contributionDueDate)}
               </p>
             </div>
-          ) : (
+          ) : remainingAmount <= 0 ? (
             <div className="mt-3 bg-emerald-50 border border-emerald-200 rounded-xl p-3 flex gap-2">
               <div className="w-4 h-4 rounded-full bg-emerald-100 flex items-center justify-center mt-0.5 shrink-0">
                 <FiCheck className="text-emerald-600" size={10} />
@@ -180,7 +197,7 @@ export default function ChamaOverview({
                 </p>
               </div>
             </div>
-          )}
+          ) : null}
 
           <div className="flex gap-2 mt-3">
             {remainingAmount > 0 ? (
@@ -290,9 +307,20 @@ export default function ChamaOverview({
 
       {/* Recent transactions */}
       <div className="bg-white rounded-2xl border border-downy-100/70 shadow-sm p-4">
-        <p className="text-[14px] font-semibold text-gray-900 mb-2">
-          Recent Transactions
-        </p>
+        <div className="flex items-center justify-between mb-2 gap-2">
+          <p className="text-[14px] font-semibold text-gray-900">
+            Recent Transactions
+          </p>
+          {chama.recentTransactions.length > 0 ? (
+            <button
+              type="button"
+              onClick={openAllTransactions}
+              className="bg-gray-100 px-3 py-1 rounded-full text-[11px] font-medium text-gray-600"
+            >
+              All
+            </button>
+          ) : null}
+        </div>
         <div className="h-px bg-gray-100 mb-3" />
 
         {chama.recentTransactions.length === 0 ? (
@@ -301,7 +329,7 @@ export default function ChamaOverview({
           </p>
         ) : (
           <div className="space-y-2">
-            {chama.recentTransactions.slice(0, 5).map((tx) => {
+            {chama.recentTransactions.slice(0, 3).map((tx) => {
               const isMine =
                 tx.type !== "refund" &&
                 tx.user?.address?.toLowerCase() === normalizedAddress;

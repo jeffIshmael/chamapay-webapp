@@ -89,18 +89,26 @@ export default function AllActivityPage() {
   };
 
   return (
-    <div className="min-h-[100dvh] bg-downy-50 pb-8">
-      <div className="sticky top-0 z-10 bg-downy-800 text-white px-4 py-3 flex items-center gap-3">
-        <Link
-          href="/Wallet"
-          className="h-8 w-8 rounded-full bg-white/15 flex items-center justify-center"
-        >
-          <FiArrowLeft size={16} />
-        </Link>
-        <h1 className="text-[15px] font-bold">All activity</h1>
+    <div className="absolute inset-0 flex flex-col bg-gray-50">
+      <div
+        className="shrink-0 px-4 pt-2 pb-3.5 rounded-b-2xl text-white safe-top shadow-md shadow-downy-900/20"
+        style={{ backgroundColor: "#1a6b6b" }}
+      >
+        <div className="flex items-center gap-3 min-h-[32px]">
+          <Link
+            href="/Wallet"
+            className="h-8 w-8 rounded-full bg-white/20 flex items-center justify-center"
+            aria-label="Back to wallet"
+          >
+            <FiArrowLeft size={16} />
+          </Link>
+          <h1 className="text-[15px] font-bold flex-1 text-center pr-8">
+            All activity
+          </h1>
+        </div>
       </div>
 
-      <div className="px-4 pt-4 space-y-2">
+      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 pt-4 pb-8 space-y-2 [-webkit-overflow-scrolling:touch]">
         {loading ? (
           <p className="text-center text-[12px] text-gray-500 py-10">Loading…</p>
         ) : transactions.length === 0 ? (

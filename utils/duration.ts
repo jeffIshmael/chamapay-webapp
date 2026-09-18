@@ -182,6 +182,16 @@ export const formatDate = (dateString: string | Date | null | undefined) => {
   return `${dayName}, ${day} ${month} , ${time}`;
 };
 
+/** True when due date is within `days` (including overdue). */
+export const isDueWithinDays = (
+  dueDate: string | Date | null | undefined,
+  days = 3
+): boolean => {
+  const due = toValidDate(dueDate);
+  if (!due || !Number.isFinite(days) || days < 0) return false;
+  return due.getTime() - Date.now() <= days * 24 * 60 * 60 * 1000;
+};
+
 // function that received days and formats it better
 export const formatDays = (days: number): string => {
   if (!Number.isFinite(days) || days <= 0) return "";

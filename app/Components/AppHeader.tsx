@@ -51,7 +51,7 @@ export default function AppHeader({
         <div className="flex items-center justify-between gap-3 min-h-[44px]">
           <div className="min-w-0 flex-1">
             <p className="text-[11px] font-medium text-white/75 tracking-wide">
-              {greetingForHour(new Date().getHours())}
+              {greetingForHour(new Date().getHours())} 👋
             </p>
             <h1 className="text-display text-[1.15rem] font-bold text-white truncate leading-tight mt-0.5">
               {firstName}

@@ -12,6 +12,7 @@ import {
 } from "react-icons/fi";
 import AppHeader from "../Components/AppHeader";
 import BottomNavbar from "../Components/BottomNavbar";
+import MoonwellInfoButton from "../Components/MoonwellInfoButton";
 import {
   getMoonwellUsdcSnapshot,
   type MoonwellUsdcSnapshot,
@@ -91,28 +92,41 @@ export default function SaveEarnPage() {
           Available pools
         </h2>
         <p className="text-[11px] text-gray-500 mb-3">
-          Earn interest on your stablecoins
+          Earn interest on your money
         </p>
 
-        <Link
-          href="/SaveEarn/moonwell"
-          className="block bg-white rounded-2xl p-3.5 shadow-sm border border-downy-100/70 hover:border-downy-200 transition"
-        >
+        <div className="bg-white rounded-2xl p-3.5 shadow-sm border border-downy-100/70">
           <div className="flex items-center justify-between gap-2 mb-3">
             <div className="flex items-center flex-1 min-w-0 gap-2.5">
-              <Image
-                src="/brand/moonwell_logo.png"
-                alt="Moonwell"
-                width={40}
-                height={40}
-                className="w-10 h-10 rounded-full object-cover shrink-0"
-              />
+              <Link href="/SaveEarn/moonwell" className="shrink-0">
+                <Image
+                  src="/brand/moonwell_logo.png"
+                  alt="Moonwell"
+                  width={40}
+                  height={40}
+                  className="w-10 h-10 rounded-full object-cover"
+                />
+              </Link>
               <div className="min-w-0">
-                <p className="text-[13px] font-bold text-gray-900">Moonwell</p>
-                <p className="text-[11px] text-gray-500 mt-0.5">USDC pool · Base</p>
+                <div className="flex items-center gap-1.5">
+                  <Link
+                    href="/SaveEarn/moonwell"
+                    className="text-[13px] font-bold text-gray-900"
+                  >
+                    Moonwell
+                  </Link>
+                  <MoonwellInfoButton
+                    size={15}
+                    currentApy={snapshot?.supplyApy}
+                  />
+                </div>
+                <p className="text-[11px] text-gray-500 mt-0.5">USDC  pool</p>
               </div>
             </div>
-            <div className="bg-downy-50 px-2.5 py-1.5 rounded-xl text-right shrink-0">
+            <Link
+              href="/SaveEarn/moonwell"
+              className="bg-downy-50 px-2.5 py-1.5 rounded-xl text-right shrink-0"
+            >
               {loading ? (
                 <div className="h-4 w-10 bg-downy-200/50 rounded mb-0.5" />
               ) : (
@@ -123,70 +137,72 @@ export default function SaveEarnPage() {
               <p className="text-[9px] font-bold text-downy-600 tracking-wide">
                 APY
               </p>
-            </div>
+            </Link>
           </div>
 
-          <div className="grid grid-cols-3 gap-1.5 mb-3">
-            {[
-              { icon: FiLogIn, color: "text-emerald-500", label: "Supply anytime" },
-              { icon: FiActivity, color: "text-blue-500", label: "Earn while lent" },
-              { icon: FiLogOut, color: "text-amber-500", label: "Cash when free" },
-            ].map(({ icon: Icon, color, label }) => (
-              <div
-                key={label}
-                className="flex flex-col items-center justify-center bg-gray-50 py-2 rounded-xl border border-gray-100 px-1"
-              >
-                <Icon className={`${color} mb-1`} size={14} />
-                <p className="text-[10px] font-semibold text-gray-600 text-center leading-tight">
-                  {label}
+          <Link href="/SaveEarn/moonwell" className="block">
+            <div className="grid grid-cols-3 gap-1.5 mb-3">
+              {[
+                { icon: FiLogIn, color: "text-emerald-500", label: "Deposit anytime" },
+                { icon: FiActivity, color: "text-blue-500", label: "Earn every block" },
+                { icon: FiLogOut, color: "text-amber-500", label: "Withdraw when available" },
+              ].map(({ icon: Icon, color, label }) => (
+                <div
+                  key={label}
+                  className="flex flex-col items-center justify-center bg-gray-50 py-2 rounded-xl border border-gray-100 px-1"
+                >
+                  <Icon className={`${color} mb-1`} size={14} />
+                  <p className="text-[10px] font-semibold text-gray-600 text-center leading-tight">
+                    {label}
+                  </p>
+                </div>
+              ))}
+            </div>
+
+            <div
+              className={`mb-3 rounded-xl px-2.5 py-2 text-[11px] font-semibold ${
+                canWithdraw
+                  ? "bg-emerald-50 text-emerald-800 border border-emerald-100"
+                  : "bg-amber-50 text-amber-800 border border-amber-100"
+              }`}
+            >
+              {loading
+                ? "Checking pool liquidity…"
+                : canWithdraw
+                  ? "Withdrawals available — pool has free cash"
+                  : "Withdrawals paused until pool liquidity returns"}
+            </div>
+
+            <div className="bg-slate-50 rounded-xl px-3 py-2.5 border border-gray-100 flex justify-between items-center">
+              <div>
+                <p className="text-[10px] text-gray-500 mb-0.5 font-medium">
+                  Invested
                 </p>
+                {loading ? (
+                  <div className="h-4 w-16 bg-gray-200 rounded" />
+                ) : (
+                  <p className="text-[12px] font-bold text-gray-900 font-mono">
+                    {invested}
+                  </p>
+                )}
               </div>
-            ))}
-          </div>
-
-          <div
-            className={`mb-3 rounded-xl px-2.5 py-2 text-[11px] font-semibold ${
-              canWithdraw
-                ? "bg-emerald-50 text-emerald-800 border border-emerald-100"
-                : "bg-amber-50 text-amber-800 border border-amber-100"
-            }`}
-          >
-            {loading
-              ? "Checking pool liquidity…"
-              : canWithdraw
-                ? "Withdrawals available — pool has free cash"
-                : "Withdrawals paused until pool liquidity returns"}
-          </div>
-
-          <div className="bg-slate-50 rounded-xl px-3 py-2.5 border border-gray-100 flex justify-between items-center">
-            <div>
-              <p className="text-[10px] text-gray-500 mb-0.5 font-medium">
-                Invested
-              </p>
-              {loading ? (
-                <div className="h-4 w-16 bg-gray-200 rounded" />
-              ) : (
-                <p className="text-[12px] font-bold text-gray-900 font-mono">
-                  {invested}
+              <div className="w-px h-7 bg-gray-200" />
+              <div className="text-right">
+                <p className="text-[10px] text-gray-500 mb-0.5 font-medium">
+                  Earned
                 </p>
-              )}
+                {loading ? (
+                  <div className="h-4 w-14 bg-gray-200 rounded ml-auto" />
+                ) : (
+                  <p className="text-[12px] font-bold text-emerald-600 font-mono">
+                    +{earned}
+                  </p>
+                )}
+              </div>
+              <FiArrowRight className="text-gray-300 ml-1.5" size={14} />
             </div>
-            <div className="w-px h-7 bg-gray-200" />
-            <div className="text-right">
-              <p className="text-[10px] text-gray-500 mb-0.5 font-medium">
-                Earned
-              </p>
-              {loading ? (
-                <div className="h-4 w-14 bg-gray-200 rounded ml-auto" />
-              ) : (
-                <p className="text-[12px] font-bold text-emerald-600 font-mono">
-                  +{earned}
-                </p>
-              )}
-            </div>
-            <FiArrowRight className="text-gray-300 ml-1.5" size={14} />
-          </div>
-        </Link>
+          </Link>
+        </div>
 
         <p className="text-[11px] text-gray-400 leading-relaxed text-center px-1 mt-3">
           Rates change with demand and are not guaranteed. You can only withdraw

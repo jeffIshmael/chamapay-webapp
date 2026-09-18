@@ -8,13 +8,16 @@ import {
   FiCheck,
   FiChevronDown,
   FiClock,
+  FiGlobe,
   FiInfo,
   FiTarget,
   FiTrendingUp,
+  FiUser,
   FiUsers,
   FiX,
   FiZap,
 } from "react-icons/fi";
+import type { IconType } from "react-icons";
 import BottomNavbar from "../Components/BottomNavbar";
 import AppHeader from "../Components/AppHeader";
 import { showToast } from "../Components/Toast";
@@ -31,21 +34,29 @@ const GOAL_TYPE_OPTIONS: Array<{
   type: GoalType;
   label: string;
   description: string;
+  Icon: IconType;
+  iconWrap: string;
 }> = [
   {
     type: "personal",
     label: "Personal",
-    description: "Just you — share the pay link if friends want to top you up.",
+    description: "Just you",
+    Icon: FiUser,
+    iconWrap: "bg-sky-50 text-sky-600",
   },
   {
     type: "invite",
     label: "Invite circle",
     description: "Add members later and save together transparently.",
+    Icon: FiUsers,
+    iconWrap: "bg-violet-50 text-violet-600",
   },
   {
     type: "public",
     label: "Public / Harambee",
     description: "Share the pay link widely for open contributions.",
+    Icon: FiGlobe,
+    iconWrap: "bg-amber-50 text-amber-600",
   },
 ];
 
@@ -151,6 +162,7 @@ function CreateContent() {
 
   const selectedGoalType =
     GOAL_TYPE_OPTIONS.find((o) => o.type === goalType) || GOAL_TYPE_OPTIONS[0];
+  const SelectedGoalIcon = selectedGoalType.Icon;
 
   const isStartInFuture = () => {
     if (!startDate || !startTime) return true;
@@ -281,7 +293,7 @@ function CreateContent() {
 
       <div className="shrink-0 px-4 pt-3 pb-2 bg-downy-50 border-b border-downy-100/50 z-20">
         <p className="text-[12px] text-gray-500 leading-relaxed mb-3">
-          Start a rotational chama or a Save for Goal pot.
+          Start a rotational chama or a Save for Goal.
         </p>
         <div className="flex bg-white border border-downy-100/70 rounded-2xl p-1 shadow-sm">
           <button
@@ -325,7 +337,7 @@ function CreateContent() {
 
         {mode === "chama" ? (
           <form onSubmit={createChama} className="space-y-3">
-            <div className="px-0.5">
+            {/* <div className="px-0.5">
               <p className="text-[13px] font-bold text-gray-900">
                 Rotational savings
               </p>
@@ -333,13 +345,12 @@ function CreateContent() {
                 Members contribute on a schedule — each round, one person gets
                 the pot.
               </p>
-            </div>
+            </div> */}
 
             <div className="bg-white rounded-2xl border border-downy-100/70 p-3.5 shadow-sm">
               <SectionHeader
                 step="01"
                 title="About your chama"
-                subtitle="Give it a name people will recognize"
               />
               <FieldLabel>
                 Chama name <span className="text-red-500">*</span>
@@ -514,7 +525,7 @@ function CreateContent() {
           </form>
         ) : (
           <form onSubmit={createGoalAction} className="space-y-3">
-            <div className="px-1">
+            {/* <div className="px-1">
               <p className="text-[13px] font-bold text-gray-900">
                 Save toward a target
               </p>
@@ -522,59 +533,83 @@ function CreateContent() {
                 Personal, invite friends, or go public. Optional yield on
                 Moonwell.
               </p>
-            </div>
+            </div> */}
 
             <div className="bg-white rounded-2xl border border-downy-100/70 p-3.5 shadow-sm">
               <SectionHeader
                 step="01"
                 title="Goal type"
-                subtitle="Who can contribute to this pot"
               />
               <button
                 type="button"
                 onClick={() => setShowGoalTypePicker((v) => !v)}
                 className="w-full bg-downy-50/80 border border-downy-100 rounded-xl px-3 py-3 flex items-center justify-between text-left"
               >
-                <div className="flex-1 pr-3">
-                  <p className="text-[11px] font-bold text-downy-700 uppercase tracking-wider mb-1">
-                    Selected
-                  </p>
-                  <p className="text-[13px] font-bold text-gray-900">
-                    {selectedGoalType.label}
-                  </p>
-                  <p className="text-[11px] text-gray-500 mt-0.5.5 leading-4">
-                    {selectedGoalType.description}
-                  </p>
+                <div className="flex items-center gap-3 flex-1 min-w-0 pr-3">
+                  <span
+                    className={`h-10 w-10 rounded-xl flex items-center justify-center shrink-0 ${selectedGoalType.iconWrap}`}
+                  >
+                    <SelectedGoalIcon size={18} />
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-[11px] font-bold text-downy-700 uppercase tracking-wider mb-0.5">
+                      Selected
+                    </p>
+                    <p className="text-[13px] font-bold text-gray-900">
+                      {selectedGoalType.label}
+                    </p>
+                    <p className="text-[11px] text-gray-500 mt-0.5 leading-4">
+                      {selectedGoalType.description}
+                    </p>
+                  </div>
                 </div>
-                <span className="w-8 h-8 rounded-full bg-white border border-downy-100 flex items-center justify-center text-downy-700">
+                <span className="w-8 h-8 rounded-full bg-white border border-downy-100 flex items-center justify-center text-downy-700 shrink-0">
                   <FiChevronDown />
                 </span>
               </button>
               {showGoalTypePicker && (
                 <div className="mt-3 space-y-2">
-                  {GOAL_TYPE_OPTIONS.map((opt) => (
-                    <button
-                      key={opt.type}
-                      type="button"
-                      onClick={() => {
-                        setGoalType(opt.type);
-                        if (opt.type === "public") setYieldEnabled(false);
-                        setShowGoalTypePicker(false);
-                      }}
-                      className={`w-full text-left rounded-xl border px-3 py-2.5 ${
-                        goalType === opt.type
-                          ? "border-downy-400 bg-downy-50"
-                          : "border-gray-200 bg-white"
-                      }`}
-                    >
-                      <p className="font-bold text-gray-900 text-[12px]">
-                        {opt.label}
-                      </p>
-                      <p className="text-[11px] text-gray-500 mt-0.5">
-                        {opt.description}
-                      </p>
-                    </button>
-                  ))}
+                  {GOAL_TYPE_OPTIONS.map((opt) => {
+                    const OptIcon = opt.Icon;
+                    return (
+                      <button
+                        key={opt.type}
+                        type="button"
+                        onClick={() => {
+                          setGoalType(opt.type);
+                          if (opt.type === "public") setYieldEnabled(false);
+                          setShowGoalTypePicker(false);
+                        }}
+                        className={`w-full text-left rounded-xl border px-3 py-2.5 flex items-start gap-3 ${
+                          goalType === opt.type
+                            ? "border-downy-400 bg-downy-50"
+                            : "border-gray-200 bg-white"
+                        }`}
+                      >
+                        <span
+                          className={`h-9 w-9 rounded-xl flex items-center justify-center shrink-0 mt-0.5 ${opt.iconWrap}`}
+                        >
+                          <OptIcon size={17} />
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center justify-between gap-2">
+                            <p className="font-bold text-gray-900 text-[12px]">
+                              {opt.label}
+                            </p>
+                            {goalType === opt.type ? (
+                              <FiCheck
+                                className="text-downy-600 shrink-0"
+                                size={14}
+                              />
+                            ) : null}
+                          </div>
+                          <p className="text-[11px] text-gray-500 mt-0.5">
+                            {opt.description}
+                          </p>
+                        </div>
+                      </button>
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -583,7 +618,7 @@ function CreateContent() {
               <SectionHeader
                 step="02"
                 title="The story"
-                subtitle="Name it and say what you’re raising for"
+                subtitle="Name it and say what you’re saving for"
               />
               <div className="space-y-4">
                 <div>
@@ -776,94 +811,101 @@ function CreateContent() {
             onClick={() => setShowYieldInfoModal(false)}
             aria-hidden
           />
-          <div className="relative w-full max-w-md bg-white rounded-t-3xl px-5 pt-4 pb-8 shadow-xl max-h-[90%] overflow-y-auto">
-            <div className="w-10 h-1 rounded-full bg-gray-200 mx-auto mb-4" />
-            <div className="flex items-center gap-3 mb-2">
-              <span className="h-10 w-10 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0">
-                <FiZap size={18} />
-              </span>
-              <h2 className="text-[1.15rem] font-extrabold text-gray-900 leading-tight flex-1">
-                Put your savings to work
-              </h2>
+          <div className="relative w-full max-w-md bg-white rounded-t-3xl shadow-xl max-h-[min(92dvh,92%)] flex flex-col overflow-hidden">
+            <div className="shrink-0 px-5 pt-4">
+              <div className="w-10 h-1 rounded-full bg-gray-200 mx-auto mb-4" />
+              <div className="flex items-center gap-3 mb-2">
+                <span className="h-10 w-10 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0">
+                  <FiZap size={18} />
+                </span>
+                <h2 className="text-[1.15rem] font-extrabold text-gray-900 leading-tight flex-1">
+                  Put your savings to work
+                </h2>
+                <button
+                  type="button"
+                  onClick={() => setShowYieldInfoModal(false)}
+                  className="h-8 w-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-500"
+                  aria-label="Close"
+                >
+                  <FiX size={16} />
+                </button>
+              </div>
+              <p className="text-[13px] text-gray-500 mb-3 leading-relaxed">
+                Here’s what happens when you turn this on for your goal.
+              </p>
+            </div>
+
+            <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-5 [-webkit-overflow-scrolling:touch]">
+              <div className="mb-3 rounded-2xl border border-gray-200 bg-gray-50 px-3.5 py-3 flex items-start gap-3">
+                <span className="h-8 w-8 rounded-lg bg-white flex items-center justify-center text-teal-700 shrink-0 mt-0.5">
+                  <FiUsers size={15} />
+                </span>
+                <div className="min-w-0">
+                  <p className="text-[13px] font-bold text-gray-900 mb-0.5">
+                    Supplied to Moonwell
+                  </p>
+                  <p className="text-[12px] text-gray-500 leading-relaxed">
+                    Your goal funds are supplied to a Moonwell pool (a third-party
+                    DeFi pool) to provide liquidity. ChamaPay does not hold this
+                    yield pool itself.
+                  </p>
+                </div>
+              </div>
+
+              <div className="mb-3 rounded-2xl border border-gray-200 bg-gray-50 px-3.5 py-3 flex items-start gap-3">
+                <span className="h-8 w-8 rounded-lg bg-white flex items-center justify-center text-teal-700 shrink-0 mt-0.5">
+                  <FiTrendingUp size={15} />
+                </span>
+                <div className="min-w-0">
+                  <p className="text-[13px] font-bold text-gray-900 mb-0.5">
+                    APY is relative
+                  </p>
+                  <p className="text-[12px] text-gray-500 leading-relaxed">
+                    The APY you see can go up or down over time — it depends on
+                    borrowing demand in the pool and is not guaranteed.
+                  </p>
+                </div>
+              </div>
+
+              <div className="mb-2 rounded-2xl border border-amber-200 bg-amber-50 px-3.5 py-3 flex items-start gap-3">
+                <span className="h-8 w-8 rounded-lg bg-white flex items-center justify-center text-amber-600 shrink-0 mt-0.5">
+                  <FiAlertTriangle size={15} />
+                </span>
+                <div className="min-w-0">
+                  <p className="text-[13px] font-bold text-amber-900 mb-0.5">
+                    Withdrawal risk
+                  </p>
+                  <p className="text-[12px] text-amber-800/80 leading-relaxed">
+                    You can withdraw only when the money is not borrowed yet. If
+                    the pool’s cash is currently borrowed, your balance is still
+                    yours and keeps earning — try again when free cash returns.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="shrink-0 px-5 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))] border-t border-gray-100 bg-white">
               <button
                 type="button"
-                onClick={() => setShowYieldInfoModal(false)}
-                className="h-8 w-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-500"
-                aria-label="Close"
+                onClick={() => {
+                  setYieldEnabled(true);
+                  setShowYieldInfoModal(false);
+                }}
+                className="w-full py-3.5 rounded-2xl bg-downy-600 text-white text-[15px] font-bold"
               >
-                <FiX size={16} />
+                Got it
               </button>
-            </div>
-            <p className="text-[13px] text-gray-500 mb-4 leading-relaxed">
-              Here’s what happens when you turn this on for your goal.
-            </p>
-
-            <div className="mb-3 rounded-2xl border border-gray-200 bg-gray-50 px-3.5 py-3 flex items-start gap-3">
-              <span className="h-8 w-8 rounded-lg bg-white flex items-center justify-center text-teal-700 shrink-0 mt-0.5">
-                <FiUsers size={15} />
-              </span>
-              <div className="min-w-0">
-                <p className="text-[13px] font-bold text-gray-900 mb-0.5">
-                  Supplied to Moonwell
-                </p>
-                <p className="text-[12px] text-gray-500 leading-relaxed">
-                  Your goal funds are supplied to a Moonwell pool (a third-party
-                  DeFi pool) to provide liquidity. ChamaPay does not hold this
-                  yield pool itself.
-                </p>
-              </div>
-            </div>
-
-            <div className="mb-3 rounded-2xl border border-gray-200 bg-gray-50 px-3.5 py-3 flex items-start gap-3">
-              <span className="h-8 w-8 rounded-lg bg-white flex items-center justify-center text-teal-700 shrink-0 mt-0.5">
-                <FiTrendingUp size={15} />
-              </span>
-              <div className="min-w-0">
-                <p className="text-[13px] font-bold text-gray-900 mb-0.5">
-                  APY is relative
-                </p>
-                <p className="text-[12px] text-gray-500 leading-relaxed">
-                  The APY you see can go up or down over time — it depends on
-                  borrowing demand in the pool and is not guaranteed.
-                </p>
-              </div>
-            </div>
-
-            <div className="mb-5 rounded-2xl border border-amber-200 bg-amber-50 px-3.5 py-3 flex items-start gap-3">
-              <span className="h-8 w-8 rounded-lg bg-white flex items-center justify-center text-amber-600 shrink-0 mt-0.5">
-                <FiAlertTriangle size={15} />
-              </span>
-              <div className="min-w-0">
-                <p className="text-[13px] font-bold text-amber-900 mb-0.5">
-                  Withdrawal risk
-                </p>
-                <p className="text-[12px] text-amber-800/80 leading-relaxed">
-                  You can withdraw only when the money is not borrowed yet. If
-                  the pool’s cash is currently borrowed, your balance is still
-                  yours and keeps earning — try again when free cash returns.
-                </p>
-              </div>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => setShowYieldInfoModal(false)}
-              className="w-full py-3.5 rounded-2xl bg-downy-600 text-white text-[15px] font-bold"
-            >
-              Got it
-            </button>
-            {yieldEnabled && (
               <button
                 type="button"
                 onClick={() => {
                   setYieldEnabled(false);
                   setShowYieldInfoModal(false);
                 }}
-                className="w-full py-3 mt-1 text-[13px] font-medium text-gray-500"
+                className="w-full py-3 mt-0.5 text-[13px] font-medium text-gray-500"
               >
-                Turn off instead
+                Not now
               </button>
-            )}
+            </div>
           </div>
         </div>
       )}
