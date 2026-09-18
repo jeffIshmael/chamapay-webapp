@@ -5,12 +5,12 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import {
   FiArrowLeft,
-  FiCalculator,
   FiChevronDown,
   FiFileText,
   FiInfo,
   FiX,
 } from "react-icons/fi";
+import { HiOutlineCalculator } from "react-icons/hi";
 import { showToast } from "../../Components/Toast";
 import {
   computeMoonwellPrincipalUsdc,
@@ -421,7 +421,7 @@ export default function MoonwellPoolPage() {
                 : "bg-transparent text-gray-500"
             }`}
           >
-            <FiCalculator size={14} />
+            <HiOutlineCalculator size={14} />
             Yield Simulator
           </button>
         </div>
@@ -534,7 +534,7 @@ export default function MoonwellPoolPage() {
           <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
-                <FiCalculator size={16} className="text-emerald-500" />
+                <HiOutlineCalculator size={16} className="text-emerald-500" />
                 <p className="text-[15px] font-bold text-gray-900">
                   Yield Simulator
                 </p>
