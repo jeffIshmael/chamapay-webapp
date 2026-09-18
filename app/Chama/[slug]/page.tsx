@@ -252,7 +252,7 @@ const ChamaDetails = ({ params }: { params: { slug: string } }) => {
   if (fetchingChama || !chama) {
     return (
       <div className="min-h-[100dvh] bg-gray-50">
-        <div className="bg-downy-800 rounded-b-2xl px-4 pt-4 pb-5 text-white">
+        <div className="bg-downy-700 rounded-b-2xl px-4 pt-4 pb-5 text-white">
           <div className="flex items-center justify-between mb-3">
             <div className="h-8 w-8 rounded-full bg-white/20 animate-pulse" />
             <div className="flex-1 px-4 space-y-2">
@@ -429,7 +429,7 @@ const ChamaDetails = ({ params }: { params: { slug: string } }) => {
   if (!joined) {
     return (
       <div className="min-h-[100dvh] bg-gray-50">
-        <div className="bg-downy-800 rounded-b-2xl px-4 pt-4 pb-4 text-white">
+        <div className="bg-downy-700 rounded-b-2xl px-4 pt-4 pb-4 text-white">
           <div className="flex items-center justify-between mb-3">
             <button
               type="button"
@@ -473,7 +473,7 @@ const ChamaDetails = ({ params }: { params: { slug: string } }) => {
   return (
     <div className="min-h-[100dvh] bg-gray-50 flex flex-col">
       {/* Header — matches Application joined-chama-details */}
-      <div className="bg-downy-800 rounded-b-2xl px-4 pt-4 pb-4 text-white shrink-0">
+      <div className="bg-downy-700 rounded-b-2xl px-4 pt-4 pb-4 text-white shrink-0">
         <div className="flex items-center justify-between mb-3">
           <button
             type="button"

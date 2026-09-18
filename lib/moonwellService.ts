@@ -187,6 +187,24 @@ export const getMoonwellUsdcSnapshot = async (
   return emptySnapshot(principalUsdc);
 };
 
+export const getMoonwellYieldsHistory = async (
+  token: string
+): Promise<{ yields: Array<{ earned: string; balance: string; createdAt: string }> } | null> => {
+  if (!token) return null;
+  try {
+    const response = await fetch(`${serverUrl}/moonwell/yields`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!response.ok) return null;
+    const data = await response.json();
+    return {
+      yields: Array.isArray(data?.yields) ? data.yields : [],
+    };
+  } catch {
+    return null;
+  }
+};
+
 export const depositToMoonwell = async (
   token: string,
   amount: string

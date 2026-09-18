@@ -1,14 +1,15 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { useReadContract } from "wagmi";
-import { celo } from "viem/chains";
-import { usdcContractAddress } from "@/app/ChamaPayABI/ChamaPayContract";
+import { base } from "viem/chains";
+import { baseUsdcContractAddress } from "@/app/ChamaPayABI/ChamaPayContract";
 import erc20Abi from "@/app/ChamaPayABI/ERC20.json";
 import { toast } from "sonner";
 import { DotLottieReact } from "@lottiefiles/dotlottie-react";
 import {
   getTheUserTx,
+  getUserBalance,
   getMoonwellActivitySubtitle,
   getMoonwellActivityTitle,
   isMoonwellTx,
@@ -47,17 +48,22 @@ const shortAddress = (value?: string) => {
 
 const Wallet = () => {
   const { address, token, isAuthenticated } = useSessionAddress();
-  const { formatBalance, formatBalanceParts, currency } = useFormattedBalance();
+  const { formatBalance, formatBalanceParts, currency, platformRate } =
+    useFormattedBalance();
   const [loadingPayments, setLoadingPayments] = useState(false);
   const [balanceVisible, setBalanceVisible] = useState(true);
+  const [userBalance, setUserBalance] = useState<string | null>(null);
   const [transactions, setTransactions] = useState<WalletTransaction[]>([]);
   const [selectedTx, setSelectedTx] = useState<WalletTransaction | null>(null);
+
+  /** On-chain Base USDC fallback if API balance is unavailable. */
   const { data: balanceData } = useReadContract({
-    chainId: celo.id,
-    address: usdcContractAddress,
+    chainId: base.id,
+    address: baseUsdcContractAddress,
     functionName: "balanceOf",
     abi: erc20Abi,
-    args: [address],
+    args: address ? [address] : undefined,
+    query: { enabled: Boolean(address) },
   });
 
   const [activeModal, setActiveModal] = useState<
@@ -69,12 +75,39 @@ const Wallet = () => {
 
   const refreshActivity = () => {
     if (!token) return;
+    fetchBalances();
     getTheUserTx(token, { limit: 20 })
       .then((data) => setTransactions(data?.transactions || []))
       .catch(() => {});
   };
 
-  const balance = balanceData ? Number(balanceData) / 10 ** 6 : 0;
+  const fetchBalances = useCallback(async () => {
+    if (!token) return;
+    try {
+      const result = await getUserBalance(token);
+      if (result.success && result.balance != null) {
+        setUserBalance(result.balance);
+      }
+    } catch {
+      /* keep prior / on-chain value */
+    }
+  }, [token]);
+
+  const onChainUsdc =
+    balanceData != null ? Number(balanceData) / 10 ** 6 : null;
+  const balance =
+    userBalance != null && userBalance !== ""
+      ? parseFloat(userBalance) || 0
+      : onChainUsdc ?? 0;
+
+  const kesParts = formatBalanceParts(balance);
+  const usdcWhole = balance.toLocaleString("en-US", {
+    minimumFractionDigits: 3,
+    maximumFractionDigits: 3,
+  });
+  const kesApprox =
+    Math.ceil(balance * platformRate * 100) / 100;
+
   const truncatedAddress = address
     ? `${address.slice(0, 6)}...${address.slice(-4)}`
     : "";
@@ -84,6 +117,23 @@ const Wallet = () => {
     await navigator.clipboard.writeText(address);
     toast.success("Address copied!");
   };
+
+  useEffect(() => {
+    if (!token || !isAuthenticated) {
+      setUserBalance(null);
+      return;
+    }
+    fetchBalances();
+  }, [token, isAuthenticated, fetchBalances]);
+
+  useEffect(() => {
+    if (
+      (userBalance == null || userBalance === "") &&
+      onChainUsdc != null
+    ) {
+      setUserBalance(String(onChainUsdc));
+    }
+  }, [onChainUsdc, userBalance]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -152,69 +202,116 @@ const Wallet = () => {
   return (
     <div className="min-h-[100dvh] bg-downy-50 pb-nav">
       <div className="px-4 pt-4 safe-top">
-        <div className="bg-gradient-to-br from-downy-600 to-downy-800 rounded-2xl p-3.5 text-white shadow-md shadow-downy-700/20">
-          <div className="flex justify-between items-center">
-            <p className="text-downy-100 text-[11px] font-medium">
-              Available balance
-            </p>
-            <button
-              type="button"
-              onClick={() => setBalanceVisible((v) => !v)}
-              className="text-downy-100 bg-transparent p-1"
-            >
-              {balanceVisible ? <FiEye size={14} /> : <FiEyeOff size={14} />}
-            </button>
-          </div>
+        <div
+          className="rounded-2xl p-3.5 text-white shadow-md shadow-downy-700/20 relative overflow-hidden"
+          style={{ backgroundColor: "#1a6b6b" }}
+        >
+          <div className="absolute -right-10 -top-10 w-32 h-32 bg-white/10 rounded-full pointer-events-none" />
+          <div className="absolute -right-5 top-20 w-24 h-24 bg-white/10 rounded-full pointer-events-none" />
 
-          <div className="flex items-end mt-1.5 gap-1">
-            <h2 className="text-[1.65rem] font-extrabold text-white leading-none tracking-tight">
-              {balanceVisible && address
-                ? (() => {
-                    const p = formatBalanceParts(balance);
-                    return p.decimal ? `${p.whole}.${p.decimal}` : p.whole;
-                  })()
-                : !address
-                  ? "---"
-                  : "••••"}
-            </h2>
-            <span className="text-[13px] text-white/90 mb-0.5 font-semibold">
-              {currency}
-            </span>
-          </div>
-
-          {address ? (
-            <div className="mt-3 flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2 min-w-0 flex-1 bg-white/15 px-2.5 py-1.5 rounded-xl">
-                <p className="text-white text-[11px] font-medium truncate font-mono tracking-wide">
-                  {truncatedAddress}
-                </p>
-                <button
-                  type="button"
-                  onClick={copyToClipboard}
-                  className="text-white/80 bg-transparent p-0.5 shrink-0"
-                  aria-label="Copy address"
-                >
-                  <FiCopy size={13} />
-                </button>
-              </div>
+          <div className="relative">
+            <div className="flex justify-between items-center">
+              <p className="text-white/80 text-[11px] font-semibold tracking-wide uppercase">
+                Your balance
+              </p>
               <button
                 type="button"
-                onClick={() => openModal("qr")}
-                disabled={!address}
-                aria-label="Receive via QR"
-                className="h-9 w-9 rounded-full bg-white/20 text-white flex items-center justify-center shrink-0"
+                onClick={() => setBalanceVisible((v) => !v)}
+                className="text-white/80 bg-transparent p-1"
               >
-                <HiOutlineQrcode size={18} />
+                {balanceVisible ? <FiEye size={14} /> : <FiEyeOff size={14} />}
               </button>
             </div>
-          ) : (
-            <Link
-              href="/"
-              className="block w-full mt-3 bg-white text-downy-700 font-bold text-[12px] py-2.5 px-3 rounded-xl text-center"
-            >
-              Sign in to view wallet
-            </Link>
-          )}
+
+            <div className="mt-2">
+              {currency === "KES" ? (
+                <>
+                  <div className="flex items-baseline gap-1">
+                    <h2 className="text-[1.75rem] font-extrabold text-white leading-none tracking-tight">
+                      {balanceVisible && address
+                        ? kesParts.decimal
+                          ? `${kesParts.whole}.${kesParts.decimal}`
+                          : kesParts.whole
+                        : !address
+                          ? "---"
+                          : "••••"}
+                    </h2>
+                    <span className="text-[13px] text-white/90 font-semibold">
+                      KES
+                    </span>
+                  </div>
+                  {balanceVisible && address && (
+                    <p className="text-white/60 text-sm mt-1.5 font-medium">
+                      ≈ {usdcWhole} USDC
+                    </p>
+                  )}
+                </>
+              ) : (
+                <>
+                  <div className="flex items-baseline gap-1">
+                    <h2 className="text-[1.75rem] font-extrabold text-white leading-none tracking-tight">
+                      {balanceVisible && address
+                        ? usdcWhole
+                        : !address
+                          ? "---"
+                          : "••••"}
+                    </h2>
+                    <span className="text-[13px] text-white/90 font-semibold">
+                      USDC
+                    </span>
+                  </div>
+                  {balanceVisible && address && (
+                    <p className="text-white/60 text-sm mt-1.5 font-medium">
+                      ≈{" "}
+                      {kesApprox.toLocaleString("en-KE", {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}{" "}
+                      KES
+                    </p>
+                  )}
+                </>
+              )}
+            </div>
+
+            {address ? (
+              <div className="mt-4 flex items-center justify-between gap-2">
+                <div
+                  className="flex items-center gap-2 min-w-0 flex-1 px-3 py-2 rounded-xl border border-white/20"
+                  style={{ backgroundColor: "rgba(0, 0, 0, 0.28)" }}
+                >
+                  <p className="text-white text-[11px] font-medium truncate font-mono tracking-widest">
+                    {truncatedAddress}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={copyToClipboard}
+                    className="text-white/80 bg-transparent p-0.5 shrink-0"
+                    aria-label="Copy address"
+                  >
+                    <FiCopy size={13} />
+                  </button>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => openModal("qr")}
+                  disabled={!address}
+                  aria-label="Receive via QR"
+                  className="h-9 w-9 rounded-full text-white flex items-center justify-center shrink-0"
+                  style={{ backgroundColor: "rgba(255, 255, 255, 0.2)" }}
+                >
+                  <HiOutlineQrcode size={18} />
+                </button>
+              </div>
+            ) : (
+              <Link
+                href="/"
+                className="block w-full mt-3 bg-white text-downy-700 font-bold text-[12px] py-2.5 px-3 rounded-xl text-center"
+              >
+                Sign in to view wallet
+              </Link>
+            )}
+          </div>
         </div>
 
         <div className="grid grid-cols-3 gap-2 mt-3">
@@ -264,6 +361,7 @@ const Wallet = () => {
             </Link>
           )}
         </div>
+        <div className="h-px bg-gray-200 mb-3" />
 
         {loadingPayments ? (
           <div className="flex flex-col items-center justify-center py-8">

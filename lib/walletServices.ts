@@ -1,5 +1,26 @@
 import { serverUrl } from "@/lib/serverUrl";
 
+export async function getUserBalance(
+  authToken: string
+): Promise<{ success: boolean; balance: string }> {
+  try {
+    const response = await fetch(`${serverUrl}/user/balance`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${authToken}`,
+      },
+    });
+    const data = await response.json();
+    return {
+      success: Boolean(data?.success),
+      balance: data?.balance != null ? String(data.balance) : "0",
+    };
+  } catch {
+    return { success: false, balance: "0" };
+  }
+}
+
 export interface WalletTransaction {
   id: number;
   type: "sent" | "received" | "withdrew" | "deposited";

@@ -1,6 +1,10 @@
 export const chamapayContractAddress =
   "0xF3a5E77DD4b4277c07591aB5dD6Fd15f98F6D3Fa";
 export const contractAddress = chamapayContractAddress;
+/** Native USDC on Base (primary wallet balance). */
+export const baseUsdcContractAddress =
+  "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913" as `0x${string}`;
+/** Legacy Celo USDC — kept for older Celo-only helpers. */
 export const usdcContractAddress = "0xcebA9300f2b948710d2653dD7B07f33A8B32118C";
 export const cUSDContractAddress = usdcContractAddress;
 export const pretiumSettlementAddress =

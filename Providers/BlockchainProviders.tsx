@@ -2,12 +2,13 @@
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { WagmiProvider, createConfig, http } from "wagmi";
-import { celo } from "wagmi/chains";
+import { base, celo } from "wagmi/chains";
 
 /** Read-only wagmi config — no wallet connectors (auth is Google/email + CDP). */
 export const config = createConfig({
-  chains: [celo],
+  chains: [base, celo],
   transports: {
+    [base.id]: http(),
     [celo.id]: http(),
   },
   connectors: [],
