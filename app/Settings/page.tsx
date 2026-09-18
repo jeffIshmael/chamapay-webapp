@@ -192,7 +192,10 @@ export default function SettingsPage() {
   return (
     <div className="absolute inset-0 flex flex-col bg-gray-50">
       {/* Fixed header — does not scroll */}
-      <div className="shrink-0 bg-gradient-to-br from-downy-800 to-emerald-900 px-4 pt-2 pb-3.5 rounded-b-2xl text-white safe-top shadow-md shadow-downy-900/20">
+      <div
+        className="shrink-0 px-4 pt-2 pb-3.5 rounded-b-2xl text-white safe-top shadow-md shadow-downy-900/20"
+        style={{ backgroundColor: "#1a6b6b" }}
+      >
         <div className="flex items-center justify-between mb-3 min-h-[32px]">
           <button
             type="button"

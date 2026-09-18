@@ -8,16 +8,12 @@ import {
   FiChevronDown,
   FiFileText,
   FiInfo,
-  FiX,
 } from "react-icons/fi";
 import { HiOutlineCalculator } from "react-icons/hi";
-import { showToast } from "../../Components/Toast";
 import {
   computeMoonwellPrincipalUsdc,
-  depositToMoonwell,
   getMoonwellUsdcSnapshot,
   getMoonwellYieldsHistory,
-  withdrawFromMoonwell,
   type MoonwellUsdcSnapshot,
 } from "@/lib/moonwellService";
 import {
@@ -28,6 +24,8 @@ import {
 import { useAuth } from "../../context/AuthContext";
 import { useSessionAddress } from "@/lib/useSessionAddress";
 import { useFormattedBalance } from "@/lib/useFormattedBalance";
+import MoonwellDepositModal from "../../Components/MoonwellDepositModal";
+import MoonwellWithdrawModal from "../../Components/MoonwellWithdrawModal";
 
 type HistoryItem =
   | {
@@ -64,7 +62,7 @@ export default function MoonwellPoolPage() {
   const router = useRouter();
   const { token, user } = useAuth();
   const { isAuthenticated, isGuest } = useSessionAddress();
-  const { formatBalance, currency, platformRate } = useFormattedBalance();
+  const { currency, platformRate } = useFormattedBalance();
   const isKES = currency === "KES";
 
   const [snapshot, setSnapshot] = useState<MoonwellUsdcSnapshot | null>(null);
@@ -81,11 +79,8 @@ export default function MoonwellPoolPage() {
   const [simPeriod, setSimPeriod] = useState(12);
   const [showPeriodPicker, setShowPeriodPicker] = useState(false);
 
-  const [actionModal, setActionModal] = useState<"deposit" | "withdraw" | null>(
-    null
-  );
-  const [amount, setAmount] = useState("");
-  const [submitting, setSubmitting] = useState(false);
+  const [showDepositModal, setShowDepositModal] = useState(false);
+  const [showWithdrawModal, setShowWithdrawModal] = useState(false);
 
   useEffect(() => {
     if (!isAuthenticated) router.replace("/");
@@ -139,6 +134,7 @@ export default function MoonwellPoolPage() {
   const APY = snapshot?.supplyApy ?? 0;
   const totalBalance = snapshot?.totalBalanceUsdc ?? 0;
   const totalEarned = snapshot?.earnedUsdc ?? 0;
+  const principalBalance = snapshot?.principalUsdc ?? 0;
   const liquidity = snapshot?.liquidityUsd;
   const canWithdraw =
     liquidity == null || totalBalance <= 0 || (liquidity ?? 0) >= totalBalance;
@@ -208,50 +204,11 @@ export default function MoonwellPoolPage() {
     simUsdc * (Math.pow(1 + APY / 100, simPeriod / 12) - 1);
   const totalProjectedUsdc = simUsdc + projectedYieldUsdc;
 
-  const submitAction = async () => {
-    if (!token || token === "guest" || isGuest) {
-      showToast("Please sign in", "warning");
-      return;
-    }
-    const n = parseFloat(amount);
-    if (!n || n <= 0) {
-      showToast("Enter a valid amount", "warning");
-      return;
-    }
-    if (actionModal === "withdraw" && !canWithdraw) {
-      showToast("Pool liquidity is too low to withdraw right now", "warning");
-      return;
-    }
-
-    setSubmitting(true);
-    try {
-      const result =
-        actionModal === "deposit"
-          ? await depositToMoonwell(token, n.toString())
-          : await withdrawFromMoonwell(token, n.toString());
-      if (!result.success) {
-        showToast(result.error || "Transaction failed", "error");
-        return;
-      }
-      showToast(
-        actionModal === "deposit"
-          ? "Deposited to Moonwell"
-          : "Withdrawn from Moonwell",
-        "success"
-      );
-      setAmount("");
-      setActionModal(null);
-      setTimeout(() => load(), 1500);
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
   return (
-    <div className="min-h-[100dvh] bg-gray-50">
-      {/* Header — solid brand teal (not forest green gradient) */}
+    <div className="absolute inset-0 flex flex-col bg-gray-50">
+      {/* Fixed header — does not scroll */}
       <div
-        className="rounded-b-3xl px-5 pb-5 text-white safe-top shadow-sm"
+        className="shrink-0 rounded-b-3xl px-5 pb-5 text-white safe-top shadow-sm"
         style={{ backgroundColor: "#1a6b6b" }}
       >
         <div className="flex items-center justify-between min-h-[40px] mb-1 pt-1">
@@ -268,7 +225,7 @@ export default function MoonwellPoolPage() {
         </div>
       </div>
 
-      <div className="px-4 pt-4 pb-8 space-y-5">
+      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 pt-4 pb-8 space-y-5 [-webkit-overflow-scrolling:touch]">
         {/* Hero card */}
         <div className="bg-blue-50 rounded-2xl p-5 shadow-sm border border-blue-200">
           <div className="flex items-center justify-center gap-2 mb-5 pb-4 border-b border-blue-100">
@@ -349,20 +306,14 @@ export default function MoonwellPoolPage() {
           <div className="flex gap-2.5">
             <button
               type="button"
-              onClick={() => {
-                setAmount("");
-                setActionModal("deposit");
-              }}
+              onClick={() => setShowDepositModal(true)}
               className="flex-1 bg-blue-600 py-3 rounded-2xl text-white text-[14px] font-bold shadow-sm"
             >
               Deposit
             </button>
             <button
               type="button"
-              onClick={() => {
-                setAmount("");
-                setActionModal("withdraw");
-              }}
+              onClick={() => setShowWithdrawModal(true)}
               disabled={totalBalance === 0}
               className={`flex-1 py-3 rounded-2xl text-[14px] font-bold border border-blue-200 shadow-sm ${
                 totalBalance === 0
@@ -608,74 +559,27 @@ export default function MoonwellPoolPage() {
         )}
       </div>
 
-      {/* Deposit / Withdraw modal */}
-      {actionModal && (
-        <div className="app-modal-layer">
-          <div
-            className="app-modal-backdrop"
-            onClick={() => !submitting && setActionModal(null)}
-          />
-          <div className="app-modal-sheet bg-white p-4 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-[15px] font-bold text-gray-900">
-                {actionModal === "deposit" ? "Deposit" : "Withdraw"}
-              </h3>
-              <button
-                type="button"
-                onClick={() => setActionModal(null)}
-                className="h-8 w-8 rounded-full bg-gray-100 flex items-center justify-center"
-                aria-label="Close"
-              >
-                <FiX size={14} />
-              </button>
-            </div>
+      <MoonwellDepositModal
+        open={showDepositModal}
+        onClose={() => setShowDepositModal(false)}
+        onSuccess={() => {
+          setShowDepositModal(false);
+          setTimeout(() => load(), 2000);
+        }}
+      />
 
-            <label className="block text-[11px] font-semibold text-gray-600 mb-1.5">
-              Amount (USDC)
-            </label>
-            <div className="flex items-center border border-gray-200 rounded-xl overflow-hidden mb-3">
-              <span className="px-3 py-2.5 bg-gray-50 border-r border-gray-200 text-[12px] font-bold text-gray-600">
-                USDC
-              </span>
-              <input
-                type="text"
-                inputMode="decimal"
-                value={amount}
-                onChange={(e) => {
-                  const v = e.target.value;
-                  if (v === "" || /^\d*\.?\d*$/.test(v)) setAmount(v);
-                }}
-                placeholder={actionModal === "deposit" ? "10" : "5"}
-                className="flex-1 px-3 py-2.5 text-[13px] font-semibold border-0 focus:ring-0 bg-white"
-                autoFocus
-              />
-            </div>
-
-            {actionModal === "withdraw" && (
-              <p className="text-[11px] text-gray-500 mb-3">
-                Available: {formatBalance(totalBalance)}
-              </p>
-            )}
-
-            <button
-              type="button"
-              onClick={submitAction}
-              disabled={submitting || !amount}
-              className={`w-full py-3 rounded-xl text-[13px] font-bold text-white ${
-                submitting || !amount
-                  ? "bg-gray-300 cursor-not-allowed"
-                  : "bg-downy-600 shadow-md shadow-downy-600/25"
-              }`}
-            >
-              {submitting
-                ? "Processing…"
-                : actionModal === "deposit"
-                  ? "Supply to Moonwell"
-                  : "Withdraw to wallet"}
-            </button>
-          </div>
-        </div>
-      )}
+      <MoonwellWithdrawModal
+        open={showWithdrawModal}
+        onClose={() => setShowWithdrawModal(false)}
+        availableBalance={totalBalance}
+        earnedUsdc={totalEarned}
+        principalUsdc={principalBalance}
+        liquidityUsd={liquidity ?? null}
+        onSuccess={() => {
+          setShowWithdrawModal(false);
+          setTimeout(() => load(), 2000);
+        }}
+      />
 
       {/* Period picker */}
       {showPeriodPicker && (

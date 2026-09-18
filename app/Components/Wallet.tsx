@@ -53,6 +53,7 @@ const Wallet = () => {
   const [loadingPayments, setLoadingPayments] = useState(false);
   const [balanceVisible, setBalanceVisible] = useState(true);
   const [userBalance, setUserBalance] = useState<string | null>(null);
+  const [isRefreshingBalance, setIsRefreshingBalance] = useState(false);
   const [transactions, setTransactions] = useState<WalletTransaction[]>([]);
   const [selectedTx, setSelectedTx] = useState<WalletTransaction | null>(null);
 
@@ -83,6 +84,7 @@ const Wallet = () => {
 
   const fetchBalances = useCallback(async () => {
     if (!token) return;
+    setIsRefreshingBalance(true);
     try {
       const result = await getUserBalance(token);
       if (result.success && result.balance != null) {
@@ -90,15 +92,23 @@ const Wallet = () => {
       }
     } catch {
       /* keep prior / on-chain value */
+    } finally {
+      setIsRefreshingBalance(false);
     }
   }, [token]);
 
   const onChainUsdc =
     balanceData != null ? Number(balanceData) / 10 ** 6 : null;
+  const balanceReady =
+    (userBalance != null && userBalance !== "") || onChainUsdc != null;
   const balance =
     userBalance != null && userBalance !== ""
       ? parseFloat(userBalance) || 0
       : onChainUsdc ?? 0;
+  const showBalanceSkeleton =
+    Boolean(address) &&
+    (isRefreshingBalance || !balanceReady) &&
+    balanceVisible;
 
   const kesParts = formatBalanceParts(balance);
   const usdcWhole = balance.toLocaleString("en-US", {
@@ -224,7 +234,12 @@ const Wallet = () => {
             </div>
 
             <div className="mt-2">
-              {currency === "KES" ? (
+              {showBalanceSkeleton ? (
+                <>
+                  <div className="h-9 w-40 rounded-lg bg-white/20 animate-pulse" />
+                  <div className="h-4 w-24 rounded-md bg-white/15 animate-pulse mt-2" />
+                </>
+              ) : currency === "KES" ? (
                 <>
                   <div className="flex items-baseline gap-1">
                     <h2 className="text-[1.75rem] font-extrabold text-white leading-none tracking-tight">

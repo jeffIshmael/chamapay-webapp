@@ -6,6 +6,7 @@ import { Toaster } from "sonner";
 import { IsFarcasterProvider } from "./context/isFarcasterContext";
 import { AuthProvider } from "./context/AuthContext";
 import AddToHomeScreen from "./Components/AddToHomeScreen";
+import CurrencyLocationBootstrap from "./Components/CurrencyLocationBootstrap";
 
 const jakarta = Plus_Jakarta_Sans({
   subsets: ["latin"],
@@ -51,6 +52,7 @@ export default function RootLayout({
                 <IsFarcasterProvider>
                   <AuthProvider>
                     <Toaster position="top-center" richColors closeButton />
+                    <CurrencyLocationBootstrap />
                     {children}
                     <AddToHomeScreen />
                   </AuthProvider>

@@ -24,7 +24,7 @@ type Step =
   | "failed";
 
 const FALLBACK_RATE = 132;
-const MIN_KES = 10;
+const MIN_KES = 100;
 const MAX_KES = 250000;
 
 export default function ChamaMpesaPay({
@@ -38,6 +38,7 @@ export default function ChamaMpesaPay({
   onClose,
   isLoading,
   setIsLoading,
+  isMoonwellDeposit = false,
 }: {
   chamaId: number;
   chamaName: string;
@@ -49,6 +50,7 @@ export default function ChamaMpesaPay({
   onClose: () => void;
   isLoading: boolean;
   setIsLoading: (v: boolean) => void;
+  isMoonwellDeposit?: boolean;
 }) {
   const { token, isAuthenticated } = useAuth();
   const { currency, platformRate: storeRate } = useCurrencyStore();
@@ -73,17 +75,10 @@ export default function ChamaMpesaPay({
   }, [storeRate]);
 
   useEffect(() => {
-    // Prefill outstanding / contribution when known
-    const usdcPrefill =
-      remainingAmount > 0
-        ? remainingAmount
-        : contributionAmount > 0
-          ? contributionAmount
-          : 0;
-    if (usdcPrefill <= 0) return;
-    setUsdc(usdcPrefill.toFixed(3));
-    if (rate > 0) setKes((usdcPrefill * rate).toFixed(2));
-  }, [remainingAmount, contributionAmount, rate]);
+    setKesMode(currency === "KES");
+  }, [currency]);
+
+  // Do not auto-fill remaining / contribution — only Pay Full fills the amount.
 
   const onKesChange = (v: string) => {
     if (v !== "" && !/^\d*\.?\d*$/.test(v)) return;
@@ -96,12 +91,16 @@ export default function ChamaMpesaPay({
     if (v !== "" && !/^\d*\.?\d*$/.test(v)) return;
     setUsdc(v);
     const n = parseFloat(v);
-    setKes(n > 0 && rate > 0 ? (n * rate).toFixed(2) : "");
+    // M-Pesa KES is always whole shillings
+    setKes(n > 0 && rate > 0 ? String(Math.ceil(n * rate)) : "");
   };
 
   const kesAmt = parseFloat(kes) || 0;
   const usdcAmt = parseFloat(usdc) || 0;
   const busy = step !== "idle" && step !== "failed" && step !== "completed";
+  const phoneOk = isValidKenyaPhone(phone);
+  const amountOk = kesAmt >= MIN_KES && kesAmt <= MAX_KES;
+  const canPay = phoneOk && amountOk && !busy && !isLoading;
 
   const handlePay = async () => {
     if (!isAuthenticated || !token) {
@@ -128,15 +127,17 @@ export default function ChamaMpesaPay({
     setIsLoading(true);
     setStep("initiating");
     try {
+      const kesWhole = Math.ceil(kesAmt);
       const result = await pretiumOnramp(
         toKenyaE164(phone),
-        Number(kesAmt.toFixed(2)),
+        kesWhole,
         rate,
         usdcAmt,
-        false,
+        isMoonwellDeposit ? true : false,
         token,
-        chamaId,
-        memberForId
+        isMoonwellDeposit ? undefined : chamaId,
+        memberForId,
+        isMoonwellDeposit
       );
       if (!result.success) {
         if (result.code === "KYC_REQUIRED") {
@@ -221,10 +222,62 @@ export default function ChamaMpesaPay({
       </div>
 
       {remainingAmount > 0 && (
-        <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-100 rounded-xl px-3 py-2">
-          Outstanding: {formatBalance(remainingAmount)}
-        </p>
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 flex items-center justify-between gap-2">
+          <div className="min-w-0">
+            <p className="text-[11px] font-semibold text-amber-800 mb-0.5">
+              Contribution Due
+            </p>
+            <p className="text-[13px] font-bold text-amber-900">
+              {currency === "KES"
+                ? `${Math.ceil(remainingAmount * rate).toLocaleString()} KES remaining`
+                : `${remainingAmount.toFixed(3)} USDC remaining`}
+            </p>
+            <p className="text-[11px] text-amber-700 mt-0.5">
+              ≈{" "}
+              {currency === "KES"
+                ? `${remainingAmount.toFixed(3)} USDC`
+                : `${Math.ceil(remainingAmount * rate).toLocaleString()} KES`}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              // M-Pesa KES must be whole shillings (no decimals)
+              const kesFull = Math.ceil(remainingAmount * rate);
+              setKes(String(kesFull));
+              setUsdc(remainingAmount.toFixed(3));
+            }}
+            className="shrink-0 bg-amber-600 text-white text-[11px] font-bold px-3 py-2 rounded-lg"
+          >
+            Pay Full
+          </button>
+        </div>
       )}
+
+      <div>
+        <label className="block text-[11px] font-semibold text-gray-600 mb-1.5">
+          M-Pesa number
+        </label>
+        <div className="relative">
+          <FiSmartphone
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+            size={15}
+          />
+          <input
+            type="tel"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            placeholder="07XX XXX XXX"
+            disabled={busy || isLoading}
+            className="w-full rounded-xl border border-gray-200 pl-9 pr-3 py-2.5 text-[13px] outline-none focus:ring-2 focus:ring-downy-500"
+          />
+        </div>
+        {phone.length > 0 && !phoneOk && (
+          <p className="text-[11px] text-red-600 mt-1 font-medium">
+            Enter a complete M-Pesa number (e.g. 0712 345 678)
+          </p>
+        )}
+      </div>
 
       <div>
         <div className="flex items-center justify-between mb-1.5">
@@ -267,26 +320,24 @@ export default function ChamaMpesaPay({
           {kesMode
             ? `≈ ${usdc || "0.000"} USDC`
             : `≈ ${kes || "0.00"} KES`}
+          {" · "}1 USDC = {rate} KES
         </p>
-      </div>
-
-      <div>
-        <label className="block text-[11px] font-semibold text-gray-600 mb-1.5">
-          M-Pesa number
-        </label>
-        <div className="relative">
-          <FiSmartphone
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-            size={15}
-          />
-          <input
-            type="tel"
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            placeholder="07XX XXX XXX"
-            disabled={busy || isLoading}
-            className="w-full rounded-xl border border-gray-200 pl-9 pr-3 py-2.5 text-[13px] outline-none focus:ring-2 focus:ring-downy-500"
-          />
+        <div className="flex justify-between items-center mt-1 gap-2">
+          <p className="text-[11px] text-gray-500">
+            Min{" "}
+            {kesMode
+              ? `${MIN_KES.toLocaleString()} KES`
+              : `${(Math.ceil((MIN_KES / rate) * 100) / 100).toFixed(2)} USDC`}
+            {" · "}Max{" "}
+            {kesMode
+              ? `${MAX_KES.toLocaleString()} KES`
+              : `${(Math.floor((MAX_KES / rate) * 1000) / 1000).toFixed(3)} USDC`}
+          </p>
+          {kesAmt > 0 && (kesAmt < MIN_KES || kesAmt > MAX_KES) && (
+            <p className="text-[11px] text-red-600 font-medium shrink-0">
+              {kesAmt < MIN_KES ? "Below minimum" : "Above maximum"}
+            </p>
+          )}
         </div>
       </div>
 
@@ -309,9 +360,9 @@ export default function ChamaMpesaPay({
       <button
         type="button"
         onClick={handlePay}
-        disabled={busy || isLoading || !kes || !phone}
+        disabled={!canPay}
         className={`w-full py-3 rounded-xl text-[13px] font-bold text-white ${
-          busy || isLoading || !kes || !phone
+          !canPay
             ? "bg-gray-300"
             : "bg-downy-600 shadow-md shadow-downy-600/25"
         }`}

@@ -1,11 +1,8 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
-import { FiLogOut, FiSettings, FiUser } from "react-icons/fi";
+import { FiSettings } from "react-icons/fi";
 import { useAuth } from "@/app/context/AuthContext";
-import { useRouter } from "next/navigation";
 
 function greetingForHour(hour: number) {
   if (hour < 12) return "Good morning";
@@ -26,10 +23,7 @@ export default function AppHeader({
 }: {
   pageTitle?: string;
 }) {
-  const { user, isGuest, logout } = useAuth();
-  const router = useRouter();
-  const [menuOpen, setMenuOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
+  const { user, isGuest } = useAuth();
 
   const displayName =
     user?.userName?.trim() ||
@@ -40,21 +34,6 @@ export default function AppHeader({
   const isSection = Boolean(pageTitle);
   /** Profile + settings only on home (greeting header). */
   const showProfile = !isSection;
-
-  useEffect(() => {
-    if (!showProfile) return;
-    const onDoc = (e: MouseEvent) => {
-      if (!menuRef.current?.contains(e.target as Node)) setMenuOpen(false);
-    };
-    document.addEventListener("mousedown", onDoc);
-    return () => document.removeEventListener("mousedown", onDoc);
-  }, [showProfile]);
-
-  const handleLogout = () => {
-    setMenuOpen(false);
-    logout();
-    router.replace("/");
-  };
 
   return (
     <header
@@ -81,71 +60,36 @@ export default function AppHeader({
           </div>
 
           {showProfile && (
-            <div className="relative shrink-0 flex items-center gap-2" ref={menuRef}>
+            <div className="shrink-0 flex items-center gap-2">
               <Link
                 href="/Settings"
-                aria-label="Profile settings"
+                aria-label="Settings"
                 className="h-8 w-8 rounded-full bg-white/15 border border-white/30 text-white flex items-center justify-center hover:bg-white/25 transition"
               >
                 <FiSettings size={15} />
               </Link>
 
-              <button
-                type="button"
-                onClick={() => setMenuOpen((o) => !o)}
-                aria-label="Profile menu"
+              <Link
+                href="/Settings"
+                aria-label="Profile"
                 className="h-8 w-8 rounded-full overflow-hidden border-2 border-white/40 bg-white/20 text-white flex items-center justify-center text-[10px] font-bold"
               >
                 {avatar ? (
-                  <Image
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
                     src={avatar}
                     alt=""
-                    width={32}
-                    height={32}
+                    referrerPolicy="no-referrer"
                     className="h-full w-full object-cover"
-                    unoptimized
+                    onError={(e) => {
+                      (e.currentTarget as HTMLImageElement).style.display =
+                        "none";
+                    }}
                   />
                 ) : (
                   initials(displayName)
                 )}
-              </button>
-
-              {menuOpen && (
-                <div className="absolute right-0 top-full mt-2 w-56 rounded-2xl bg-white shadow-xl shadow-downy-950/20 border border-gray-100 py-2 z-50 text-left">
-                  <div className="px-3.5 py-2 border-b border-gray-50">
-                    <p className="text-xs font-semibold text-gray-900 truncate">
-                      {displayName}
-                    </p>
-                    <p className="text-[11px] text-gray-500 truncate mt-0.5">
-                      {isGuest ? "Guest session" : user?.email}
-                    </p>
-                  </div>
-                  <Link
-                    href="/Settings"
-                    onClick={() => setMenuOpen(false)}
-                    className="flex items-center gap-2.5 px-3.5 py-2.5 text-[13px] font-medium text-gray-700 hover:bg-downy-50"
-                  >
-                    <FiSettings size={15} className="text-downy-600" />
-                    Profile &amp; settings
-                  </Link>
-                  <Link
-                    href="/Wallet"
-                    onClick={() => setMenuOpen(false)}
-                    className="flex items-center gap-2.5 px-3.5 py-2.5 text-[13px] font-medium text-gray-700 hover:bg-downy-50"
-                  >
-                    <FiUser size={15} className="text-downy-600" />
-                    Wallet &amp; account
-                  </Link>
-                  <button
-                    type="button"
-                    onClick={handleLogout}
-                    className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-[13px] font-medium text-red-600 hover:bg-red-50"
-                  >
-                    <FiLogOut size={15} />
-                    {isGuest ? "Exit guest" : "Sign out"}
-                  </button>
-                </div>
-              )}
+              </Link>
             </div>
           )}
         </div>

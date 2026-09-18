@@ -19,6 +19,8 @@ import { normalizeUsdcAmount, normalizeChamaBalance } from "@/lib/normalizeUsdc"
 import ChamaWithdrawModal from "@/app/Components/ChamaWithdrawModal";
 import { Member } from "@/utils/typesUtils";
 import { useAuth } from "@/app/context/AuthContext";
+import ProfileAvatar from "@/app/Components/ProfileAvatar";
+import { getMemberRemainingAmount } from "@/lib/memberBalances";
 
 function txLabel(tx: Transaction) {
   if (tx.type === "payout") return "Cycle & Round Payout";
@@ -54,11 +56,24 @@ function txTitleClass(type: string) {
 type Props = {
   chama: JoinedChama;
   userAddress: string;
-  onPay: (recipient?: { userId: number; userName: string } | null) => void;
+  onPay: (
+    recipient?: {
+      userId: number;
+      userName: string;
+      remainingAmount?: number;
+    } | null
+  ) => void;
+  balanceLoading?: boolean;
 };
 
-export default function ChamaOverview({ chama, userAddress, onPay }: Props) {
-  const { formatBalance } = useFormattedBalance();
+export default function ChamaOverview({
+  chama,
+  userAddress,
+  onPay,
+  balanceLoading = false,
+}: Props) {
+  const { formatBalance, currency, platformRate } = useFormattedBalance();
+  const { user } = useAuth();
   const [selectedTx, setSelectedTx] = useState<Transaction | null>(null);
   const [showWithdraw, setShowWithdraw] = useState(false);
   const [showRecipient, setShowRecipient] = useState(false);
@@ -69,8 +84,14 @@ export default function ChamaOverview({ chama, userAddress, onPay }: Props) {
   );
   const contribution = Number(chama.contribution) || 0;
   const remainingAmount = Math.max(0, contribution - myContributions);
+  const remainingKes = Math.ceil(remainingAmount * platformRate);
   const normalizedAddress = (userAddress || "").toLowerCase();
   const hasSchedule = (chama.payoutSchedule?.length || 0) > 0;
+  const myProfile =
+    (chama.members as Member[])?.find((m) => m.id === user?.id)
+      ?.profilePicture ||
+    (user?.profileImageUrl as string | undefined) ||
+    "";
 
   const startPay = () => {
     if ((chama.members?.length || 0) > 1) {
@@ -78,6 +99,25 @@ export default function ChamaOverview({ chama, userAddress, onPay }: Props) {
       return;
     }
     onPay(null);
+  };
+
+  const payForMember = (m: Member | null) => {
+    setShowRecipient(false);
+    if (!m) {
+      onPay(null);
+      return;
+    }
+    const addr = m.smartAddress || m.address || "";
+    const theirRemaining = getMemberRemainingAmount(
+      contribution,
+      chama.eachMemberBalance,
+      addr
+    );
+    onPay({
+      userId: m.id,
+      userName: m.name,
+      remainingAmount: theirRemaining,
+    });
   };
 
   return (
@@ -97,17 +137,31 @@ export default function ChamaOverview({ chama, userAddress, onPay }: Props) {
         </div>
 
         <div className="px-4 py-3">
-          <p className="text-[1.75rem] font-extrabold text-gray-900 tracking-tight">
-            {formatBalance(myContributions)}
-          </p>
+          {balanceLoading ? (
+            <div className="h-9 w-36 rounded-lg bg-gray-200 animate-pulse" />
+          ) : (
+            <p className="text-[1.75rem] font-extrabold text-gray-900 tracking-tight">
+              {formatBalance(myContributions)}
+            </p>
+          )}
 
-          {remainingAmount > 0 ? (
+          {balanceLoading ? (
+            <div className="mt-3 h-14 rounded-xl bg-gray-100 animate-pulse" />
+          ) : remainingAmount > 0 ? (
             <div className="mt-3 bg-orange-50 border border-orange-200 rounded-xl p-3">
               <p className="text-orange-800 font-semibold text-[12px]">
                 Outstanding Payment
               </p>
-              <p className="text-orange-700 text-[11px] mt-0.5">
-                {formatBalance(remainingAmount)}
+              <p className="text-orange-700 text-[12px] font-bold mt-0.5">
+                {currency === "KES"
+                  ? `${remainingKes.toLocaleString()} KES`
+                  : `${remainingAmount.toFixed(3)} USDC`}
+              </p>
+              <p className="text-orange-600 text-[11px] mt-0.5">
+                ≈{" "}
+                {currency === "KES"
+                  ? `${remainingAmount.toFixed(3)} USDC`
+                  : `${remainingKes.toLocaleString()} KES`}
                 {" · Due: "}
                 {formatDate(chama.contributionDueDate)}
               </p>
@@ -311,16 +365,17 @@ export default function ChamaOverview({ chama, userAddress, onPay }: Props) {
 
             <button
               type="button"
-              onClick={() => {
-                setShowRecipient(false);
-                onPay(null);
-              }}
+              onClick={() => payForMember(null)}
               className="w-full flex items-center justify-between gap-3 py-3.5 px-4 rounded-xl border border-gray-200 bg-gray-50 mb-1"
             >
               <div className="flex items-center gap-3">
-                <span className="h-10 w-10 rounded-full bg-downy-100 text-downy-700 flex items-center justify-center text-[13px] font-bold">
-                  Me
-                </span>
+                <ProfileAvatar
+                  src={myProfile}
+                  name={user?.userName || "Me"}
+                  size={40}
+                  fallbackText="Me"
+                  className="bg-downy-100 text-downy-700"
+                />
                 <div className="text-left">
                   <p className="text-[15px] font-medium text-gray-800">For Me</p>
                   <p className="text-[11px] text-gray-500">
@@ -339,6 +394,7 @@ export default function ChamaOverview({ chama, userAddress, onPay }: Props) {
               {(chama.members as Member[])
                 .filter(
                   (m) =>
+                    m.id !== user?.id &&
                     m.address?.toLowerCase() !== normalizedAddress &&
                     m.smartAddress?.toLowerCase() !== normalizedAddress
                 )
@@ -346,24 +402,14 @@ export default function ChamaOverview({ chama, userAddress, onPay }: Props) {
                   <button
                     key={m.id}
                     type="button"
-                    onClick={() => {
-                      setShowRecipient(false);
-                      onPay({ userId: m.id, userName: m.name });
-                    }}
+                    onClick={() => payForMember(m)}
                     className="w-full flex items-center gap-3 py-3 px-3 border-b border-gray-100 bg-transparent text-left"
                   >
-                    {m.profilePicture ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={m.profilePicture}
-                        alt=""
-                        className="h-10 w-10 rounded-full object-cover"
-                      />
-                    ) : (
-                      <span className="h-10 w-10 rounded-full bg-gray-200 text-gray-600 flex items-center justify-center text-[13px] font-semibold">
-                        {(m.name || "U").charAt(0).toUpperCase()}
-                      </span>
-                    )}
+                    <ProfileAvatar
+                      src={m.profilePicture}
+                      name={m.name}
+                      size={40}
+                    />
                     <p className="flex-1 text-[14px] font-medium text-gray-800 truncate">
                       {m.name}
                     </p>

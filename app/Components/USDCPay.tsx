@@ -3,9 +3,9 @@
 import Image from "next/image";
 import React, { useEffect, useState } from "react";
 import { useReadContract } from "wagmi";
-import { celo } from "viem/chains";
+import { base } from "viem/chains";
 import erc20Abi from "@/app/ChamaPayABI/ERC20.json";
-import { usdcContractAddress } from "../ChamaPayABI/ChamaPayContract";
+import { baseUsdcContractAddress } from "../ChamaPayABI/ChamaPayContract";
 import { showToast } from "./Toast";
 import { useAuth } from "../context/AuthContext";
 import { useSessionAddress } from "@/lib/useSessionAddress";
@@ -41,24 +41,21 @@ const USDCPay = ({
   const isKES = kesMode && platformRate > 0;
 
   useEffect(() => {
-    if (remainingAmount <= 0) return;
-    setAmount(
-      isKES
-        ? (remainingAmount * platformRate).toFixed(2)
-        : remainingAmount.toFixed(3)
-    );
-  }, [remainingAmount, isKES, platformRate]);
+    setKesMode(currency === "KES");
+  }, [currency]);
+
+  // Do not auto-fill remaining — only Pay Full fills the amount.
 
   const {
     data: balanceData,
     isLoading: isBalanceLoading,
-    isError: isBalanceError,
   } = useReadContract({
-    chainId: celo.id,
-    address: usdcContractAddress,
+    chainId: base.id,
+    address: baseUsdcContractAddress,
     functionName: "balanceOf",
     abi: erc20Abi,
-    args: [address],
+    args: address ? [address] : undefined,
+    query: { enabled: Boolean(address) },
   });
 
   const walletUsdc = balanceData ? Number(balanceData) / 1e6 : 0;
@@ -139,9 +136,37 @@ const USDCPay = ({
       </div>
 
       {remainingAmount > 0 && (
-        <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-100 rounded-xl px-3 py-2 mb-3">
-          Outstanding: {formatBalance(remainingAmount)}
-        </p>
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-3 flex items-center justify-between gap-2">
+          <div className="min-w-0">
+            <p className="text-[11px] font-semibold text-amber-800 mb-0.5">
+              Contribution Due
+            </p>
+            <p className="text-[13px] font-bold text-amber-900">
+              {currency === "KES"
+                ? `${Math.ceil(remainingAmount * platformRate).toLocaleString()} KES remaining`
+                : `${remainingAmount.toFixed(3)} USDC remaining`}
+            </p>
+            <p className="text-[11px] text-amber-700 mt-0.5">
+              ≈{" "}
+              {currency === "KES"
+                ? `${remainingAmount.toFixed(3)} USDC`
+                : `${Math.ceil(remainingAmount * platformRate).toLocaleString()} KES`}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() =>
+              setAmount(
+                isKES
+                  ? String(Math.ceil(remainingAmount * platformRate))
+                  : remainingAmount.toFixed(3)
+              )
+            }
+            className="shrink-0 bg-amber-600 text-white text-[11px] font-bold px-3 py-2 rounded-lg"
+          >
+            Pay Full
+          </button>
+        </div>
       )}
 
       <form onSubmit={handlePayment} className="space-y-3">
@@ -190,13 +215,11 @@ const USDCPay = ({
         <div className="flex justify-end text-[12px] text-gray-600">
           <span>
             Available:{" "}
-            <span className="font-medium">
-              {isBalanceLoading
-                ? "…"
-                : isBalanceError
-                  ? "—"
-                  : formatBalance(walletUsdc)}
-            </span>
+            {isBalanceLoading ? (
+              <span className="inline-block h-3 w-16 rounded bg-gray-200 animate-pulse align-middle" />
+            ) : (
+              <span className="font-medium">{formatBalance(walletUsdc)}</span>
+            )}
           </span>
         </div>
 

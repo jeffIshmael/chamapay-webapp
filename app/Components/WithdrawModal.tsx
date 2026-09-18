@@ -23,7 +23,7 @@ import {
 type Step = "idle" | "verifying" | "processing" | "completed" | "failed";
 
 const FALLBACK_RATE = 132;
-const MIN_KES = 105;
+const MIN_KES = 100;
 const MAX_KES = 250000;
 const NETWORK = "Safaricom";
 
@@ -193,14 +193,20 @@ export default function WithdrawModal({
   };
 
   const busy = step === "processing" || step === "verifying";
+  const phoneOk = isValidKenyaPhone(phone);
+  const amountOk = kesAmt >= MIN_KES && kesAmt <= MAX_KES;
+  const canSubmit = !busy && phoneOk && amountOk && Boolean(usdc);
   const blockDismiss = () => {};
 
   return (
     <Dialog open={isOpen} onClose={blockDismiss} className="relative z-[100]">
       <div className="app-modal-layer !pointer-events-auto">
         <div className="app-modal-backdrop" aria-hidden="true" />
-        <Dialog.Panel className="app-modal-sheet bg-downy-50 max-h-[92%] overflow-y-auto">
-          <div className="sticky top-0 z-10 bg-gradient-to-br from-downy-800 to-emerald-900 text-white px-4 pt-3 pb-4 rounded-t-3xl">
+        <Dialog.Panel className="app-modal-sheet bg-downy-50 max-h-[92%] flex flex-col overflow-hidden">
+          <div
+            className="shrink-0 text-white px-4 pt-3 pb-4 rounded-t-3xl"
+            style={{ backgroundColor: "#1a6b6b" }}
+          >
             <div className="flex items-center justify-between min-h-[40px]">
               <div className="w-8" />
               <Dialog.Title className="text-[15px] font-bold">
@@ -229,7 +235,7 @@ export default function WithdrawModal({
             </div>
           </div>
 
-          <div className="px-4 py-4 space-y-3">
+          <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 py-4 space-y-3">
             <p className="text-[12px] text-gray-600 text-center">
               Wallet balance:{" "}
               <span className="font-bold text-gray-900">
@@ -240,6 +246,31 @@ export default function WithdrawModal({
                 KES
               </span>
             </p>
+
+            <div>
+              <label className="block text-[11px] font-semibold text-gray-600 mb-1.5">
+                M-Pesa number
+              </label>
+              <div className="relative">
+                <FiSmartphone
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+                  size={15}
+                />
+                <input
+                  type="tel"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="07XX XXX XXX"
+                  disabled={busy}
+                  className="w-full rounded-xl border border-gray-200 pl-9 pr-3 py-2.5 text-[13px] outline-none focus:ring-2 focus:ring-downy-500"
+                />
+              </div>
+              {phone.length > 0 && !phoneOk && (
+                <p className="text-[11px] text-red-600 mt-1 font-medium">
+                  Enter a complete M-Pesa number (e.g. 0712 345 678)
+                </p>
+              )}
+            </div>
 
             <div>
               <label className="block text-[11px] font-semibold text-gray-600 mb-1.5">
@@ -266,9 +297,18 @@ export default function WithdrawModal({
                   MAX
                 </button>
               </div>
-              <p className="text-[11px] text-gray-500 mt-1">
-                ≈ {usdc || "0.000"} USDC
-              </p>
+              <div className="flex justify-between items-center mt-1.5 gap-2">
+                <p className="text-[11px] text-gray-500">
+                  Min {MIN_KES.toLocaleString()} · Max{" "}
+                  {MAX_KES.toLocaleString()} KES
+                  {" · "}≈ {usdc || "0.000"} USDC
+                </p>
+                {kesAmt > 0 && (kesAmt < MIN_KES || kesAmt > MAX_KES) && (
+                  <p className="text-[11px] text-red-600 font-medium shrink-0">
+                    {kesAmt < MIN_KES ? "Below minimum" : "Above maximum"}
+                  </p>
+                )}
+              </div>
             </div>
 
             {kesAmt > 0 && (
@@ -283,26 +323,6 @@ export default function WithdrawModal({
                 </div>
               </div>
             )}
-
-            <div>
-              <label className="block text-[11px] font-semibold text-gray-600 mb-1.5">
-                M-Pesa number
-              </label>
-              <div className="relative">
-                <FiSmartphone
-                  className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-                  size={15}
-                />
-                <input
-                  type="tel"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  placeholder="07XX XXX XXX"
-                  disabled={busy}
-                  className="w-full rounded-xl border border-gray-200 pl-9 pr-3 py-2.5 text-[13px] outline-none focus:ring-2 focus:ring-downy-500"
-                />
-              </div>
-            </div>
 
             {step === "processing" || step === "completed" ? (
               <div className="bg-white rounded-2xl border border-downy-100 p-3.5 text-center">
@@ -321,9 +341,9 @@ export default function WithdrawModal({
               <button
                 type="button"
                 onClick={startWithdraw}
-                disabled={busy || !usdc || !phone}
+                disabled={!canSubmit}
                 className={`w-full py-3 rounded-xl text-[13px] font-bold text-white ${
-                  busy || !usdc || !phone
+                  !canSubmit
                     ? "bg-gray-300"
                     : "bg-downy-600 shadow-md shadow-downy-600/25"
                 }`}

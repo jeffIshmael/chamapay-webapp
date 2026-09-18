@@ -2,31 +2,21 @@
 
 import React from "react";
 import { FiCheck, FiDollarSign, FiLock, FiUser, FiAward } from "react-icons/fi";
-import { formatUnits } from "viem";
 import { Member } from "@/utils/typesUtils";
 import { useFormattedBalance } from "@/lib/useFormattedBalance";
 import { useAuth } from "@/app/context/AuthContext";
-import { normalizeUsdcAmount } from "@/lib/normalizeUsdc";
+import ProfileAvatar from "@/app/Components/ProfileAvatar";
+import {
+  getMemberChamaBalance,
+  type EachMemberBalances,
+} from "@/lib/memberBalances";
 
 type Props = {
   members: Member[];
-  eachMemberBalances?:
-    | Record<string, string>
-    | [string[], string[][]]
-    | null;
+  eachMemberBalances?: EachMemberBalances;
   isPublic: boolean;
   contributionAmount?: number;
 };
-
-function getInitials(name: string) {
-  if (!name) return "??";
-  return name
-    .split(" ")
-    .map((n) => n[0])
-    .join("")
-    .toUpperCase()
-    .slice(0, 2);
-}
 
 export default function MembersTab({
   members,
@@ -37,40 +27,6 @@ export default function MembersTab({
   const { user } = useAuth();
   const { formatBalance } = useFormattedBalance();
   const totalMembers = members?.length || 0;
-
-  const getMemberBalance = (memberAddress?: string) => {
-    if (!memberAddress || !eachMemberBalances) {
-      return { balance: 0, locked: 0 };
-    }
-
-    // Tuple form from backend: [addresses[], balances[][]]
-    if (Array.isArray(eachMemberBalances)) {
-      try {
-        const [addresses, balances] = eachMemberBalances as [
-          string[],
-          string[][]
-        ];
-        const memberIndex = addresses.findIndex(
-          (addr) => addr.toLowerCase() === memberAddress.toLowerCase()
-        );
-        if (memberIndex === -1 || !balances[memberIndex]) {
-          return { balance: 0, locked: 0 };
-        }
-        const row = balances[memberIndex];
-        return {
-          balance: Number(formatUnits(BigInt(String(row[0] || 0)), 6)),
-          locked: Number(formatUnits(BigInt(String(row[1] || 0)), 6)),
-        };
-      } catch {
-        return { balance: 0, locked: 0 };
-      }
-    }
-
-    // Record map fallback
-    const raw = eachMemberBalances[memberAddress];
-    if (raw == null) return { balance: 0, locked: 0 };
-    return { balance: normalizeUsdcAmount(raw), locked: 0 };
-  };
 
   return (
     <div className="pb-8">
@@ -99,7 +55,10 @@ export default function MembersTab({
               if (!member) return null;
               const isCurrentUser = member.id === user?.id;
               const addr = member.smartAddress || member.address || "";
-              const memberBalance = getMemberBalance(addr);
+              const memberBalance = getMemberChamaBalance(
+                eachMemberBalances,
+                addr
+              );
               const hasPaid =
                 contributionAmount > 0 &&
                 memberBalance.balance >= contributionAmount;
@@ -119,22 +78,12 @@ export default function MembersTab({
                     </div>
                   )}
                   <div className="flex items-center gap-3">
-                    <div className="w-11 h-11 rounded-full bg-downy-100 text-downy-700 flex items-center justify-center text-[12px] font-bold shrink-0 overflow-hidden">
-                      {(member as Member & { profilePicture?: string })
-                        .profilePicture ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={
-                            (member as Member & { profilePicture?: string })
-                              .profilePicture
-                          }
-                          alt=""
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        getInitials(member.name || "?")
-                      )}
-                    </div>
+                    <ProfileAvatar
+                      src={member.profilePicture}
+                      name={member.name}
+                      size={44}
+                      className="bg-downy-100 text-downy-700"
+                    />
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-1.5 flex-wrap mb-1">
                         <p

@@ -9,9 +9,9 @@ import { FiArrowLeft, FiArrowRight, FiX } from "react-icons/fi";
 import { useFormattedBalance } from "@/lib/useFormattedBalance";
 import { useSessionAddress } from "@/lib/useSessionAddress";
 import { useReadContract } from "wagmi";
-import { celo } from "viem/chains";
+import { base } from "viem/chains";
 import erc20Abi from "@/app/ChamaPayABI/ERC20.json";
-import { usdcContractAddress } from "@/app/ChamaPayABI/ChamaPayContract";
+import { baseUsdcContractAddress } from "@/app/ChamaPayABI/ChamaPayContract";
 
 type Method = "" | "account" | "mpesa";
 
@@ -40,12 +40,13 @@ const Pay = ({
   const { formatBalance } = useFormattedBalance();
   const { address } = useSessionAddress();
 
-  const { data: balanceData } = useReadContract({
-    chainId: celo.id,
-    address: usdcContractAddress,
+  const { data: balanceData, isLoading: walletBalanceLoading } = useReadContract({
+    chainId: base.id,
+    address: baseUsdcContractAddress,
     functionName: "balanceOf",
     abi: erc20Abi,
-    args: [address],
+    args: address ? [address] : undefined,
+    query: { enabled: Boolean(address) },
   });
   const walletUsdc = balanceData ? Number(balanceData) / 1e6 : 0;
 
@@ -141,7 +142,11 @@ const Pay = ({
                           Pay from account
                         </p>
                         <p className="text-[11px] text-gray-500">
-                          {formatBalance(walletUsdc)} available
+                          {walletBalanceLoading ? (
+                            <span className="inline-block h-3 w-20 rounded bg-gray-200 animate-pulse align-middle" />
+                          ) : (
+                            <>{formatBalance(walletUsdc)} available</>
+                          )}
                         </p>
                       </div>
                     </div>

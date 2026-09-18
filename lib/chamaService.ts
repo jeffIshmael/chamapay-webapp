@@ -72,6 +72,33 @@ export const searchUsers = async (
   }
 };
 
+export async function shareChamaLink(
+  senderName: string,
+  receiverId: number,
+  chamaSlug: string,
+  token: string
+): Promise<{ success: boolean }> {
+  try {
+    const message = `${senderName} has shared a chama to you. Tap to view.`;
+    const response = await fetch(`${serverUrl}/user/shareLink`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        receiverId,
+        message,
+        chamaLink: chamaSlug,
+      }),
+    });
+    const data = await response.json();
+    return { success: Boolean(data?.success) };
+  } catch {
+    return { success: false };
+  }
+}
+
 export interface UserDetailsResponse {
   success: boolean;
   user: {

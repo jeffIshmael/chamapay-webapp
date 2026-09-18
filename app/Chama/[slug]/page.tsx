@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import ChamaOverview from "@/app/Components/ChamaOverview";
 import ScheduleTab from "@/app/Components/ScheduleTab";
 import MembersTab from "@/app/Components/MembersTab";
@@ -15,8 +15,10 @@ import {
 } from "@/lib/chamaService";
 import { duration, formatTimeRemaining, getPicture } from "@/utils/duration";
 import Pay from "@/app/Components/Pay";
+import ChamaShareModal from "@/app/Components/ChamaShareModal";
+import ChamaAddMemberModal from "@/app/Components/ChamaAddMemberModal";
 import { useRouter } from "next/navigation";
-import { FiAlertTriangle, FiShare2 } from "react-icons/fi";
+import { FiAlertTriangle, FiShare2, FiUserPlus } from "react-icons/fi";
 import { showToast } from "@/app/Components/Toast";
 import { HiArrowLeft } from "react-icons/hi";
 import Link from "next/link";
@@ -89,6 +91,7 @@ const ChamaDetails = ({ params }: { params: { slug: string } }) => {
   const [payRecipient, setPayRecipient] = useState<{
     userId: number;
     userName: string;
+    remainingAmount?: number;
   } | null>(null);
   const [error, setError] = useState("");
   const { address, isAuthenticated, user } = useSessionAddress();
@@ -102,11 +105,19 @@ const ChamaDetails = ({ params }: { params: { slug: string } }) => {
   const [hasRequest, setHasRequest] = useState(false);
   const [isFull, setIsFull] = useState(false);
   const [sendingRequest, setSendingRequest] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [showAddMemberModal, setShowAddMemberModal] = useState(false);
   const router = useRouter();
-  const { token } = useAuth();
+  const { token, user: authUser } = useAuth();
   const { formatBalance } = useFormattedBalance();
 
-  const openPay = (recipient?: { userId: number; userName: string } | null) => {
+  const openPay = (
+    recipient?: {
+      userId: number;
+      userName: string;
+      remainingAmount?: number;
+    } | null
+  ) => {
     setPayRecipient(recipient ?? null);
     setIsOpen(true);
   };
@@ -116,6 +127,51 @@ const ChamaDetails = ({ params }: { params: { slug: string } }) => {
     setPayRecipient(null);
   };
 
+  const myRemaining = joined
+    ? Math.max(
+        0,
+        (Number(joined.contribution) || 0) -
+          normalizeChamaBalance(joined.userBalance)
+      )
+    : 0;
+  const payRemainingAmount =
+    payRecipient?.remainingAmount != null
+      ? payRecipient.remainingAmount
+      : myRemaining;
+
+  const refreshChama = useCallback(async () => {
+    if (!isAuthenticated) return;
+    setFetchingChama(true);
+    const data = await getChama(
+      params.slug,
+      token || undefined,
+      address as string
+    );
+    if (data && data.success && data.chama) {
+      setChama(data.chama as any);
+      setIncluded(data.isMember ?? false);
+      setAdminWallet(data.adminWallet || null);
+      const time = await duration(data.chama.cycleTime || 0);
+      setCycle(time);
+      setChamaType(data.chama.type || "");
+      setJoined(transformChamaData(data.chama, (address as string) || ""));
+
+      const result = await checkRequest(
+        address as string,
+        data.chama.id ?? 0,
+        token || undefined
+      );
+      setHasRequest(Boolean(result));
+      if (
+        (data.chama.members?.length ?? 0) >= (data.chama.maxNo ?? 0) &&
+        data.chama.maxNo > 0
+      ) {
+        setIsFull(true);
+      }
+    }
+    setFetchingChama(false);
+  }, [address, params.slug, token, isAuthenticated]);
+
   useEffect(() => {
     if (!isAuthenticated) {
       router.replace("/");
@@ -123,39 +179,8 @@ const ChamaDetails = ({ params }: { params: { slug: string } }) => {
   }, [isAuthenticated, router]);
 
   useEffect(() => {
-    const fetchChama = async () => {
-      setFetchingChama(true);
-      const data = await getChama(
-        params.slug,
-        token || undefined,
-        address as string
-      );
-      if (data && data.success && data.chama) {
-        setChama(data.chama as any);
-        setIncluded(data.isMember ?? false);
-        setAdminWallet(data.adminWallet || null);
-        const time = await duration(data.chama.cycleTime || 0);
-        setCycle(time);
-        setChamaType(data.chama.type || "");
-        setJoined(transformChamaData(data.chama, (address as string) || ""));
-
-        const result = await checkRequest(
-          address as string,
-          data.chama.id ?? 0,
-          token || undefined
-        );
-        setHasRequest(Boolean(result));
-        if (
-          (data.chama.members?.length ?? 0) >= (data.chama.maxNo ?? 0) &&
-          data.chama.maxNo > 0
-        ) {
-          setIsFull(true);
-        }
-      }
-      setFetchingChama(false);
-    };
-    if (isAuthenticated) fetchChama();
-  }, [address, params.slug, token, isAuthenticated]);
+    if (isAuthenticated) refreshChama();
+  }, [isAuthenticated, refreshChama]);
 
   const joinChama = async () => {
     if (!isAuthenticated || !address) {
@@ -236,17 +261,6 @@ const ChamaDetails = ({ params }: { params: { slug: string } }) => {
     }
     const display = normalizeUsdcAmount(chama?.amount ?? 0);
     return `${formatBalance(display, true)} / ${cycle}`;
-  };
-
-  const shareLink = () => {
-    if (!chama) return;
-    const url = `${window.location.origin}/Chama/${chama.slug}`;
-    if (navigator.share) {
-      navigator.share({ title: chama.name, url }).catch(() => {});
-    } else {
-      navigator.clipboard.writeText(url).catch(() => {});
-      showToast("Link copied", "success");
-    }
   };
 
   if (fetchingChama || !chama) {
@@ -469,11 +483,16 @@ const ChamaDetails = ({ params }: { params: { slug: string } }) => {
 
   const hasSchedule = (joined.payoutSchedule?.length || 0) > 0;
   const isActive = joined.status === "active";
+  const isAdmin =
+    joined.members?.some(
+      (m) => m.id === authUser?.id && m.role === "Admin"
+    ) ?? false;
+  const canAddMembers = Boolean(isAdmin && joined.canJoin);
 
   return (
-    <div className="min-h-[100dvh] bg-gray-50 flex flex-col">
-      {/* Header — matches Application joined-chama-details */}
-      <div className="bg-downy-700 rounded-b-2xl px-4 pt-4 pb-4 text-white shrink-0">
+    <div className="absolute inset-0 flex flex-col bg-gray-50">
+      {/* Fixed header */}
+      <div className="bg-downy-700 rounded-b-2xl px-4 pt-4 pb-4 text-white shrink-0 safe-top">
         <div className="flex items-center justify-between mb-3">
           <button
             type="button"
@@ -493,14 +512,26 @@ const ChamaDetails = ({ params }: { params: { slug: string } }) => {
               {joined.isPublic ? "🌍 Public" : "🔒 Private"}
             </span>
           </div>
-          <button
-            type="button"
-            onClick={shareLink}
-            className="p-2 rounded-full bg-white/10 text-white"
-            aria-label="Share"
-          >
-            <FiShare2 size={18} />
-          </button>
+          <div className="flex items-center gap-1">
+            {canAddMembers && (
+              <button
+                type="button"
+                onClick={() => setShowAddMemberModal(true)}
+                className="p-2 rounded-full bg-white/10 text-white"
+                aria-label="Add member"
+              >
+                <FiUserPlus size={18} />
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => setShowShareModal(true)}
+              className="p-2 rounded-full bg-white/10 text-white"
+              aria-label="Share"
+            >
+              <FiShare2 size={18} />
+            </button>
+          </div>
         </div>
 
         <div className="grid grid-cols-3 gap-2 text-center">
@@ -536,8 +567,8 @@ const ChamaDetails = ({ params }: { params: { slug: string } }) => {
         )}
       </div>
 
-      {/* Top tabs — matches Application TabButton row */}
-      <div className={`pt-3 ${activeTab === "chat" ? "px-4" : "px-4"}`}>
+      {/* Fixed tabs */}
+      <div className="shrink-0 px-4 pt-3 bg-gray-50">
         <div className="flex bg-gray-100 rounded-lg p-1 gap-0.5">
           {TABS.map((tab) => (
             <button
@@ -556,10 +587,10 @@ const ChamaDetails = ({ params }: { params: { slug: string } }) => {
         </div>
       </div>
 
-      {/* Tab content */}
-      <div className="flex-1 min-h-0">
+      {/* Scrollable tab content */}
+      <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
         {activeTab === "overview" && (
-          <div className="px-4 pt-3 overflow-y-auto">
+          <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 pt-3 [-webkit-overflow-scrolling:touch]">
             <ChamaOverview
               chama={joined}
               userAddress={(address as string) || ""}
@@ -569,13 +600,13 @@ const ChamaDetails = ({ params }: { params: { slug: string } }) => {
         )}
 
         {activeTab === "chat" && (
-          <div className="h-[calc(100dvh-11rem)] flex flex-col mt-2">
+          <div className="flex-1 min-h-0 flex flex-col mt-2">
             <Chat chamaId={Number(chama.id)} />
           </div>
         )}
 
         {activeTab === "schedule" && (
-          <div className="px-4 pt-3 overflow-y-auto">
+          <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 pt-3 [-webkit-overflow-scrolling:touch]">
             <ScheduleTab
               payoutSchedule={joined.payoutSchedule || []}
               currentUserAddress={(address as string) || ""}
@@ -590,7 +621,7 @@ const ChamaDetails = ({ params }: { params: { slug: string } }) => {
         )}
 
         {activeTab === "members" && (
-          <div className="px-4 pt-3 overflow-y-auto">
+          <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 pt-3 [-webkit-overflow-scrolling:touch]">
             <MembersTab
               members={joined.members}
               eachMemberBalances={joined.eachMemberBalance || null}
@@ -609,12 +640,30 @@ const ChamaDetails = ({ params }: { params: { slug: string } }) => {
           chamaName={chama.name}
           chamaBlockchainId={Number(chama.blockchainId)}
           recipient={payRecipient}
-          remainingAmount={Math.max(
-            0,
-            (Number(joined.contribution) || 0) -
-              normalizeChamaBalance(joined.userBalance)
-          )}
+          remainingAmount={payRemainingAmount}
           contributionAmount={joined.contribution}
+        />
+      )}
+
+      {chama && (
+        <ChamaShareModal
+          open={showShareModal}
+          onClose={() => setShowShareModal(false)}
+          chamaName={chama.name}
+          chamaSlug={chama.slug}
+          memberIds={(joined?.members || []).map((m) => m.id)}
+        />
+      )}
+
+      {joined && (
+        <ChamaAddMemberModal
+          open={showAddMemberModal}
+          onClose={() => setShowAddMemberModal(false)}
+          onSuccess={() => refreshChama()}
+          chamaId={Number(joined.id)}
+          isPublic={joined.isPublic}
+          contribution={joined.contribution}
+          memberIds={(joined.members || []).map((m) => m.id)}
         />
       )}
     </div>

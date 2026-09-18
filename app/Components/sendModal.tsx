@@ -155,8 +155,11 @@ export default function SendModal({
     <Dialog open={isOpen} onClose={() => {}} className="relative z-[100]">
       <div className="app-modal-layer !pointer-events-auto">
         <div className="app-modal-backdrop" aria-hidden="true" />
-        <Dialog.Panel className="app-modal-sheet bg-downy-50 max-h-[92%] overflow-y-auto">
-          <div className="sticky top-0 z-10 bg-gradient-to-br from-downy-800 to-emerald-900 text-white px-4 pt-3 pb-4 rounded-t-3xl">
+        <Dialog.Panel className="app-modal-sheet bg-downy-50 max-h-[92%] flex flex-col overflow-hidden">
+          <div
+            className="shrink-0 text-white px-4 pt-3 pb-4 rounded-t-3xl"
+            style={{ backgroundColor: "#1a6b6b" }}
+          >
             <div className="flex items-center justify-between min-h-[40px]">
               <div className="w-8" />
               <Dialog.Title className="text-[15px] font-bold">Send</Dialog.Title>
@@ -174,7 +177,7 @@ export default function SendModal({
             </p>
           </div>
 
-          <div className="px-4 py-4 space-y-3">
+          <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 py-4 space-y-3">
             <div className="flex bg-white rounded-xl p-0.5 border border-downy-100">
               <button
                 type="button"
@@ -247,7 +250,7 @@ export default function SendModal({
                         type="text"
                         value={query}
                         onChange={(e) => setQuery(e.target.value)}
-                        placeholder="Username or email"
+                        placeholder="Username"
                         className="w-full rounded-xl border border-gray-200 pl-9 pr-3 py-2.5 text-[13px] outline-none focus:ring-2 focus:ring-downy-500"
                       />
                     </div>
@@ -270,14 +273,9 @@ export default function SendModal({
                             className="w-full text-left px-3 py-2.5 flex items-center gap-2 hover:bg-downy-50 border-b border-gray-50 last:border-0 bg-transparent"
                           >
                             <FiUser className="text-downy-600 shrink-0" size={14} />
-                            <div className="min-w-0">
-                              <p className="text-[12px] font-bold text-gray-900 truncate">
-                                {u.userName}
-                              </p>
-                              <p className="text-[10px] text-gray-500 truncate">
-                                {u.email}
-                              </p>
-                            </div>
+                            <p className="text-[12px] font-bold text-gray-900 truncate">
+                              @{u.userName}
+                            </p>
                           </button>
                         ))}
                       </div>
