@@ -451,10 +451,6 @@ const GoalCard = ({ goal }: { goal: GoalRecord }) => {
   const balance = Number(goal.totalBalance) || 0;
   const progressPct =
     target > 0 ? Math.min(100, Math.max(0, (balance / target) * 100)) : 0;
-  const isGreen = progressPct >= 60;
-  const fillColor = isGreen
-    ? "rgba(16, 185, 129, 0.38)"
-    : "rgba(245, 158, 11, 0.38)";
   const typeColors = goalTypeTagColors(goal.goalType);
 
   return (
@@ -500,32 +496,26 @@ const GoalCard = ({ goal }: { goal: GoalRecord }) => {
           </div>
         </div>
 
-        {/* Footer = full-width progress track; fill grows with amount / target */}
+        {/* Footer = amber progress fill behind Target / Ends */}
         <div className="relative overflow-hidden border-t border-gray-100">
           <div
             aria-hidden
-            className="absolute inset-y-0 left-0 transition-[width,background-color] duration-500 ease-out"
+            className="absolute inset-y-0 left-0 transition-[width] duration-500 ease-out"
             style={{
               width: `${progressPct}%`,
-              backgroundColor: fillColor,
+              backgroundColor: "rgba(245, 158, 11, 0.38)",
             }}
           />
           <div className="relative z-[1] flex items-center justify-between gap-2 px-3.5 py-2.5">
-            <span
-              className={`text-[12px] font-bold ${
-                isGreen ? "text-emerald-900" : "text-amber-950"
-              }`}
-            >
+            <span className="text-[12px] font-bold text-blue-700">
               Target {formatBalance(target)}
             </span>
-            <span
-              className={`text-[11px] font-semibold tabular-nums ${
-                isGreen ? "text-emerald-800" : "text-amber-900/80"
-              }`}
-            >
-              {goal.totalBalance != null
-                ? `${formatBalance(balance)} · ${progressPct.toFixed(0)}%`
-                : `${members} ${members === 1 ? "member" : "members"}`}
+            <span className="text-[11px] font-medium text-gray-500 tabular-nums">
+              {goal.endDate
+                ? `Ends ${new Date(goal.endDate).toLocaleDateString()}`
+                : goal.totalBalance != null
+                  ? `${formatBalance(balance)} · ${progressPct.toFixed(0)}%`
+                  : `${members} ${members === 1 ? "member" : "members"}`}
             </span>
           </div>
         </div>

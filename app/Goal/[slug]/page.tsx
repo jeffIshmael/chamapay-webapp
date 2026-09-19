@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import {
   getGoalBySlug,
   goalTypeLabel,
+  goalTypeTagColors,
   uploadGoalCover,
   setGoalYieldEnabled,
   GoalContribution,
@@ -96,6 +97,21 @@ function relativeDay(d: Date) {
     month: "short",
     year: d.getFullYear() !== now.getFullYear() ? "numeric" : undefined,
   });
+}
+
+function formatGoalCreatedAt(iso: string) {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  const date = d.toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+  const time = d.toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+  return `${date}, ${time}`;
 }
 
 export default function GoalDetailsPage() {
@@ -517,6 +533,7 @@ export default function GoalDetailsPage() {
     typeof window !== "undefined"
       ? `${window.location.origin}/Goal/${goal.slug}`
       : `https://chamapay.com/goal/${goal.slug}`;
+  const typeTag = goalTypeTagColors(goal.goalType);
 
   const tabs: { id: TabId; label: string }[] = [
     { id: "members", label: "Members" },
@@ -587,7 +604,14 @@ export default function GoalDetailsPage() {
 
           <div className="mt-auto">
             <div className="flex flex-wrap gap-1 mb-1.5">
-              <span className="bg-black/40 backdrop-blur-sm px-2 py-0.5 rounded-md text-[9px] font-semibold text-white border border-white/10">
+              <span
+                className="px-2 py-0.5 rounded-md text-[9px] font-semibold border"
+                style={{
+                  color: typeTag.color,
+                  backgroundColor: typeTag.bg,
+                  borderColor: typeTag.border,
+                }}
+              >
                 {goalTypeLabel(goal.goalType)}
               </span>
               {yieldOn && (
@@ -622,7 +646,13 @@ export default function GoalDetailsPage() {
 
       {/* Fixed: balance + actions + yield */}
       <div className="shrink-0 px-4 -mt-3 relative z-[1] space-y-2.5">
-        <section className="bg-white rounded-2xl border border-downy-100/80 shadow-md shadow-downy-900/5 px-4 py-3.5">
+        <section
+          className="bg-white rounded-2xl border border-downy-100/80 px-4 py-3.5"
+          style={{
+            boxShadow:
+              "0 10px 18px -6px rgba(15, 23, 42, 0.22), 0 4px 8px -4px rgba(15, 23, 42, 0.12)",
+          }}
+        >
           <div className="flex items-end justify-between gap-3 mb-1">
             <div>
               <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
@@ -1076,9 +1106,18 @@ export default function GoalDetailsPage() {
           </section>
         )}
 
-        {goal.creator?.userName && (
+        {(goal.createdAt || goal.creator) && (
           <p className="text-center text-[11px] text-gray-400 pb-2 pt-1">
-            Created by @{goal.creator.userName}
+            Created by{" "}
+            {authUser?.id != null &&
+            Number(goal.creatorId) === Number(authUser.id)
+              ? "You"
+              : goal.creator?.userName
+                ? `@${goal.creator.userName}`
+                : "someone"}
+            {goal.createdAt
+              ? ` · ${formatGoalCreatedAt(goal.createdAt)}`
+              : ""}
           </p>
         )}
       </div>
