@@ -105,7 +105,7 @@ export default function GoalDetailsPage() {
   const { token, address, isAuthenticated, isGuest, isLoading: authLoading } =
     useSessionAddress();
   const { user: authUser } = useAuth();
-  const { formatBalance } = useFormattedBalance();
+  const { formatBalance, formatUsdc, showUsdcPeek } = useFormattedBalance();
   const fileRef = useRef<HTMLInputElement>(null);
   const cropObjectUrlRef = useRef<string | null>(null);
 
@@ -635,9 +635,20 @@ export default function GoalDetailsPage() {
                   / {formatBalance(target)}
                 </span>
               </p>
+              {showUsdcPeek && (
+                <p className="text-[11px] text-gray-400 tabular-nums mt-0.5">
+                  ≈ {formatUsdc(balance)} / {formatUsdc(target)}
+                </p>
+              )}
               {yieldOn && (
                 <p className="text-[12px] font-semibold text-downy-600 tabular-nums mt-0.5">
                   Yield +{formatBalance(yieldEarned)}
+                  {showUsdcPeek && (
+                    <span className="text-gray-400 font-medium">
+                      {" "}
+                      (≈ {formatUsdc(yieldEarned)})
+                    </span>
+                  )}
                   {moonwellApy != null && (
                     <span className="text-downy-500/80 font-medium">
                       {" "}
@@ -709,9 +720,16 @@ export default function GoalDetailsPage() {
                 <p className="text-[12px] font-bold truncate flex-1">
                   {activeSlice.name}
                 </p>
-                <p className="text-[12px] font-bold tabular-nums shrink-0">
-                  {formatBalance(activeSlice.amount)}
-                </p>
+                <div className="text-right shrink-0">
+                  <p className="text-[12px] font-bold tabular-nums">
+                    {formatBalance(activeSlice.amount)}
+                  </p>
+                  {showUsdcPeek && (
+                    <p className="text-[10px] text-white/55 tabular-nums">
+                      ≈ {formatUsdc(activeSlice.amount)}
+                    </p>
+                  )}
+                </div>
                 <button
                   type="button"
                   onClick={() => setSelectedSlice(null)}
@@ -825,6 +843,11 @@ export default function GoalDetailsPage() {
                 <p className="text-[13px] font-extrabold text-gray-900 tabular-nums mt-0.5">
                   {formatBalance(inMw)}
                 </p>
+                {showUsdcPeek && (
+                  <p className="text-[10px] text-gray-400 tabular-nums mt-0.5">
+                    ≈ {formatUsdc(inMw)}
+                  </p>
+                )}
               </div>
               <div className="rounded-lg bg-emerald-50/80 px-2.5 py-2 border border-emerald-100">
                 <p className="text-[9px] font-semibold text-gray-400 uppercase">
@@ -833,6 +856,11 @@ export default function GoalDetailsPage() {
                 <p className="text-[13px] font-extrabold text-emerald-600 tabular-nums mt-0.5">
                   +{formatBalance(yieldEarned)}
                 </p>
+                {showUsdcPeek && (
+                  <p className="text-[10px] text-gray-400 tabular-nums mt-0.5">
+                    ≈ {formatUsdc(yieldEarned)}
+                  </p>
+                )}
               </div>
             </div>
           )}
@@ -934,9 +962,16 @@ export default function GoalDetailsPage() {
                         of target
                       </p>
                     </div>
-                    <p className="text-[13px] font-bold text-gray-900 tabular-nums shrink-0">
-                      {formatBalance(m.amount)}
-                    </p>
+                    <div className="text-right shrink-0">
+                      <p className="text-[13px] font-bold text-gray-900 tabular-nums">
+                        {formatBalance(m.amount)}
+                      </p>
+                      {showUsdcPeek && (
+                        <p className="text-[10px] text-gray-400 tabular-nums mt-0.5">
+                          ≈ {formatUsdc(m.amount)}
+                        </p>
+                      )}
+                    </div>
                   </li>
                 );
               })}
@@ -1017,6 +1052,11 @@ export default function GoalDetailsPage() {
                         {item.kind === "in" ? "+" : "−"}
                         {formatBalance(item.amount)}
                       </p>
+                      {showUsdcPeek && (
+                        <p className="text-[10px] text-gray-400 tabular-nums mt-0.5">
+                          ≈ {formatUsdc(item.amount)}
+                        </p>
+                      )}
                       {item.txHash && (
                         <a
                           href={`https://basescan.org/tx/${item.txHash}`}

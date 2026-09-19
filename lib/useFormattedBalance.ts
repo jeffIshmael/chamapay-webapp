@@ -94,5 +94,33 @@ export function useFormattedBalance() {
     };
   };
 
-  return { formatBalance, formatBalanceParts, currency, platformRate };
+  /** Always format as USDC (for secondary “peek” under preferred currency). */
+  const formatUsdc = (
+    usdcBalance: number | string | undefined | null,
+    noDecimals?: boolean
+  ) => {
+    if (usdcBalance === undefined || usdcBalance === null) {
+      return noDecimals ? "0 USDC" : "0.000 USDC";
+    }
+    const numericBalance =
+      typeof usdcBalance === "string" ? parseFloat(usdcBalance) : usdcBalance;
+    if (isNaN(numericBalance)) {
+      return noDecimals ? "0 USDC" : "0.000 USDC";
+    }
+    const usdcValue = Math.round(numericBalance * 1000) / 1000;
+    return `${usdcValue.toLocaleString("en-US", {
+      minimumFractionDigits: noDecimals ? 0 : 3,
+      maximumFractionDigits: 3,
+    })} USDC`;
+  };
+
+  return {
+    formatBalance,
+    formatBalanceParts,
+    formatUsdc,
+    /** Show a gray USDC line under amounts when display currency is not USDC. */
+    showUsdcPeek: currency === "KES",
+    currency,
+    platformRate,
+  };
 }
