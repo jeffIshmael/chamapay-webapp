@@ -246,7 +246,7 @@ export default function AuthScreen() {
 
   return (
     <div className="h-[100dvh] max-h-[100dvh] overflow-hidden flex flex-col bg-gradient-to-b from-downy-800 via-downy-700 to-downy-950 overscroll-none">
-      <div className="shrink-0 pt-8 pb-4 px-4 text-center">
+      <div className="shrink-0 safe-top pb-4 px-4 text-center">
         <div className="mx-auto mb-3 h-20 w-20 rounded-[1.15rem] bg-white shadow-lg shadow-black/15 overflow-hidden">
           <Image
             src="/images/chamapay-logo-white.png"
@@ -334,7 +334,10 @@ export default function AuthScreen() {
             <div
               className={`space-y-2 mb-3 ${busy ? "pointer-events-none opacity-60" : ""}`}
             >
-              <div className="flex justify-center min-h-[44px]" ref={googleBtnRef} />
+              <div
+                className="flex justify-center items-center min-h-[52px] scale-[1.06] origin-center"
+                ref={googleBtnRef}
+              />
               {process.env.NODE_ENV === "development" && pageOrigin ? (
                 <p className="text-[10px] text-center text-gray-400 leading-snug px-2">
                   If Google shows &quot;no registered origin&quot;, add{" "}
@@ -363,6 +366,7 @@ export default function AuthScreen() {
             By continuing, you agree to our{" "}
             <Link
               href="/info?type=terms&from=auth"
+              replace
               className="font-semibold"
               style={{ color: AUTH_PRIMARY }}
             >
@@ -371,6 +375,7 @@ export default function AuthScreen() {
             and{" "}
             <Link
               href="/info?type=privacy&from=auth"
+              replace
               className="font-semibold"
               style={{ color: AUTH_PRIMARY }}
             >

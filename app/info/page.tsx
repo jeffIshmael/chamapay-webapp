@@ -227,6 +227,7 @@ function InfoPageContent() {
         <div className="flex items-center gap-3 min-h-[32px]">
           <Link
             href={backHref}
+            replace
             className="h-8 w-8 rounded-full bg-white/20 flex items-center justify-center"
             aria-label="Go back"
           >

@@ -108,7 +108,7 @@ export default function EditProfilePage() {
       updateLocalUser({ phoneNo: digits || null });
       await refreshUser();
       showToast("Profile updated", "success");
-      router.back();
+      router.replace("/Settings");
     } catch (e) {
       showToast(e instanceof Error ? e.message : "Update failed", "error");
     } finally {
@@ -129,7 +129,7 @@ export default function EditProfilePage() {
         <div className="flex items-center justify-between min-h-[32px]">
           <button
             type="button"
-            onClick={() => router.back()}
+            onClick={() => router.replace("/Settings")}
             aria-label="Go back"
             className="h-8 w-8 rounded-full bg-white/20 flex items-center justify-center"
           >

@@ -311,9 +311,15 @@ export default function GoalDetailsPage() {
     };
 
     for (const m of goal.members || []) {
+      const isMe =
+        authUser?.id != null && Number(m.userId) === Number(authUser.id);
       ensure(
         `u-${m.userId}`,
-        m.user?.userName ? `@${m.user.userName}` : "Member",
+        isMe
+          ? "You"
+          : m.user?.userName
+            ? `@${m.user.userName}`
+            : "Member",
         "member",
         m.user?.profileImageUrl
       );
@@ -331,11 +337,16 @@ export default function GoalDetailsPage() {
         row.amount += amt;
       } else if (c.contributorUser?.id != null) {
         const isOfficial = memberIdSet.has(c.contributorUser.id);
+        const isMe =
+          authUser?.id != null &&
+          Number(c.contributorUser.id) === Number(authUser.id);
         const row = ensure(
           `u-${c.contributorUser.id}`,
-          c.contributorUser.userName
-            ? `@${c.contributorUser.userName}`
-            : "Contributor",
+          isMe
+            ? "You"
+            : c.contributorUser.userName
+              ? `@${c.contributorUser.userName}`
+              : "Contributor",
           isOfficial ? "member" : "contributor",
           c.contributorUser.profileImageUrl
         );
@@ -354,16 +365,29 @@ export default function GoalDetailsPage() {
     }
 
     if (map.size === 0 && goal.creator) {
+      const isMe =
+        authUser?.id != null &&
+        Number(goal.creatorId) === Number(authUser.id);
       ensure(
         `u-${goal.creatorId}`,
-        goal.creator.userName ? `@${goal.creator.userName}` : "You",
+        isMe
+          ? "You"
+          : goal.creator.userName
+            ? `@${goal.creator.userName}`
+            : "You",
         "member",
         goal.creator.profileImageUrl
       );
     }
 
-    return Array.from(map.values()).sort((a, b) => b.amount - a.amount);
-  }, [goal, memberIds]);
+    return Array.from(map.values())
+      .map((row) =>
+        authUser?.id != null && row.key === `u-${authUser.id}`
+          ? { ...row, name: "You" }
+          : row
+      )
+      .sort((a, b) => b.amount - a.amount);
+  }, [goal, memberIds, authUser?.id]);
 
   const history = useMemo((): HistoryItem[] => {
     if (!goal) return [];
@@ -399,8 +423,66 @@ export default function GoalDetailsPage() {
 
   if (authLoading || loading) {
     return (
-      <div className="absolute inset-0 bg-gray-50 flex items-center justify-center">
-        <div className="h-9 w-9 rounded-full border-2 border-downy-600 border-t-transparent animate-spin" />
+      <div className="absolute inset-0 flex flex-col bg-gray-50">
+        <div className="shrink-0 relative h-[168px] overflow-hidden safe-top">
+          <div
+            className="absolute inset-0"
+            style={{
+              background:
+                "linear-gradient(145deg, #0f4f4f 0%, #1a6b6b 45%, #2a9a8a 100%)",
+            }}
+          />
+          <div className="absolute inset-x-0 bottom-0 h-[58%] bg-gradient-to-t from-black/80 via-black/45 to-transparent" />
+          <div className="relative h-full flex flex-col px-4 pt-1.5 pb-3">
+            <div className="flex items-center justify-between min-h-[36px]">
+              <button
+                type="button"
+                onClick={handleBack}
+                className="h-9 w-9 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center text-white border border-white/15"
+                aria-label="Back"
+              >
+                <FiArrowLeft size={16} />
+              </button>
+              <div className="w-9" />
+            </div>
+            <div className="mt-auto space-y-2">
+              <div className="h-4 w-16 rounded-md bg-white/25 animate-pulse" />
+              <div className="h-6 w-48 max-w-[70%] rounded-md bg-white/35 animate-pulse" />
+              <div className="h-3.5 w-28 rounded-md bg-white/20 animate-pulse" />
+            </div>
+          </div>
+        </div>
+
+        <div className="px-4 -mt-3 relative z-10">
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 space-y-3">
+            <div className="h-3 w-24 rounded bg-gray-100 animate-pulse" />
+            <div className="h-8 w-40 rounded bg-gray-100 animate-pulse" />
+            <div className="h-2.5 w-full rounded-full bg-gray-100 animate-pulse" />
+            <div className="flex gap-2 pt-1">
+              <div className="h-10 flex-1 rounded-xl bg-gray-100 animate-pulse" />
+              <div className="h-10 flex-1 rounded-xl bg-gray-100 animate-pulse" />
+            </div>
+          </div>
+        </div>
+
+        <div className="shrink-0 px-4 pt-3 pb-1">
+          <div className="h-10 rounded-xl bg-white border border-gray-100 animate-pulse" />
+        </div>
+
+        <div className="flex-1 min-h-0 overflow-hidden px-4 pt-2 space-y-3">
+          <div className="bg-white rounded-2xl border border-gray-100 p-4 space-y-3">
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-full bg-gray-100 animate-pulse shrink-0" />
+                <div className="flex-1 space-y-1.5">
+                  <div className="h-3.5 w-28 rounded bg-gray-100 animate-pulse" />
+                  <div className="h-3 w-20 rounded bg-gray-50 animate-pulse" />
+                </div>
+                <div className="h-3.5 w-14 rounded bg-gray-100 animate-pulse" />
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     );
   }

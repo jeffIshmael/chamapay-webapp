@@ -201,7 +201,7 @@ export default function SettingsPage() {
         <div className="flex items-center justify-between mb-3 min-h-[32px]">
           <button
             type="button"
-            onClick={() => router.back()}
+            onClick={() => router.replace("/MyChamas")}
             aria-label="Go back"
             className="h-8 w-8 rounded-full bg-white/20 flex items-center justify-center"
           >
@@ -442,6 +442,7 @@ export default function SettingsPage() {
           <div className="space-y-1.5">
             <Link
               href="/info?type=privacy&from=settings"
+              replace
               className="flex items-center justify-between gap-2.5 rounded-lg bg-gray-50 p-2.5"
             >
               <div className="flex items-center gap-2.5 min-w-0">
@@ -462,6 +463,7 @@ export default function SettingsPage() {
 
             <Link
               href="/info?type=terms&from=settings"
+              replace
               className="flex items-center justify-between gap-2.5 rounded-lg bg-gray-50 p-2.5"
             >
               <div className="flex items-center gap-2.5 min-w-0">
@@ -526,6 +528,7 @@ export default function SettingsPage() {
 
             <Link
               href="/info?type=about&from=settings"
+              replace
               className="flex items-center justify-between gap-2.5 rounded-lg bg-gray-50 p-2.5"
             >
               <div className="flex items-center gap-2.5 min-w-0">

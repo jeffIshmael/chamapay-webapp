@@ -357,7 +357,7 @@ const ChamaDetails = ({ params }: { params: { slug: string } }) => {
 
         <div className="w-full px-4">
           <button
-            onClick={() => router.back()}
+            onClick={() => router.replace("/MyChamas")}
             className="flex items-center text-downy-700 mb-2"
           >
             <HiArrowLeft className="mr-1" /> Back
@@ -447,7 +447,7 @@ const ChamaDetails = ({ params }: { params: { slug: string } }) => {
           <div className="flex items-center justify-between mb-3">
             <button
               type="button"
-              onClick={() => router.back()}
+              onClick={() => router.replace("/MyChamas")}
               className="p-2 rounded-full bg-white/10 text-white"
               aria-label="Back"
             >
@@ -496,7 +496,7 @@ const ChamaDetails = ({ params }: { params: { slug: string } }) => {
         <div className="flex items-center justify-between mb-3">
           <button
             type="button"
-            onClick={() => router.back()}
+            onClick={() => router.replace("/MyChamas")}
             className="p-2 rounded-full bg-white/10 text-white"
             aria-label="Back"
           >

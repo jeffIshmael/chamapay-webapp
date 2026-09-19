@@ -20,7 +20,8 @@ export const metadata: Metadata = {
   manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
-    statusBarStyle: "default",
+    // White status icons/text over the teal app chrome (PWA / Add to Home Screen).
+    statusBarStyle: "black-translucent",
     title: "Chamapay",
   },
   icons: {
@@ -37,7 +38,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   viewportFit: "cover",
-  themeColor: "#ffffff",
+  themeColor: "#1a6b6b",
 };
 
 export default function RootLayout({
