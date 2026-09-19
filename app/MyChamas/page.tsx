@@ -508,11 +508,11 @@ const GoalCard = ({ goal }: { goal: GoalRecord }) => {
           />
           <div className="relative z-[1] flex items-center justify-between gap-2 px-3.5 py-2.5">
             <span className="text-[12px] font-bold text-blue-700">
-              Target {formatBalance(target)}
+              Target:  {formatBalance(target)}
             </span>
             <span className="text-[11px] font-medium text-gray-500 tabular-nums">
               {goal.endDate
-                ? `Ends ${new Date(goal.endDate).toLocaleDateString()}`
+                ? `By: ${new Date(goal.endDate).toLocaleDateString()}`
                 : goal.totalBalance != null
                   ? `${formatBalance(balance)} · ${progressPct.toFixed(0)}%`
                   : `${members} ${members === 1 ? "member" : "members"}`}
