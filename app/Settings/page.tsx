@@ -483,7 +483,7 @@ export default function SettingsPage() {
             </Link>
 
             <a
-              href="https://wa.me/2547571149628"
+              href="https://wa.me/254757149628"
               target="_blank"
               rel="noreferrer"
               className="flex items-center justify-between gap-2.5 rounded-lg bg-gray-50 p-2.5"
