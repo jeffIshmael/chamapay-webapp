@@ -12,13 +12,49 @@ const TRANSFER_FEE_BRACKETS = [
 ] as const;
 
 const MAX_TRANSFER_FEE = 1.0;
+const MIN_TRANSFER_AMOUNT = 0.01;
 
 export const internalTransferFee = (amount: number): number => {
-  if (amount < 0.01) return 0;
+  if (amount < MIN_TRANSFER_AMOUNT) return 0;
   const bracket = TRANSFER_FEE_BRACKETS.find(
     (b) => amount >= b.min && amount <= b.max
   );
   return bracket?.fee ?? MAX_TRANSFER_FEE;
+};
+
+/**
+ * Largest USDC send amount such that amount + transferFee(amount) <= balance.
+ * Floored to 3 decimals (USDC display precision).
+ */
+export const maxSendableWithTransferFee = (balance: number): number => {
+  if (!Number.isFinite(balance) || balance < MIN_TRANSFER_AMOUNT) return 0;
+
+  let best = 0;
+
+  for (const b of TRANSFER_FEE_BRACKETS) {
+    // Max we can send in this bracket while leaving room for this bracket's fee.
+    const capped = Math.min(b.max, balance - b.fee);
+    if (capped < b.min || capped < MIN_TRANSFER_AMOUNT) continue;
+    if (capped + b.fee <= balance + 1e-9) {
+      best = Math.max(best, capped);
+    }
+  }
+
+  // Above the last bracket: flat MAX_TRANSFER_FEE.
+  const above = balance - MAX_TRANSFER_FEE;
+  if (above > 1000 && above + MAX_TRANSFER_FEE <= balance + 1e-9) {
+    best = Math.max(best, above);
+  }
+
+  // Floor to 3dp, then verify fee still fits (bracket edges can shift).
+  let sendable = Math.floor(best * 1000) / 1000;
+  while (sendable >= MIN_TRANSFER_AMOUNT) {
+    const fee = internalTransferFee(sendable);
+    if (sendable + fee <= balance + 1e-9) break;
+    sendable = Math.floor((sendable - 0.001) * 1000) / 1000;
+  }
+
+  return sendable >= MIN_TRANSFER_AMOUNT ? sendable : 0;
 };
 
 const WITHDRAWAL_FEE_BRACKETS = [

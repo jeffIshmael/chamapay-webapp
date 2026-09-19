@@ -7,7 +7,7 @@ import { isAddress } from "viem";
 import { showToast } from "./Toast";
 import { useAuth } from "@/app/context/AuthContext";
 import { serverUrl } from "@/lib/serverUrl";
-import { internalTransferFee } from "@/lib/transactionFees";
+import { internalTransferFee, maxSendableWithTransferFee } from "@/lib/transactionFees";
 import { useCurrencyStore } from "@/store/useCurrencyStore";
 
 type SendMode = "chamapay" | "external";
@@ -24,10 +24,16 @@ type SearchUser = {
 function formatInUnit(
   usdcAmount: number,
   kesMode: boolean,
-  platformRate: number
+  platformRate: number,
+  /** Floor for withdrawable/max so reverse conversion never overshoots balance. */
+  round: "ceil" | "floor" = "ceil"
 ) {
   if (kesMode && platformRate > 0) {
-    const kes = Math.ceil(usdcAmount * platformRate * 100) / 100;
+    const raw = usdcAmount * platformRate;
+    const kes =
+      round === "floor"
+        ? Math.floor(raw * 100) / 100
+        : Math.ceil(raw * 100) / 100;
     return `${kes.toLocaleString("en-KE", {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
@@ -119,6 +125,15 @@ export default function SendModal({
       : 0;
   const total = parsedAmount + fee;
 
+  /** Max USDC the user can actually send (fee reserved for external). */
+  const withdrawableUsdc = useMemo(() => {
+    if (mode === "external") return maxSendableWithTransferFee(balance);
+    return Math.floor(Math.max(0, balance) * 1000) / 1000;
+  }, [mode, balance]);
+
+  const reservedFeeUsdc =
+    mode === "external" ? Math.max(0, balance - withdrawableUsdc) : 0;
+
   const externalAddressOk = useMemo(
     () => isAddress(recipient.trim() as `0x${string}`),
     [recipient]
@@ -132,6 +147,30 @@ export default function SendModal({
     recipientReady &&
     parsedAmount > 0 &&
     total <= balance + 0.0000001;
+
+  const applyMax = () => {
+    let maxUsdc = withdrawableUsdc;
+    if (kesMode && platformRate > 0) {
+      // Floor KES so amount/rate + fee never exceeds wallet after conversion.
+      let kes = Math.floor(maxUsdc * platformRate * 100) / 100;
+      // Nudge down if float reverse-conversion still overshoots.
+      for (let i = 0; i < 5; i++) {
+        const usdc = kes / platformRate;
+        const f = mode === "external" ? internalTransferFee(usdc) : 0;
+        if (usdc + f <= balance + 1e-9) break;
+        kes = Math.floor((kes - 0.01) * 100) / 100;
+      }
+      setAmount(kes > 0 ? kes.toFixed(2) : "");
+      return;
+    }
+    // Ensure Max still fits after fee (USDC mode).
+    while (maxUsdc > 0) {
+      const f = mode === "external" ? internalTransferFee(maxUsdc) : 0;
+      if (maxUsdc + f <= balance + 1e-9) break;
+      maxUsdc = Math.floor((maxUsdc - 0.001) * 1000) / 1000;
+    }
+    setAmount(maxUsdc > 0 ? maxUsdc.toFixed(3) : "");
+  };
 
   const handleSend = async () => {
     if (!isAuthenticated || !token) {
@@ -402,28 +441,41 @@ export default function SendModal({
                 />
                 <button
                   type="button"
-                  onClick={() => {
-                    const maxUsdc =
-                      mode === "external"
-                        ? Math.max(0, balance - internalTransferFee(balance))
-                        : balance;
-                    setAmount(
-                      kesMode
-                        ? (maxUsdc * platformRate).toFixed(2)
-                        : maxUsdc.toFixed(3)
-                    );
-                  }}
+                  onClick={applyMax}
                   className="absolute right-2 top-1/2 -translate-y-1/2 text-[11px] font-bold text-downy-700 bg-transparent"
                 >
                   Max
                 </button>
               </div>
-              <p className="text-[11px] text-gray-500 mt-1.5">
-                Available{" "}
-                <span className="font-semibold text-gray-800">
-                  {formatInUnit(balance, kesMode, platformRate)}
-                </span>
-              </p>
+              <div className="mt-1.5 space-y-0.5">
+                <p className="text-[11px] text-gray-500">
+                  {mode === "external" ? "Withdrawable " : "Available "}
+                  <span className="font-semibold text-gray-800">
+                    {formatInUnit(
+                      withdrawableUsdc,
+                      kesMode,
+                      platformRate,
+                      "floor"
+                    )}
+                  </span>
+                </p>
+                {mode === "external" && (
+                  <p className="text-[10px] text-gray-400">
+                    Wallet{" "}
+                    {formatInUnit(balance, kesMode, platformRate, "floor")}
+                    {reservedFeeUsdc > 0
+                      ? ` · fee reserved ≈ ${formatInUnit(
+                          reservedFeeUsdc,
+                          kesMode,
+                          platformRate,
+                          "ceil"
+                        )}`
+                      : withdrawableUsdc <= 0
+                        ? " · balance too low after network fee"
+                        : ""}
+                  </p>
+                )}
+              </div>
             </div>
 
             {parsedAmount > 0 && (
