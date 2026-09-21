@@ -4,6 +4,10 @@ import { motion } from "framer-motion";
 import { FiX, FiLink } from "react-icons/fi";
 import { useRouter } from "next/navigation";
 import { getChamaBySlug } from "@/lib/chama";
+import {
+  decryptChamaSlug,
+  parseChamaShareUrl,
+} from "@/lib/encryption";
 
 const ChamaLinkSearch = ({ onClose }: { onClose: () => void }) => {
   const [link, setLink] = useState("");
@@ -23,14 +27,20 @@ const ChamaLinkSearch = ({ onClose }: { onClose: () => void }) => {
       return;
     }
 
-    // Extract slug from different URL formats:
-    let slug;
-    if (link.includes("/Chama/")) {
+    // Prefer encrypted invite token from URL (or raw token)
+    const encrypted = parseChamaShareUrl(link.trim());
+    let slug: string | undefined;
+
+    if (encrypted) {
+      // If the pasted link used /chama/<token>, decrypt; if it was already a slug, decrypt is noop-ish
+      const decrypted = decryptChamaSlug(encrypted);
+      slug = decrypted || encrypted;
+      // When still looks like encrypted garbage vs known slug fetch — try plaintext path first via API
+    } else if (link.includes("/Chama/")) {
       slug = link.split("/Chama/")[1].split("/")[0];
     } else if (link.includes("/chama/")) {
       slug = link.split("/chama/")[1].split("/")[0];
     } else {
-      // Assume it's just the slug if no domain
       slug = link.split("/").pop();
     }
 

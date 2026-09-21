@@ -342,6 +342,15 @@ export function goalTypeTagClass(type: string): string {
   }
 }
 
+export type PublicGoalContribution = {
+  id: number;
+  amount: string;
+  displayName: string;
+  isAnonymous: boolean;
+  profileImageUrl?: string | null;
+  createdAt: string;
+};
+
 export type PublicGoalPreview = {
   id: number;
   name: string;
@@ -355,6 +364,8 @@ export type PublicGoalPreview = {
   creator?: { userName: string; profileImageUrl?: string | null } | null;
   totalBalance?: string;
   progress?: number;
+  contributions?: PublicGoalContribution[];
+  contributorCount?: number;
 };
 
 export async function getPublicGoalByPayToken(
@@ -439,5 +450,39 @@ export async function getGoalPayStatus(
     };
   } catch {
     return { success: false, error: "Status check failed" };
+  }
+}
+
+/** After guest M-Pesa success: show name or stay anonymous on the supporters list. */
+export async function setGoalPayIdentity(
+  token: string,
+  body: {
+    transactionCode: string;
+    anonymous: boolean;
+    displayName?: string;
+  }
+): Promise<{ success: boolean; displayName?: string; error?: string }> {
+  try {
+    const response = await fetch(
+      `${serverUrl}/goal/pay/${encodeURIComponent(token)}/identity`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      }
+    );
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        success: false,
+        error: (data as { error?: string }).error || "Could not update",
+      };
+    }
+    return {
+      success: true,
+      displayName: (data as { displayName?: string }).displayName,
+    };
+  } catch {
+    return { success: false, error: "Could not update" };
   }
 }

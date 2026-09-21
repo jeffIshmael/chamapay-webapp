@@ -3,12 +3,15 @@
 
 const ENCRYPTION_KEY = "chamapay-share-key-2025"; // In production, use environment variable
 
+/** Canonical web app host for invite + pay links */
+export const APP_WEB_ORIGIN = "https://app.chamapay.xyz";
+
 // Base64-like character set for more varied output
 const CHARSET = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
 
 // Simple character substitution cipher with varied output
 function simpleEncrypt(text: string, key: string): string {
-  let result = '';
+  let result = "";
   for (let i = 0; i < text.length; i++) {
     const textChar = text.charCodeAt(i);
     const keyChar = key.charCodeAt(i % key.length);
@@ -22,13 +25,13 @@ function simpleEncrypt(text: string, key: string): string {
 }
 
 function simpleDecrypt(encryptedText: string, key: string): string {
-  let result = '';
+  let result = "";
   // Process in pairs of characters
   for (let i = 0; i < encryptedText.length; i += 2) {
     if (i + 1 < encryptedText.length) {
       const char1 = CHARSET.indexOf(encryptedText[i]);
       const char2 = CHARSET.indexOf(encryptedText[i + 1]);
-      const encryptedChar = char1 + (char2 * 62);
+      const encryptedChar = char1 + char2 * 62;
       const keyChar = key.charCodeAt((i / 2) % key.length);
       const decryptedChar = encryptedChar ^ keyChar;
       result += String.fromCharCode(decryptedChar);
@@ -41,8 +44,8 @@ function simpleDecrypt(encryptedText: string, key: string): string {
 export function encryptChamaSlug(slug: string): string {
   try {
     return simpleEncrypt(slug, ENCRYPTION_KEY);
-  } catch (error) {
-return slug; // Fallback to original slug
+  } catch {
+    return slug; // Fallback to original slug
   }
 }
 
@@ -50,15 +53,20 @@ return slug; // Fallback to original slug
 export function decryptChamaSlug(encryptedSlug: string): string {
   try {
     return simpleDecrypt(encryptedSlug, ENCRYPTION_KEY);
-  } catch (error) {
-return encryptedSlug; // Fallback to encrypted slug
+  } catch {
+    return encryptedSlug; // Fallback to encrypted slug
   }
 }
 
-// Generate shareable URL
-export function generateChamaShareUrl(slug: string): string {
+// Generate shareable URL (obfuscated — does not expose chama name)
+export function generateChamaShareUrl(slug: string, origin?: string): string {
   const encryptedSlug = encryptChamaSlug(slug);
-  return `https://chamapay.com/chama/${encryptedSlug}`;
+  const base =
+    origin?.replace(/\/$/, "") ||
+    (typeof window !== "undefined" && window.location.origin.includes("localhost")
+      ? window.location.origin
+      : APP_WEB_ORIGIN);
+  return `${base}/invite/${encryptedSlug}`;
 }
 
 /** Obfuscated guest pay link for Save-for-Goal */
@@ -74,37 +82,31 @@ export function generateGoalPayUrl(slug: string, origin?: string): string {
   const token = encryptGoalSlug(slug);
   const base =
     origin?.replace(/\/$/, "") ||
-    (typeof window !== "undefined" ? window.location.origin : "https://chamapay.com");
-  // Prefer app path when on the web origin; production marketing host uses /goal/pay/
-  if (base.includes("chamapay.com") && !base.includes("localhost")) {
-    return `https://chamapay.com/goal/pay/${token}`;
-  }
+    (typeof window !== "undefined" && window.location.origin.includes("localhost")
+      ? window.location.origin
+      : APP_WEB_ORIGIN);
   return `${base}/Goal/pay/${token}`;
 }
 
 // Parse shareable URL to extract encrypted slug
 export function parseChamaShareUrl(url: string): string | null {
   try {
-    // Handle various URL formats
     const cleanUrl = url.trim();
-    
-    // Extract the encrypted slug from different URL patterns
+
     const patterns = [
-      /https?:\/\/chamapay\.com\/chama\/([a-zA-Z0-9]+)/i,
-      /chamapay\.com\/chama\/([a-zA-Z0-9]+)/i,
-      /\/chama\/([a-zA-Z0-9]+)/i,
-      /^([a-zA-Z0-9]+)$/i, // Just the encrypted slug
+      /https?:\/\/(?:app\.)?chamapay\.(?:xyz|com)\/(?:chama|invite)\/([a-zA-Z0-9]+)/i,
+      /chamapay\.(?:xyz|com)\/(?:chama|invite)\/([a-zA-Z0-9]+)/i,
+      /\/(?:chama|invite)\/([a-zA-Z0-9]+)/i,
+      /^([a-zA-Z0-9]+)$/i,
     ];
-    
+
     for (const pattern of patterns) {
       const match = cleanUrl.match(pattern);
-      if (match && match[1]) {
-        return match[1];
-      }
+      if (match?.[1]) return match[1];
     }
-    
+
     return null;
-  } catch (error) {
-return null;
+  } catch {
+    return null;
   }
 }

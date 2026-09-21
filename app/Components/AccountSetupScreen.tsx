@@ -5,6 +5,7 @@ import { useAuth } from "@/app/context/AuthContext";
 import { showToast } from "@/app/Components/Toast";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
+import { getPostAuthRedirect } from "@/lib/pendingInvite";
 import { useEffect, useMemo, useState } from "react";
 import { FiCheck, FiCheckCircle, FiX } from "react-icons/fi";
 import { HiOutlineWallet } from "react-icons/hi2";
@@ -103,7 +104,7 @@ export default function AccountSetupScreen({
       if (ok) {
         setShowUsernamePopup(false);
         setProfileDone(true);
-        setTimeout(() => router.replace("/MyChamas"), 700);
+        setTimeout(() => router.replace(getPostAuthRedirect()), 700);
       }
     } finally {
       setSavingName(false);

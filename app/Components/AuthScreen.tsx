@@ -8,6 +8,7 @@ import { motion } from "framer-motion";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { getPostAuthRedirect } from "@/lib/pendingInvite";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { FiCheck, FiMail, FiX } from "react-icons/fi";
 import { FcGoogle } from "react-icons/fc";
@@ -88,9 +89,9 @@ export default function AuthScreen() {
 
   useEffect(() => {
     if (!isLoading && isAuthenticated) {
-      authDebug("AuthScreen already authenticated → /MyChamas");
+      authDebug("AuthScreen already authenticated → post-auth redirect");
       dismissGoogleToast();
-      router.replace("/MyChamas");
+      router.replace(getPostAuthRedirect());
     }
   }, [isAuthenticated, isLoading, router, dismissGoogleToast]);
 
@@ -118,7 +119,7 @@ export default function AuthScreen() {
         authDebug("google login result", { result });
         if (result === "ok") {
           dismissGoogleToast();
-          router.replace("/MyChamas");
+          router.replace(getPostAuthRedirect());
           return;
         }
         if (result === "register") {
@@ -202,7 +203,7 @@ export default function AuthScreen() {
       setVerifySuccess(true);
       setTimeout(() => {
         setShowVerifyModal(false);
-        router.replace("/MyChamas");
+        router.replace(getPostAuthRedirect());
       }, 700);
     } else if (result === "register") {
       setVerifySuccess(true);

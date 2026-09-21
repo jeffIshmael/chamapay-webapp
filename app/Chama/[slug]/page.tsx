@@ -27,6 +27,7 @@ import { useSessionAddress } from "@/lib/useSessionAddress";
 import { JoinedChama } from "@/utils/typesUtils";
 import { useFormattedBalance } from "@/lib/useFormattedBalance";
 import { normalizeUsdcAmount, normalizeChamaBalance } from "@/lib/normalizeUsdc";
+import { setPendingChamaFromSlug, clearPendingChamaInvite } from "@/lib/pendingInvite";
 
 type TabId = "overview" | "chat" | "schedule" | "members";
 
@@ -174,9 +175,13 @@ const ChamaDetails = ({ params }: { params: { slug: string } }) => {
 
   useEffect(() => {
     if (!isAuthenticated) {
+      // Preserve invite through signup so we return to this chama after auth.
+      setPendingChamaFromSlug(params.slug);
       router.replace("/");
+    } else {
+      clearPendingChamaInvite();
     }
-  }, [isAuthenticated, router]);
+  }, [isAuthenticated, router, params.slug]);
 
   useEffect(() => {
     if (isAuthenticated) refreshChama();

@@ -8,6 +8,7 @@ import { motion } from "framer-motion";
 import { FiUser, FiUsers, FiShare2, FiChevronRight } from "react-icons/fi";
 import { showToast } from "./Toast";
 import { FiCast } from "react-icons/fi";
+import { generateChamaShareUrl } from "@/lib/encryption";
 
 interface User {
   chamaId: number;
@@ -45,9 +46,9 @@ const Members = ({
   const { isConnected, address } = useSessionAddress();
   const [copied, setCopied] = useState(false);
 
-  // Generate invite link
+  // Generate invite link (encrypted — does not expose chama name)
   useEffect(() => {
-    setGroupLink(`${window.location.origin}/Chama/${slug}`);
+    setGroupLink(generateChamaShareUrl(slug));
   }, [slug]);
 
 

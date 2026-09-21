@@ -6,6 +6,7 @@ import OnboardingScreen, {
 } from "./Components/OnboardingScreen";
 import { useAuth } from "./context/AuthContext";
 import { useRouter } from "next/navigation";
+import { getPostAuthRedirect } from "@/lib/pendingInvite";
 import { useEffect, useState } from "react";
 
 export default function Home() {
@@ -21,7 +22,7 @@ export default function Home() {
 
   useEffect(() => {
     if (!isLoading && isAuthenticated) {
-      router.replace("/MyChamas");
+      router.replace(getPostAuthRedirect());
     }
   }, [isAuthenticated, isLoading, router]);
 

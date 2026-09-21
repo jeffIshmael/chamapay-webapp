@@ -1,18 +1,23 @@
 "use client";
 
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
-import { FiCheck, FiSmartphone, FiTarget } from "react-icons/fi";
+import {
+  FiCheck,
+  FiHeart,
+  FiSmartphone,
+  FiTarget,
+  FiUsers,
+} from "react-icons/fi";
 import {
   getGoalPayStatus,
   getPublicGoalByPayToken,
   initiateGoalPayOnramp,
   PublicGoalPreview,
+  setGoalPayIdentity,
   goalTypeLabel,
 } from "@/lib/goalService";
-import {
-  getExchangeRate,
-} from "@/lib/pretiumService";
+import { getExchangeRate } from "@/lib/pretiumService";
 import { isValidKenyaPhone, normalizeKenyaPhoneLocal } from "@/lib/phoneUtils";
 import { showToast } from "@/app/Components/Toast";
 
@@ -24,6 +29,8 @@ type Step =
   | "completed"
   | "failed";
 
+type TabId = "contribute" | "supporters";
+
 const FALLBACK_RATE = 132;
 const MIN_KES = 100;
 const MAX_KES = 250000;
@@ -33,17 +40,35 @@ function toLocal07(phone: string) {
   return `0${normalizeKenyaPhoneLocal(phone)}`;
 }
 
+function formatUsdc(n: number) {
+  return n.toLocaleString(undefined, {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  });
+}
+
+function initials(name: string) {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (!parts.length) return "?";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[1][0]).toUpperCase();
+}
+
 export default function GoalPayPage() {
   const params = useParams<{ token: string }>();
   const token = params?.token;
 
   const [goal, setGoal] = useState<PublicGoalPreview | null>(null);
   const [loading, setLoading] = useState(true);
+  const [tab, setTab] = useState<TabId>("contribute");
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [kes, setKes] = useState("");
   const [rate, setRate] = useState(FALLBACK_RATE);
   const [step, setStep] = useState<Step>("idle");
+  const [txCode, setTxCode] = useState<string | null>(null);
+  const [identitySaving, setIdentitySaving] = useState(false);
+  const [identityDone, setIdentityDone] = useState(false);
 
   const load = useCallback(async () => {
     if (!token) {
@@ -81,6 +106,11 @@ export default function GoalPayPage() {
     kesAmt >= MIN_KES &&
     kesAmt <= MAX_KES;
 
+  const contributions = useMemo(
+    () => goal?.contributions ?? [],
+    [goal?.contributions]
+  );
+
   const pollUntilDone = async (code: string) => {
     const started = Date.now();
     while (Date.now() - started < 120_000) {
@@ -95,11 +125,13 @@ export default function GoalPayPage() {
   const handleContribute = async () => {
     if (!token || !canSubmit) return;
     setStep("initiating");
+    setIdentityDone(false);
     try {
       const res = await initiateGoalPayOnramp(token, {
         amount: Math.ceil(kesAmt),
         phoneNo: toLocal07(phone),
-        guestDisplayName: name.trim() || "Guest",
+        // Hold as Guest until they choose name vs anonymous after payment
+        guestDisplayName: "Guest",
         exchangeRate: rate,
       });
       if (!res.success || !res.transactionCode) {
@@ -107,6 +139,7 @@ export default function GoalPayPage() {
         setStep("failed");
         return;
       }
+      setTxCode(res.transactionCode);
       setStep("waiting_for_pin");
       showToast("Check your phone for the M-Pesa prompt", "success");
       setStep("processing");
@@ -125,18 +158,47 @@ export default function GoalPayPage() {
     }
   };
 
+  const saveIdentity = async (anonymous: boolean) => {
+    if (!token || !txCode || identitySaving) return;
+    if (!anonymous && !name.trim()) {
+      showToast("Enter a name to show, or stay anonymous", "warning");
+      return;
+    }
+    setIdentitySaving(true);
+    try {
+      const res = await setGoalPayIdentity(token, {
+        transactionCode: txCode,
+        anonymous,
+        displayName: name.trim(),
+      });
+      if (!res.success) {
+        showToast(res.error || "Could not save", "error");
+        return;
+      }
+      setIdentityDone(true);
+      showToast(
+        anonymous ? "You’ll appear as Anonymous" : `Shown as ${res.displayName}`,
+        "success"
+      );
+      void load();
+      setTab("supporters");
+    } finally {
+      setIdentitySaving(false);
+    }
+  };
+
   if (loading) {
     return (
-      <div className="min-h-[100dvh] bg-gray-50 flex items-center justify-center">
-        <div className="h-9 w-9 rounded-full border-2 border-downy-600 border-t-transparent animate-spin" />
+      <div className="min-h-[100dvh] bg-[#0f3d3f] flex items-center justify-center">
+        <div className="h-9 w-9 rounded-full border-2 border-white/80 border-t-transparent animate-spin" />
       </div>
     );
   }
 
   if (!goal) {
     return (
-      <div className="min-h-[100dvh] bg-gray-50 flex flex-col items-center justify-center px-6">
-        <FiTarget className="text-gray-300 mb-3" size={40} />
+      <div className="min-h-[100dvh] bg-downy-50 flex flex-col items-center justify-center px-6">
+        <FiTarget className="text-downy-300 mb-3" size={40} />
         <p className="text-[15px] font-bold text-gray-800">Goal not found</p>
         <p className="text-[12px] text-gray-500 mt-1 text-center">
           This pay link may be invalid or the goal is closed.
@@ -150,10 +212,13 @@ export default function GoalPayPage() {
   const progress =
     goal.progress ??
     (target > 0 ? Math.min(100, (balance / target) * 100) : 0);
+  const creatorName = goal.creator?.userName || "a Chamapay saver";
+  const creatorPic = goal.creator?.profileImageUrl;
 
   return (
-    <div className="min-h-[100dvh] bg-gray-50 flex flex-col">
-      <div className="relative h-40 shrink-0 overflow-hidden">
+    <div className="min-h-[100dvh] bg-[#f3faf9] flex flex-col">
+      {/* Hero */}
+      <div className="relative h-[min(42vh,280px)] shrink-0 overflow-hidden">
         {goal.coverImageUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -166,80 +231,245 @@ export default function GoalPayPage() {
             className="absolute inset-0"
             style={{
               background:
-                "linear-gradient(145deg, #0f4f4f 0%, #1a6b6b 50%, #2a9a8a 100%)",
+                "linear-gradient(145deg, #0f4f4f 0%, #1a6b6b 45%, #26a6a2 100%)",
             }}
           />
         )}
-        <div className="absolute inset-x-0 bottom-0 h-[65%] bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
-        <div className="relative h-full flex flex-col justify-end px-5 pb-4">
-          <span className="text-[10px] font-semibold text-white/80 mb-1">
-            {goalTypeLabel(goal.goalType)} · Contribute
+        <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/35 to-black/10" />
+        <div className="relative h-full flex flex-col justify-end px-5 pb-5 max-w-lg mx-auto w-full">
+          <span className="inline-flex self-start text-[10px] font-bold uppercase tracking-wider text-white/90 bg-white/15 backdrop-blur px-2 py-0.5 rounded-full mb-2">
+            {goalTypeLabel(goal.goalType)} · Open contribution
           </span>
-          <h1 className="text-[1.35rem] font-extrabold text-white leading-tight">
+          <h1 className="text-[1.55rem] font-extrabold text-white leading-tight drop-shadow-md">
             {goal.name}
           </h1>
-          {goal.creator?.userName && (
-            <p className="text-[12px] text-white/85 mt-1">
-              Created by @{goal.creator.userName}
-            </p>
-          )}
+          <div className="mt-3 flex items-center gap-2.5">
+            {creatorPic ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={creatorPic}
+                alt=""
+                className="h-9 w-9 rounded-full object-cover ring-2 ring-white/40"
+              />
+            ) : (
+              <div className="h-9 w-9 rounded-full bg-downy-500/90 text-white text-[12px] font-bold flex items-center justify-center ring-2 ring-white/40">
+                {initials(creatorName)}
+              </div>
+            )}
+            <div>
+              <p className="text-[11px] text-white/70 leading-none">Organized by</p>
+              <p className="text-[13px] font-semibold text-white mt-0.5">
+                @{creatorName}
+              </p>
+            </div>
+          </div>
         </div>
       </div>
 
-      <div className="flex-1 px-4 py-4 space-y-3 max-w-lg mx-auto w-full pb-10">
-        {goal.description && (
-          <p className="text-[13px] text-gray-600 leading-relaxed">
-            {goal.description}
-          </p>
-        )}
-
-        <section className="bg-white rounded-2xl border border-gray-100 px-4 py-3.5 shadow-sm">
+      <div className="flex-1 px-4 -mt-4 relative z-[1] max-w-lg mx-auto w-full pb-10 space-y-3">
+        {/* Progress sticker */}
+        <section
+          className="bg-white rounded-2xl border border-downy-100/80 px-4 py-3.5"
+          style={{
+            boxShadow:
+              "0 10px 18px -6px rgba(15, 23, 42, 0.18), 0 4px 8px -4px rgba(15, 23, 42, 0.1)",
+          }}
+        >
           <div className="flex justify-between items-end mb-2">
             <div>
               <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
-                Progress
+                Raised
               </p>
-              <p className="text-[1.1rem] font-extrabold text-gray-900 tabular-nums mt-0.5">
-                {balance.toLocaleString(undefined, {
-                  maximumFractionDigits: 2,
-                })}{" "}
+              <p className="text-[1.2rem] font-extrabold text-gray-900 tabular-nums mt-0.5">
+                {formatUsdc(balance)}
                 <span className="text-[12px] font-semibold text-gray-400">
-                  / {target.toLocaleString(undefined, { maximumFractionDigits: 0 })}{" "}
-                  USDC
+                  {" "}
+                  / {formatUsdc(target)} USDC
                 </span>
               </p>
             </div>
-            <p className="text-[1.05rem] font-extrabold text-downy-700 tabular-nums">
+            <p className="text-[1.15rem] font-extrabold text-downy-700 tabular-nums">
               {progress.toFixed(0)}%
             </p>
           </div>
-          <div className="h-2 rounded-full bg-gray-100 overflow-hidden">
+          <div className="h-2.5 rounded-full bg-gray-100 overflow-hidden">
             <div
-              className="h-full rounded-full bg-downy-600 transition-all"
-              style={{ width: `${progress}%` }}
+              className="h-full rounded-full bg-gradient-to-r from-downy-600 to-teal-400 transition-all"
+              style={{ width: `${Math.min(100, progress)}%` }}
             />
           </div>
+          <p className="text-[11px] text-gray-500 mt-2 flex items-center gap-1">
+            <FiUsers size={12} />
+            {goal.contributorCount ?? contributions.length}{" "}
+            {(goal.contributorCount ?? contributions.length) === 1
+              ? "supporter"
+              : "supporters"}
+          </p>
         </section>
 
-        {step === "completed" ? (
-          <section className="bg-white rounded-2xl border border-emerald-100 px-4 py-8 text-center">
-            <span className="inline-flex h-12 w-12 rounded-full bg-emerald-50 text-emerald-600 items-center justify-center mb-3">
-              <FiCheck size={24} />
-            </span>
-            <p className="text-[15px] font-bold text-gray-900">Thank you!</p>
-            <p className="text-[12px] text-gray-500 mt-1">
-              Your contribution is in the goal pot.
-            </p>
+        {goal.description ? (
+          <p className="text-[13px] text-gray-600 leading-relaxed px-0.5">
+            {goal.description}
+          </p>
+        ) : null}
+
+        {/* Tabs */}
+        <div className="flex rounded-xl bg-white border border-gray-100 p-0.5 shadow-sm">
+          {(
+            [
+              { id: "contribute" as const, label: "Contribute", icon: FiHeart },
+              {
+                id: "supporters" as const,
+                label: "Supporters",
+                icon: FiUsers,
+              },
+            ] as const
+          ).map((t) => (
             <button
+              key={t.id}
               type="button"
-              onClick={() => {
-                setStep("idle");
-                setKes("");
-              }}
-              className="mt-4 text-[13px] font-bold text-downy-700"
+              onClick={() => setTab(t.id)}
+              className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-[10px] text-[13px] font-bold transition ${
+                tab === t.id
+                  ? "bg-downy-600 text-white shadow-sm"
+                  : "text-gray-500"
+              }`}
             >
-              Contribute again
+              <t.icon size={14} />
+              {t.label}
             </button>
+          ))}
+        </div>
+
+        {tab === "supporters" ? (
+          <section className="bg-white rounded-2xl border border-gray-100 px-3.5 py-3.5 shadow-sm">
+            {contributions.length === 0 ? (
+              <div className="py-8 text-center">
+                <FiHeart className="mx-auto text-downy-300 mb-2" size={28} />
+                <p className="text-[13px] font-semibold text-gray-800">
+                  Be the first to contribute
+                </p>
+                <p className="text-[12px] text-gray-500 mt-1">
+                  Your support will show up here.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setTab("contribute")}
+                  className="mt-4 text-[13px] font-bold text-downy-700"
+                >
+                  Contribute now
+                </button>
+              </div>
+            ) : (
+              <ul className="divide-y divide-gray-50">
+                {contributions.map((c) => (
+                  <li
+                    key={c.id}
+                    className="flex items-center gap-3 py-2.5 first:pt-0 last:pb-0"
+                  >
+                    {c.profileImageUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={c.profileImageUrl}
+                        alt=""
+                        className="h-9 w-9 rounded-full object-cover"
+                      />
+                    ) : (
+                      <div
+                        className={`h-9 w-9 rounded-full flex items-center justify-center text-[11px] font-bold ${
+                          c.isAnonymous
+                            ? "bg-gray-100 text-gray-500"
+                            : "bg-downy-100 text-downy-800"
+                        }`}
+                      >
+                        {c.isAnonymous ? "?" : initials(c.displayName)}
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[13px] font-semibold text-gray-900 truncate">
+                        {c.displayName}
+                      </p>
+                      <p className="text-[10px] text-gray-400">
+                        {new Date(c.createdAt).toLocaleDateString(undefined, {
+                          day: "numeric",
+                          month: "short",
+                        })}
+                      </p>
+                    </div>
+                    <p className="text-[13px] font-extrabold text-downy-800 tabular-nums">
+                      {formatUsdc(parseFloat(c.amount) || 0)}
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        ) : step === "completed" ? (
+          <section className="bg-white rounded-2xl border border-emerald-100 px-4 py-6 shadow-sm space-y-4">
+            <div className="text-center">
+              <span className="inline-flex h-12 w-12 rounded-full bg-emerald-50 text-emerald-600 items-center justify-center mb-3">
+                <FiCheck size={24} />
+              </span>
+              <p className="text-[15px] font-bold text-gray-900">Thank you!</p>
+              <p className="text-[12px] text-gray-500 mt-1">
+                Your M-Pesa contribution is in the pot.
+              </p>
+            </div>
+
+            {!identityDone ? (
+              <div className="space-y-3 pt-1 border-t border-gray-50">
+                <p className="text-[13px] font-bold text-gray-900 text-center">
+                  How should you appear to supporters?
+                </p>
+                <div>
+                  <label className="text-[11px] font-semibold text-gray-600">
+                    Display name
+                  </label>
+                  <input
+                    type="text"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="e.g. Amina"
+                    className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2.5 text-[13px] outline-none focus:ring-2 focus:ring-downy-500"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    disabled={identitySaving}
+                    onClick={() => void saveIdentity(true)}
+                    className="py-3 rounded-xl border border-gray-200 text-[13px] font-bold text-gray-700 bg-gray-50"
+                  >
+                    Stay anonymous
+                  </button>
+                  <button
+                    type="button"
+                    disabled={identitySaving || !name.trim()}
+                    onClick={() => void saveIdentity(false)}
+                    className={`py-3 rounded-xl text-[13px] font-bold text-white ${
+                      !name.trim() || identitySaving
+                        ? "bg-gray-300"
+                        : "bg-downy-600"
+                    }`}
+                  >
+                    Show my name
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  setStep("idle");
+                  setKes("");
+                  setTxCode(null);
+                  setIdentityDone(false);
+                }}
+                className="w-full text-[13px] font-bold text-downy-700"
+              >
+                Contribute again
+              </button>
+            )}
           </section>
         ) : (
           <section className="bg-white rounded-2xl border border-gray-100 px-4 py-4 shadow-sm space-y-3">
@@ -248,22 +478,9 @@ export default function GoalPayPage() {
                 Contribute with M-Pesa
               </h2>
               <p className="text-[12px] text-gray-500 mt-0.5 leading-relaxed">
-                You don’t need a Chamapay account. Enter your details, approve
-                the STK push, and it credits this goal.
+                No Chamapay account needed. Approve the STK push on your phone —
+                it credits this goal directly.
               </p>
-            </div>
-
-            <div>
-              <label className="text-[11px] font-semibold text-gray-600">
-                Your name (optional)
-              </label>
-              <input
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="So they know who helped"
-                className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2.5 text-[13px] outline-none focus:ring-2 focus:ring-downy-500"
-              />
             </div>
 
             <div>
@@ -349,7 +566,7 @@ export default function GoalPayPage() {
         )}
 
         <p className="text-center text-[10px] text-gray-400 pt-2">
-          Powered by Chamapay · USDC on Base
+          Powered by Chamapay · Secure M-Pesa · USDC on Base
         </p>
       </div>
     </div>
