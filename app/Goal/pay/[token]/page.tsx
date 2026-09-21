@@ -1,11 +1,12 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
+import Image from "next/image";
+import Link from "next/link";
 import { useParams } from "next/navigation";
 import {
   FiCheck,
   FiHeart,
-  FiSmartphone,
   FiTarget,
   FiUsers,
 } from "react-icons/fi";
@@ -15,7 +16,6 @@ import {
   initiateGoalPayOnramp,
   PublicGoalPreview,
   setGoalPayIdentity,
-  goalTypeLabel,
 } from "@/lib/goalService";
 import { getExchangeRate } from "@/lib/pretiumService";
 import { isValidKenyaPhone, normalizeKenyaPhoneLocal } from "@/lib/phoneUtils";
@@ -35,12 +35,16 @@ const FALLBACK_RATE = 132;
 const MIN_KES = 100;
 const MAX_KES = 250000;
 const PRESETS = [500, 1000, 2000, 5000];
+const OFFICIAL_SITE = "https://chamapay.xyz";
 
-function toLocal07(phone: string) {
-  return `0${normalizeKenyaPhoneLocal(phone)}`;
+function toLocal07(phoneLocal9: string) {
+  return `0${normalizeKenyaPhoneLocal(phoneLocal9)}`;
 }
 
-function formatUsdc(n: number) {
+function formatAmount(n: number, currency: "KES" | "USDC") {
+  if (currency === "KES") {
+    return Math.round(n).toLocaleString(undefined, { maximumFractionDigits: 0 });
+  }
   return n.toLocaleString(undefined, {
     minimumFractionDigits: 0,
     maximumFractionDigits: 2,
@@ -62,9 +66,11 @@ export default function GoalPayPage() {
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<TabId>("contribute");
   const [name, setName] = useState("");
-  const [phone, setPhone] = useState("");
+  /** Digits after +254 (typically 7XXXXXXXX) */
+  const [phoneLocal, setPhoneLocal] = useState("");
   const [kes, setKes] = useState("");
   const [rate, setRate] = useState(FALLBACK_RATE);
+  const [showKes, setShowKes] = useState(false);
   const [step, setStep] = useState<Step>("idle");
   const [txCode, setTxCode] = useState<string | null>(null);
   const [identitySaving, setIdentitySaving] = useState(false);
@@ -97,12 +103,40 @@ export default function GoalPayPage() {
     });
   }, [load]);
 
+  // Kenya IP → show raised / target / supporter amounts in KES
+  useEffect(() => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 4000);
+    (async () => {
+      try {
+        const res = await fetch("https://ipapi.co/json/", {
+          signal: controller.signal,
+        });
+        if (!res.ok) return;
+        const data = (await res.json()) as { country_code?: string };
+        if (String(data?.country_code || "").toUpperCase() === "KE") {
+          setShowKes(true);
+        }
+      } catch {
+        /* keep USDC display */
+      }
+    })();
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, []);
+
+  const displayCurrency: "KES" | "USDC" = showKes ? "KES" : "USDC";
+  const toDisplay = (usdc: number) =>
+    displayCurrency === "KES" ? usdc * rate : usdc;
+
   const kesAmt = parseFloat(kes) || 0;
-  const usdcAmt = kesAmt > 0 && rate > 0 ? kesAmt / rate : 0;
+  const phoneForValidation = `254${phoneLocal}`;
   const busy = step !== "idle" && step !== "failed" && step !== "completed";
   const canSubmit =
     !busy &&
-    isValidKenyaPhone(phone) &&
+    isValidKenyaPhone(phoneForValidation) &&
     kesAmt >= MIN_KES &&
     kesAmt <= MAX_KES;
 
@@ -129,8 +163,7 @@ export default function GoalPayPage() {
     try {
       const res = await initiateGoalPayOnramp(token, {
         amount: Math.ceil(kesAmt),
-        phoneNo: toLocal07(phone),
-        // Hold as Guest until they choose name vs anonymous after payment
+        phoneNo: toLocal07(phoneLocal),
         guestDisplayName: "Guest",
         exchangeRate: rate,
       });
@@ -238,7 +271,7 @@ export default function GoalPayPage() {
         <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/35 to-black/10" />
         <div className="relative h-full flex flex-col justify-end px-5 pb-5 max-w-lg mx-auto w-full">
           <span className="inline-flex self-start text-[10px] font-bold uppercase tracking-wider text-white/90 bg-white/15 backdrop-blur px-2 py-0.5 rounded-full mb-2">
-            {goalTypeLabel(goal.goalType)} · Open contribution
+            Open contribution
           </span>
           <h1 className="text-[1.55rem] font-extrabold text-white leading-tight drop-shadow-md">
             {goal.name}
@@ -257,7 +290,9 @@ export default function GoalPayPage() {
               </div>
             )}
             <div>
-              <p className="text-[11px] text-white/70 leading-none">Organized by</p>
+              <p className="text-[11px] text-white/70 leading-none">
+                Organized by
+              </p>
               <p className="text-[13px] font-semibold text-white mt-0.5">
                 @{creatorName}
               </p>
@@ -281,10 +316,11 @@ export default function GoalPayPage() {
                 Raised
               </p>
               <p className="text-[1.2rem] font-extrabold text-gray-900 tabular-nums mt-0.5">
-                {formatUsdc(balance)}
+                {formatAmount(toDisplay(balance), displayCurrency)}
                 <span className="text-[12px] font-semibold text-gray-400">
                   {" "}
-                  / {formatUsdc(target)} USDC
+                  / {formatAmount(toDisplay(target), displayCurrency)}{" "}
+                  {displayCurrency}
                 </span>
               </p>
             </div>
@@ -308,9 +344,11 @@ export default function GoalPayPage() {
         </section>
 
         {goal.description ? (
-          <p className="text-[13px] text-gray-600 leading-relaxed px-0.5">
-            {goal.description}
-          </p>
+          <div className="rounded-2xl bg-white/70 border border-downy-100/60 px-4 py-3.5">
+            <p className="text-[14px] text-gray-700 leading-[1.65] tracking-[-0.01em]">
+              {goal.description}
+            </p>
+          </div>
         ) : null}
 
         {/* Tabs */}
@@ -362,45 +400,51 @@ export default function GoalPayPage() {
               </div>
             ) : (
               <ul className="divide-y divide-gray-50">
-                {contributions.map((c) => (
-                  <li
-                    key={c.id}
-                    className="flex items-center gap-3 py-2.5 first:pt-0 last:pb-0"
-                  >
-                    {c.profileImageUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={c.profileImageUrl}
-                        alt=""
-                        className="h-9 w-9 rounded-full object-cover"
-                      />
-                    ) : (
-                      <div
-                        className={`h-9 w-9 rounded-full flex items-center justify-center text-[11px] font-bold ${
-                          c.isAnonymous
-                            ? "bg-gray-100 text-gray-500"
-                            : "bg-downy-100 text-downy-800"
-                        }`}
-                      >
-                        {c.isAnonymous ? "?" : initials(c.displayName)}
+                {contributions.map((c) => {
+                  const amtUsdc = parseFloat(c.amount) || 0;
+                  return (
+                    <li
+                      key={c.id}
+                      className="flex items-center gap-3 py-2.5 first:pt-0 last:pb-0"
+                    >
+                      {c.profileImageUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={c.profileImageUrl}
+                          alt=""
+                          className="h-9 w-9 rounded-full object-cover"
+                        />
+                      ) : (
+                        <div
+                          className={`h-9 w-9 rounded-full flex items-center justify-center text-[11px] font-bold ${
+                            c.isAnonymous
+                              ? "bg-gray-100 text-gray-500"
+                              : "bg-downy-100 text-downy-800"
+                          }`}
+                        >
+                          {c.isAnonymous ? "?" : initials(c.displayName)}
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[13px] font-semibold text-gray-900 truncate">
+                          {c.displayName}
+                        </p>
+                        <p className="text-[10px] text-gray-400">
+                          {new Date(c.createdAt).toLocaleDateString(undefined, {
+                            day: "numeric",
+                            month: "short",
+                          })}
+                        </p>
                       </div>
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <p className="text-[13px] font-semibold text-gray-900 truncate">
-                        {c.displayName}
+                      <p className="text-[13px] font-extrabold text-downy-800 tabular-nums">
+                        {formatAmount(toDisplay(amtUsdc), displayCurrency)}{" "}
+                        <span className="text-[10px] font-semibold text-gray-400">
+                          {displayCurrency}
+                        </span>
                       </p>
-                      <p className="text-[10px] text-gray-400">
-                        {new Date(c.createdAt).toLocaleDateString(undefined, {
-                          day: "numeric",
-                          month: "short",
-                        })}
-                      </p>
-                    </div>
-                    <p className="text-[13px] font-extrabold text-downy-800 tabular-nums">
-                      {formatUsdc(parseFloat(c.amount) || 0)}
-                    </p>
-                  </li>
-                ))}
+                    </li>
+                  );
+                })}
               </ul>
             )}
           </section>
@@ -473,28 +517,40 @@ export default function GoalPayPage() {
           </section>
         ) : (
           <section className="bg-white rounded-2xl border border-gray-100 px-4 py-4 shadow-sm space-y-3">
-            <div>
+            <div className="flex items-center justify-between gap-3">
               <h2 className="text-[14px] font-bold text-gray-900">
                 Contribute with M-Pesa
               </h2>
-              <p className="text-[12px] text-gray-500 mt-0.5 leading-relaxed">
-                No Chamapay account needed. Approve the STK push on your phone —
-                it credits this goal directly.
-              </p>
+              <Image
+                src="/static/images/mpesa.png"
+                alt="M-Pesa"
+                width={72}
+                height={28}
+                className="h-7 w-auto object-contain"
+              />
             </div>
 
             <div>
               <label className="text-[11px] font-semibold text-gray-600">
                 M-Pesa number
               </label>
-              <div className="mt-1 flex items-center rounded-xl border border-gray-200 px-3 py-2.5 gap-2">
-                <FiSmartphone className="text-gray-400 shrink-0" size={16} />
+              <p className="text-[11px] text-gray-500 mt-0.5 mb-1.5">
+                Enter the number to be prompted
+              </p>
+              <div className="flex items-stretch rounded-xl border border-gray-200 overflow-hidden focus-within:ring-2 focus-within:ring-downy-500">
+                <span className="inline-flex items-center px-3 bg-gray-50 text-[13px] font-bold text-gray-700 border-r border-gray-200 select-none">
+                  +254
+                </span>
                 <input
                   type="tel"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  placeholder="07XX XXX XXX"
-                  className="flex-1 outline-none text-[13px] bg-transparent"
+                  inputMode="numeric"
+                  value={phoneLocal}
+                  onChange={(e) => {
+                    const v = e.target.value.replace(/\D/g, "").slice(0, 9);
+                    setPhoneLocal(v);
+                  }}
+                  placeholder="7XX XXX XXX"
+                  className="flex-1 outline-none text-[13px] bg-white px-3 py-2.5"
                 />
               </div>
             </div>
@@ -514,11 +570,6 @@ export default function GoalPayPage() {
                 placeholder="1000"
                 className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2.5 text-[15px] font-bold outline-none focus:ring-2 focus:ring-downy-500"
               />
-              {usdcAmt > 0 && (
-                <p className="text-[11px] text-gray-500 mt-1">
-                  ≈ {usdcAmt.toFixed(3)} USDC at ~{rate} KES/USDC
-                </p>
-              )}
               <div className="flex flex-wrap gap-1.5 mt-2">
                 {PRESETS.map((p) => (
                   <button
@@ -565,8 +616,16 @@ export default function GoalPayPage() {
           </section>
         )}
 
-        <p className="text-center text-[10px] text-gray-400 pt-2">
-          Powered by Chamapay · Secure M-Pesa · USDC on Base
+        <p className="text-center text-[11px] text-gray-400 pt-3 pb-1">
+          Powered by{" "}
+          <Link
+            href={OFFICIAL_SITE}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-semibold text-downy-700 underline underline-offset-2 decoration-downy-400/80 hover:text-downy-800"
+          >
+            Chamapay
+          </Link>
         </p>
       </div>
     </div>
