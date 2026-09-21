@@ -9,6 +9,7 @@ import {
   FiHeart,
   FiTarget,
   FiUsers,
+  FiX,
 } from "react-icons/fi";
 import {
   getGoalPayStatus,
@@ -32,7 +33,7 @@ type Step =
 type TabId = "contribute" | "supporters";
 
 const FALLBACK_RATE = 132;
-const MIN_KES = 100;
+const MIN_KES = 10;
 const MAX_KES = 250000;
 const PRESETS = [500, 1000, 2000, 5000];
 const OFFICIAL_SITE = "https://chamapay.xyz";
@@ -75,6 +76,7 @@ export default function GoalPayPage() {
   const [txCode, setTxCode] = useState<string | null>(null);
   const [identitySaving, setIdentitySaving] = useState(false);
   const [identityDone, setIdentityDone] = useState(false);
+  const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!token) {
@@ -253,12 +255,19 @@ export default function GoalPayPage() {
       {/* Hero */}
       <div className="relative h-[min(42vh,280px)] shrink-0 overflow-hidden">
         {goal.coverImageUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={goal.coverImageUrl}
-            alt=""
-            className="absolute inset-0 h-full w-full object-cover"
-          />
+          <button
+            type="button"
+            onClick={() => setLightboxSrc(goal.coverImageUrl!)}
+            className="absolute inset-0 block w-full h-full cursor-zoom-in"
+            aria-label="View cover photo"
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={goal.coverImageUrl}
+              alt=""
+              className="absolute inset-0 h-full w-full object-cover"
+            />
+          </button>
         ) : (
           <div
             className="absolute inset-0"
@@ -268,22 +277,29 @@ export default function GoalPayPage() {
             }}
           />
         )}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/35 to-black/10" />
-        <div className="relative h-full flex flex-col justify-end px-5 pb-5 max-w-lg mx-auto w-full">
+        <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/35 to-black/10 pointer-events-none" />
+        <div className="relative h-full flex flex-col justify-end px-5 pb-5 max-w-lg mx-auto w-full pointer-events-none">
           <span className="inline-flex self-start text-[10px] font-bold uppercase tracking-wider text-white/90 bg-white/15 backdrop-blur px-2 py-0.5 rounded-full mb-2">
             Open contribution
           </span>
           <h1 className="text-[1.55rem] font-extrabold text-white leading-tight drop-shadow-md">
             {goal.name}
           </h1>
-          <div className="mt-3 flex items-center gap-2.5">
+          <div className="mt-3 flex items-center gap-2.5 pointer-events-auto">
             {creatorPic ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={creatorPic}
-                alt=""
-                className="h-9 w-9 rounded-full object-cover ring-2 ring-white/40"
-              />
+              <button
+                type="button"
+                onClick={() => setLightboxSrc(creatorPic)}
+                className="shrink-0 rounded-full ring-2 ring-white/40 overflow-hidden cursor-zoom-in"
+                aria-label={`View @${creatorName}'s photo`}
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={creatorPic}
+                  alt=""
+                  className="h-9 w-9 rounded-full object-cover"
+                />
+              </button>
             ) : (
               <div className="h-9 w-9 rounded-full bg-downy-500/90 text-white text-[12px] font-bold flex items-center justify-center ring-2 ring-white/40">
                 {initials(creatorName)}
@@ -570,17 +586,22 @@ export default function GoalPayPage() {
                 placeholder="1000"
                 className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2.5 text-[15px] font-bold outline-none focus:ring-2 focus:ring-downy-500"
               />
-              <div className="flex flex-wrap gap-1.5 mt-2">
-                {PRESETS.map((p) => (
-                  <button
-                    key={p}
-                    type="button"
-                    onClick={() => setKes(String(p))}
-                    className="px-2.5 py-1 rounded-lg bg-gray-50 border border-gray-200 text-[11px] font-bold text-gray-700"
-                  >
-                    {p.toLocaleString()}
-                  </button>
-                ))}
+              <div className="mt-2 flex items-center justify-between gap-2">
+                <p className="text-[11px] text-gray-500 shrink-0">
+                  Minimum KES {MIN_KES}
+                </p>
+                <div className="flex flex-wrap justify-end gap-1.5">
+                  {PRESETS.map((p) => (
+                    <button
+                      key={p}
+                      type="button"
+                      onClick={() => setKes(String(p))}
+                      className="px-2.5 py-1 rounded-lg bg-gray-50 border border-gray-200 text-[11px] font-bold text-gray-700"
+                    >
+                      {p.toLocaleString()}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
 
@@ -622,12 +643,37 @@ export default function GoalPayPage() {
             href={OFFICIAL_SITE}
             target="_blank"
             rel="noopener noreferrer"
-            className="font-semibold text-downy-700 underline underline-offset-2 decoration-downy-400/80 hover:text-downy-800"
+            className="underline underline-offset-2 decoration-gray-400 hover:text-gray-500"
           >
             Chamapay
           </Link>
         </p>
       </div>
+
+      {lightboxSrc ? (
+        <div
+          className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4"
+          role="dialog"
+          aria-modal="true"
+          onClick={() => setLightboxSrc(null)}
+        >
+          <button
+            type="button"
+            onClick={() => setLightboxSrc(null)}
+            className="absolute top-4 right-4 h-10 w-10 rounded-full bg-white/10 text-white flex items-center justify-center"
+            aria-label="Close"
+          >
+            <FiX size={22} />
+          </button>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={lightboxSrc}
+            alt=""
+            className="max-h-[90dvh] max-w-full object-contain rounded-lg"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      ) : null}
     </div>
   );
 }
