@@ -588,7 +588,7 @@ export default function GoalPayPage() {
               />
               <div className="mt-2 flex items-center justify-between gap-2">
                 <p className="text-[11px] text-gray-500 shrink-0">
-                  Minimum KES {MIN_KES}
+                  Min: KES {MIN_KES}
                 </p>
                 <div className="flex flex-wrap justify-end gap-1.5">
                   {PRESETS.map((p) => (
