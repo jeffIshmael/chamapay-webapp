@@ -19,6 +19,7 @@ import {
   isValidKenyaPhone,
   normalizeKenyaPhoneLocal,
 } from "@/lib/phoneUtils";
+import MpesaConfirmDialog from "./MpesaConfirmDialog";
 
 type Step = "idle" | "verifying" | "processing" | "completed" | "failed";
 
@@ -355,72 +356,50 @@ export default function WithdrawModal({
         </Dialog.Panel>
       </div>
 
-      <Dialog
+      <MpesaConfirmDialog
         open={showVerify}
         onClose={() => {
           if (step === "verifying") return;
           setShowVerify(false);
         }}
-        className="relative z-[110]"
-      >
-        <div className="app-modal-layer !pointer-events-auto !justify-center">
-          <div className="app-modal-backdrop" aria-hidden="true" />
-          <Dialog.Panel className="relative w-[calc(100%-2rem)] rounded-2xl bg-white p-5 mx-4 shadow-xl">
-            <Dialog.Title className="text-[15px] font-bold text-gray-900 mb-2">
-              Confirm recipient
-            </Dialog.Title>
-            {step === "verifying" ? (
-              <div className="py-6 flex flex-col items-center">
-                <div className="h-8 w-8 rounded-full border-2 border-downy-600 border-t-transparent animate-spin mb-2" />
-                <p className="text-[12px] text-gray-500">Verifying number…</p>
-              </div>
-            ) : verifyError ? (
-              <>
-                <p className="text-[12px] text-red-600 mb-4">{verifyError}</p>
-                <button
-                  type="button"
-                  onClick={() => setShowVerify(false)}
-                  className="w-full py-2.5 rounded-xl bg-gray-100 text-[13px] font-bold text-gray-700"
-                >
-                  Close
-                </button>
-              </>
-            ) : (
-              <>
-                <p className="text-[12px] text-gray-500 mb-1">
-                  {formatPhoneDisplay(phone)}
-                </p>
-                <p className="text-[14px] font-bold text-gray-900 mb-1">
-                  {verifiedName}
-                </p>
-                <p className="text-[12px] text-gray-600 mb-4">
-                  Send{" "}
-                  <span className="font-bold">{usdcAmt.toFixed(3)} USDC</span> →
-                  receive{" "}
-                  <span className="font-bold">KES {receiveKes.toFixed(2)}</span>{" "}
-                  (fee KES {feeKes.toFixed(2)})
-                </p>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setShowVerify(false)}
-                    className="flex-1 py-2.5 rounded-xl bg-gray-100 text-[13px] font-bold text-gray-700"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="button"
-                    onClick={confirmWithdraw}
-                    className="flex-1 py-2.5 rounded-xl bg-downy-600 text-[13px] font-bold text-white"
-                  >
-                    Confirm
-                  </button>
-                </div>
-              </>
-            )}
-          </Dialog.Panel>
-        </div>
-      </Dialog>
+        verifying={step === "verifying"}
+        error={verifyError || undefined}
+        title="Confirm Details"
+        subtitle="M-Pesa Cashout Verification"
+        recipientName={verifiedName}
+        phoneDisplay={formatPhoneDisplay(phone)}
+        rows={[
+          {
+            label: "Amount in KES",
+            value: `KES ${kesAmt.toLocaleString("en-KE", {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            })}`,
+          },
+          {
+            label: "Processing Fee",
+            value: `- KES ${feeKes.toFixed(2)}`,
+            tone: "fee",
+          },
+          {
+            label: "You Receive",
+            value: `KES ${receiveKes.toLocaleString("en-KE", {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            })}`,
+            tone: "emphasis",
+          },
+          {
+            label: "Total USDC Deduction",
+            value: `${usdcAmt.toFixed(4)} USDC`,
+            tone: "muted",
+          },
+        ]}
+        notice="Funds will be disbursed instantly to the registered mobile line verified above."
+        confirmLabel="Confirm Cashout"
+        onConfirm={confirmWithdraw}
+        confirmDisabled={!verifiedName || Boolean(verifyError)}
+      />
     </Dialog>
   );
 }

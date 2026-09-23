@@ -10,11 +10,19 @@ import {
   getExchangeRate,
   pollPretiumPaymentStatus,
   pretiumOnramp,
+  validatePhoneNumber,
 } from "@/lib/pretiumService";
-import { isValidKenyaPhone, toKenyaE164 } from "@/lib/phoneUtils";
+import {
+  formatPhoneDisplay,
+  isValidKenyaPhone,
+  normalizeKenyaPhoneLocal,
+  toKenyaE164,
+} from "@/lib/phoneUtils";
+import MpesaConfirmDialog from "./MpesaConfirmDialog";
 
 type Step =
   | "idle"
+  | "verifying"
   | "initiating"
   | "waiting_for_pin"
   | "processing"
@@ -25,6 +33,7 @@ const FALLBACK_RATE = 132;
 const MIN_KES = 100;
 const MAX_KES = 250000;
 const PRESETS_KES = [500, 1000, 2000, 5000];
+const NETWORK = "Safaricom";
 
 export default function DepositModal({
   isOpen,
@@ -40,6 +49,9 @@ export default function DepositModal({
   const [kes, setKes] = useState("");
   const [rate, setRate] = useState(FALLBACK_RATE);
   const [step, setStep] = useState<Step>("idle");
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [verifiedName, setVerifiedName] = useState("");
+  const [verifyError, setVerifyError] = useState("");
 
   useEffect(() => {
     if (!isOpen) return;
@@ -57,6 +69,9 @@ export default function DepositModal({
     setPhone("");
     setKes("");
     setStep("idle");
+    setShowConfirm(false);
+    setVerifiedName("");
+    setVerifyError("");
   };
 
   const onKesChange = (v: string) => {
@@ -66,12 +81,16 @@ export default function DepositModal({
 
   const kesAmt = parseFloat(kes) || 0;
   const usdcAmt = kesAmt > 0 && rate > 0 ? kesAmt / rate : 0;
-  const busy = step !== "idle" && step !== "failed";
+  const processing =
+    step === "initiating" ||
+    step === "waiting_for_pin" ||
+    step === "processing";
+  const busy = processing || step === "verifying" || step === "completed";
   const phoneOk = isValidKenyaPhone(phone);
   const amountOk = kesAmt >= MIN_KES && kesAmt <= MAX_KES;
   const canSubmit = !busy && phoneOk && amountOk;
 
-  const handleDeposit = async () => {
+  const startDeposit = async () => {
     if (!isAuthenticated || !token) {
       showToast("Please sign in", "warning");
       return;
@@ -93,6 +112,36 @@ export default function DepositModal({
       return;
     }
 
+    setShowConfirm(true);
+    setStep("verifying");
+    setVerifyError("");
+    setVerifiedName("");
+    try {
+      const local = normalizeKenyaPhoneLocal(phone);
+      const result = await validatePhoneNumber(
+        "KES",
+        "mobile",
+        NETWORK,
+        `0${local}`,
+        token
+      );
+      if (!result.success) {
+        setVerifyError(result.error || "Could not verify number");
+        setStep("idle");
+        return;
+      }
+      const details = result.MobileDetails || result.details || {};
+      setVerifiedName(details.public_name || details.publicName || "M-Pesa user");
+      setStep("idle");
+    } catch {
+      setVerifyError("Verification failed");
+      setStep("idle");
+    }
+  };
+
+  const confirmDeposit = async () => {
+    if (!token) return;
+    setShowConfirm(false);
     setStep("initiating");
     try {
       const result = await pretiumOnramp(
@@ -157,7 +206,7 @@ export default function DepositModal({
   };
 
   const close = () => {
-    if (step !== "idle" && step !== "completed" && step !== "failed") return;
+    if (processing || step === "verifying") return;
     reset();
     onClose();
   };
@@ -247,6 +296,7 @@ export default function DepositModal({
                 <p className="text-[11px] text-gray-500">
                   Min {MIN_KES.toLocaleString()} · Max{" "}
                   {MAX_KES.toLocaleString()} KES
+                  {" · "}1 USDC ≈ {rate.toFixed(2)} KES
                 </p>
                 {kesAmt > 0 && (kesAmt < MIN_KES || kesAmt > MAX_KES) && (
                   <p className="text-[11px] text-red-600 font-medium">
@@ -270,7 +320,26 @@ export default function DepositModal({
               ))}
             </div>
 
-            {step !== "idle" && step !== "failed" && (
+            {kesAmt > 0 && amountOk && (
+              <div className="bg-white rounded-xl border border-downy-100 px-3 py-2.5 text-[11px] space-y-1">
+                <div className="flex justify-between text-gray-600">
+                  <span>You pay</span>
+                  <span className="font-semibold">
+                    KES{" "}
+                    {kesAmt.toLocaleString("en-KE", {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}
+                  </span>
+                </div>
+                <div className="flex justify-between text-gray-900 font-bold">
+                  <span>You receive</span>
+                  <span>{usdcAmt.toFixed(3)} USDC</span>
+                </div>
+              </div>
+            )}
+
+            {processing || step === "completed" ? (
               <div className="bg-white rounded-2xl border border-downy-100 p-3.5 text-center">
                 {step === "completed" ? (
                   <FiCheck className="mx-auto text-emerald-500 mb-2" size={28} />
@@ -284,23 +353,59 @@ export default function DepositModal({
                   {step === "completed" && "Deposit complete"}
                 </p>
               </div>
+            ) : (
+              <button
+                type="button"
+                onClick={startDeposit}
+                disabled={!canSubmit}
+                className={`w-full py-3 rounded-xl text-[13px] font-bold text-white ${
+                  !canSubmit
+                    ? "bg-gray-300"
+                    : "bg-downy-600 shadow-md shadow-downy-600/25"
+                }`}
+              >
+                Continue
+              </button>
             )}
-
-            <button
-              type="button"
-              onClick={handleDeposit}
-              disabled={!canSubmit}
-              className={`w-full py-3 rounded-xl text-[13px] font-bold text-white ${
-                !canSubmit
-                  ? "bg-gray-300"
-                  : "bg-downy-600 shadow-md shadow-downy-600/25"
-              }`}
-            >
-              {busy ? "Processing…" : "Deposit with M-Pesa"}
-            </button>
           </div>
         </Dialog.Panel>
       </div>
+
+      <MpesaConfirmDialog
+        open={showConfirm}
+        onClose={() => {
+          if (step === "verifying") return;
+          setShowConfirm(false);
+        }}
+        verifying={step === "verifying"}
+        error={verifyError || undefined}
+        title="Confirm Details"
+        subtitle="M-Pesa Deposit Verification"
+        recipientName={verifiedName}
+        phoneDisplay={formatPhoneDisplay(phone)}
+        rows={[
+          {
+            label: "You pay",
+            value: `KES ${kesAmt.toLocaleString("en-KE", {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            })}`,
+          },
+          {
+            label: "Exchange rate",
+            value: `1 USDC = ${rate.toFixed(2)} KES`,
+          },
+          {
+            label: "You Receive",
+            value: `${usdcAmt.toFixed(3)} USDC`,
+            tone: "emphasis",
+          },
+        ]}
+        notice="An M-Pesa prompt will be sent to the verified number above. Enter your PIN to complete the deposit."
+        confirmLabel="Confirm Deposit"
+        onConfirm={confirmDeposit}
+        confirmDisabled={!verifiedName || Boolean(verifyError)}
+      />
     </Dialog>
   );
 }
