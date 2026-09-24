@@ -5,7 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { FiChevronRight } from "react-icons/fi";
 
 /** Bump when slides change so returning users see the new flow once. */
-export const ONBOARDING_KEY = "web_has_seen_onboarding_v2";
+export const ONBOARDING_KEY = "web_has_seen_onboarding_v3";
 
 /** Header teal (downy-700) — blends into near-black at the foot of the dome */
 const CARD_TOP = "#1a6b6b";
@@ -30,6 +30,7 @@ const slides: OnboardingSlide[] = [
       "Private invite-only groups",
       "Automatic payouts",
       "Transparent records",
+      "Group chat for members",
     ],
     imageSrc: "/onboarding/screen1.png",
   },
@@ -37,11 +38,11 @@ const slides: OnboardingSlide[] = [
     id: "goal",
     title: "Save for a goal",
     description:
-      "Open a pot for something real and share a pay link so anyone can chip in.",
+      "Save for a goal and share a pay link so anyone can chip in.",
     features: [
-      "Personal, invite, or public pots",
-      "Share an encrypted pay link",
-      "Track progress with supporters",
+      "Personal, invite, or public goals",
+      "Share a pay link",
+      "See every contribution transparently",
     ],
     imageSrc: "/onboarding/screen-goal.png",
   },
@@ -49,11 +50,12 @@ const slides: OnboardingSlide[] = [
     id: "earn",
     title: "Save & earn",
     description:
-      "Supply idle money to earn variable interest. Withdraw when the pool has free cash.",
+      "Supply idle money to earn variable interest.",
     features: [
-      "Earn variable APY from borrowers",
+      "Earn variable APY",
+      "Supply any amount at any time",
+      "See your earnings daily",
       "Withdraw when the pool has free cash",
-      "Your balance stays yours while earning",
     ],
     imageSrc: "/onboarding/screen2.png",
   },

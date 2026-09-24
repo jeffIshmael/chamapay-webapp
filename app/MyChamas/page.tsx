@@ -425,7 +425,7 @@ const ChamaCard = ({ chama }: { chama: JoinedChama }) => {
                 {hasSchedule ? (
                   <span className="truncate font-medium">
                     Next payout:{" "}
-                    <span className="text-downy-700 font-semibold">
+                    <span className="text-blue-700 font-bold">
                       {recipientName}
                     </span>{" "}
                     <span className="text-gray-500">({chama.nextPayoutDate})</span>
