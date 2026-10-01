@@ -1,5 +1,7 @@
 import { serverUrl } from "@/lib/serverUrl";
 
+const useElementPay = process.env.NEXT_PUBLIC_USE_ELEMENTPAY === "true";
+
 export type CurrencyCode =
   | "KES"
   | "UGX"
@@ -22,7 +24,10 @@ export async function pretiumOnramp(
   goalId?: number
 ) {
   try {
-    const response = await fetch(`${serverUrl}/pretium/onramp`, {
+
+    const url = useElementPay ? `${serverUrl}/elementpay/onramp` : `${serverUrl}/pretium/onramp`;
+
+    const response = await fetch(url, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

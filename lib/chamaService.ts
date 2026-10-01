@@ -825,6 +825,36 @@ export const addMemberToChama = async (
   }
 };
 
+// Admin sets the payout order manually (server signs onchain via CDP).
+// `payoutOrder` is the list of members' smart addresses, first = paid first.
+// The server requires every current member exactly once and matches
+// addresses case-sensitively, so pass them exactly as stored.
+export const setManualPayoutOrder = async (
+  chamaId: number,
+  payoutOrder: string[],
+  token: string
+): Promise<{
+  success: boolean;
+  payoutOrderTxHash?: string;
+  error?: string;
+}> => {
+  try {
+    const response = await fetch(`${serverUrl}/chama/set-payout-order`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ chamaId, payoutOrder }),
+    });
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error("Error setting payout order:", error);
+    return { success: false, error: "Failed to set payout order" };
+  }
+};
+
 // function to save a chama's message
 export const saveMessageToDb = async (
   token: string,

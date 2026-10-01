@@ -236,7 +236,7 @@ function CreateContent() {
 
       showToast(`${chamaName.trim()} created successfully.`, "success");
       resetForms();
-      router.push("/MyChamas?tab=chamas");
+      router.push(`/Chama/${result.chama?.slug}`);
     } catch (err) {
       console.error(err);
       setErrorText("A problem occurred, try again.");

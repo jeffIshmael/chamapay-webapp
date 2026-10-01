@@ -204,6 +204,7 @@ export default function ChamaOverview({
               <>
                 <button
                   type="button"
+                  data-tour="make-payment"
                   onClick={startPay}
                   className="flex-1 py-2.5 rounded-xl text-[12px] font-bold bg-downy-600 text-white"
                 >
@@ -211,6 +212,7 @@ export default function ChamaOverview({
                 </button>
                 <button
                   type="button"
+                  data-tour="withdraw"
                   disabled={myContributions <= 0}
                   onClick={() => setShowWithdraw(true)}
                   className={`flex-1 py-2.5 rounded-xl text-[12px] font-bold border ${
@@ -226,6 +228,7 @@ export default function ChamaOverview({
               <>
                 <button
                   type="button"
+                  data-tour="make-payment"
                   onClick={startPay}
                   className="flex-1 py-2.5 rounded-xl text-[12px] font-bold bg-emerald-50 border border-emerald-300 text-emerald-700"
                 >
@@ -233,6 +236,7 @@ export default function ChamaOverview({
                 </button>
                 <button
                   type="button"
+                  data-tour="withdraw"
                   disabled={myContributions <= 0}
                   onClick={() => setShowWithdraw(true)}
                   className={`flex-1 py-2.5 rounded-xl text-[12px] font-bold border ${
@@ -306,7 +310,9 @@ export default function ChamaOverview({
       </div>
 
       {/* Recent transactions */}
-      <div className="bg-white rounded-2xl border border-downy-100/70 shadow-sm p-4">
+      <div
+        data-tour="recent-transactions"
+        className="bg-white rounded-2xl border border-downy-100/70 shadow-sm p-4">
         <div className="flex items-center justify-between mb-2 gap-2">
           <p className="text-[14px] font-semibold text-gray-900">
             Recent Transactions

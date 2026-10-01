@@ -1,7 +1,7 @@
 "use client";
 
-import React from "react";
-import { FiCheck, FiClock } from "react-icons/fi";
+import React, { useEffect, useMemo, useState } from "react";
+import { FiCheck, FiClock, FiRotateCcw, FiX } from "react-icons/fi";
 import { Member, PayoutScheduleItem } from "@/utils/typesUtils";
 import { useFormattedBalance } from "@/lib/useFormattedBalance";
 import { formatDate } from "@/utils/duration";
@@ -18,12 +18,43 @@ type Props = {
   currentCycle?: number;
   currentRound?: number;
   currentUserName?: string;
+  /** Only admins see the "Set the schedule manually" CTA. */
+  isAdmin?: boolean;
+  /** Chama start date; the random draw happens 2 days before it. */
+  startDate?: Date | string;
+  /** First payout date; used if there is no start date. */
+  firstPayoutDate?: Date | string;
+  /** Receives member ids in payout order (index 0 = first to be paid). */
+  onSaveManualOrder?: (orderedUserIds: number[]) => Promise<void>;
 };
+
+const DRAW_LEAD_MS = 2 * 24 * 60 * 60 * 1000; // 2 days
 
 const truncateAddress = (address: string) => {
   if (!address) return "";
   return `${address.slice(0, 6)}…${address.slice(-4)}`;
 };
+
+const memberLabel = (m: Member) =>
+  m.name || truncateAddress(m.smartAddress || m.address || "");
+
+function useCountdown(target: Date | null) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!target) return;
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, [target]);
+  if (!target) return null;
+  const diff = Math.max(0, target.getTime() - now);
+  return {
+    done: diff === 0,
+    days: Math.floor(diff / 86400000),
+    hours: Math.floor((diff % 86400000) / 3600000),
+    minutes: Math.floor((diff % 3600000) / 60000),
+    seconds: Math.floor((diff % 60000) / 1000),
+  };
+}
 
 export default function ScheduleTab({
   payoutSchedule,
@@ -35,8 +66,29 @@ export default function ScheduleTab({
   currentCycle,
   currentRound,
   currentUserName,
+  isAdmin = false,
+  startDate,
+  firstPayoutDate,
+  onSaveManualOrder,
 }: Props) {
   const { formatBalance } = useFormattedBalance();
+
+  // Manual ordering state: ordered list of selected member ids.
+  const [manualMode, setManualMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState("");
+
+  // Random draw time = 2 days before start date (fallback: first payout date).
+  const drawDate = useMemo(() => {
+    const base = startDate || firstPayoutDate;
+    if (!base) return null;
+    const d = new Date(base);
+    if (isNaN(d.getTime())) return null;
+    return new Date(d.getTime() - DRAW_LEAD_MS);
+  }, [startDate, firstPayoutDate]);
+
+  const countdown = useCountdown(drawDate);
 
   const getMemberByAddress = (address: string): Member | undefined =>
     members.find(
@@ -63,11 +115,123 @@ export default function ScheduleTab({
       ? contributionAmount * members.length
       : totalPayout || 0;
 
-  if (
-    chamaStatus === "not started" ||
-    !payoutSchedule ||
-    payoutSchedule.length === 0
-  ) {
+  const toggleMember = (id: number) => {
+    setSaveError("");
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
+  };
+
+  const closeManual = () => {
+    setManualMode(false);
+    setSelectedIds([]);
+    setSaveError("");
+  };
+
+  const saveManual = async () => {
+    if (!onSaveManualOrder || selectedIds.length !== members.length) return;
+    try {
+      setSaving(true);
+      setSaveError("");
+      await onSaveManualOrder(selectedIds);
+      closeManual();
+    } catch (e) {
+      setSaveError(e instanceof Error ? e.message : "Could not save the order");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // A schedule that exists is always shown (e.g. set manually before start).
+  const noSchedule = !payoutSchedule || payoutSchedule.length === 0;
+
+  if (noSchedule && manualMode) {
+    const allPicked =
+      members.length > 0 && selectedIds.length === members.length;
+    return (
+      <div className="space-y-2.5 pb-6">
+        <div className="flex items-start justify-between gap-2">
+          <div>
+            <h3 className="text-[15px] font-bold text-gray-900">
+              Set payout order
+            </h3>
+            <p className="text-[12px] text-gray-500 mt-0.5">
+              Tap members in the order they should be paid.{" "}
+              {selectedIds.length}/{members.length} selected.
+            </p>
+          </div>
+          <button
+            onClick={closeManual}
+            aria-label="Cancel"
+            className="p-1.5 rounded-lg text-gray-500 hover:bg-gray-100"
+          >
+            <FiX size={16} />
+          </button>
+        </div>
+
+        {members.map((m) => {
+          const pos = selectedIds.indexOf(m.id) + 1; // 0 = not selected
+          const picked = pos > 0;
+          return (
+            <button
+              key={m.id}
+              type="button"
+              onClick={() => toggleMember(m.id)}
+              className={`w-full flex items-center justify-between gap-2 p-3.5 rounded-xl border bg-white text-left transition ${
+                picked ? "border-downy-400" : "border-gray-200"
+              }`}
+            >
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div
+                  className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-[12px] font-bold ${
+                    picked
+                      ? "bg-downy-600 text-white"
+                      : "bg-gray-100 text-gray-400"
+                  }`}
+                >
+                  {picked ? pos : "–"}
+                </div>
+                <p className="text-[13px] font-semibold text-gray-900 truncate">
+                  {memberLabel(m)}
+                </p>
+              </div>
+              {picked && (
+                <span className="text-[10px] font-semibold text-downy-600">
+                  Tap to remove
+                </span>
+              )}
+            </button>
+          );
+        })}
+
+        {saveError && (
+          <p className="text-[12px] text-red-600">{saveError}</p>
+        )}
+
+        <div className="flex gap-2 pt-1">
+          <button
+            type="button"
+            onClick={() => setSelectedIds([])}
+            disabled={selectedIds.length === 0 || saving}
+            className="flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl border border-gray-300 text-[13px] font-semibold text-gray-700 disabled:opacity-40"
+          >
+            <FiRotateCcw size={13} /> Reset
+          </button>
+          <button
+            type="button"
+            onClick={saveManual}
+            disabled={!allPicked || saving}
+            className="flex-1 px-4 py-2.5 rounded-xl bg-downy-600 text-white text-[13px] font-semibold disabled:opacity-40"
+          >
+            {saving ? "Saving…" : "Save schedule"}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (noSchedule) {
+    const pad = (n: number) => String(n).padStart(2, "0");
     return (
       <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
         <p className="text-3xl mb-2">🎲</p>
@@ -79,6 +243,50 @@ export default function ScheduleTab({
           The payout schedule will be randomly generated when the chama starts.
           All members will be notified when it&apos;s ready.
         </p>
+
+        {countdown && (
+          <div className="mt-5">
+            {countdown.done ? (
+              <p className="text-[12px] font-semibold text-amber-700">
+                The payout order is being drawn…
+              </p>
+            ) : (
+              <>
+                <p className="text-[11px] text-gray-500 mb-2">
+                  Payout order is drawn in
+                </p>
+                <div className="flex justify-center gap-2">
+                  {[
+                    ["Days", countdown.days],
+                    ["Hrs", countdown.hours],
+                    ["Min", countdown.minutes],
+                    ["Sec", countdown.seconds],
+                  ].map(([label, value]) => (
+                    <div
+                      key={label as string}
+                      className="w-14 py-2 rounded-lg bg-amber-50 border border-amber-200"
+                    >
+                      <p className="text-[16px] font-bold text-amber-800 tabular-nums">
+                        {pad(value as number)}
+                      </p>
+                      <p className="text-[10px] text-amber-700">{label}</p>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
+        {isAdmin && onSaveManualOrder && members.length > 0 && (
+          <button
+            type="button"
+            onClick={() => setManualMode(true)}
+            className="mt-6 px-5 py-2.5 rounded-xl bg-downy-600 text-white text-[13px] font-semibold"
+          >
+            Set the schedule manually
+          </button>
+        )}
       </div>
     );
   }

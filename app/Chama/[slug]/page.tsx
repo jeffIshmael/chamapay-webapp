@@ -4,6 +4,7 @@ import Image from "next/image";
 import React, { useCallback, useEffect, useState } from "react";
 import ChamaOverview from "@/app/Components/ChamaOverview";
 import ScheduleTab from "@/app/Components/ScheduleTab";
+import ChamaTour from "@/app/Components/ChamaTour";
 import MembersTab from "@/app/Components/MembersTab";
 import Chat from "@/app/Components/Chat";
 import {
@@ -12,6 +13,7 @@ import {
   addMemberToChama as addMemberToPublicChama,
   checkRequest,
   transformChamaData,
+  setManualPayoutOrder,
 } from "@/lib/chamaService";
 import { duration, formatTimeRemaining, getPicture } from "@/utils/duration";
 import Pay from "@/app/Components/Pay";
@@ -186,6 +188,20 @@ const ChamaDetails = ({ params }: { params: { slug: string } }) => {
   useEffect(() => {
     if (isAuthenticated) refreshChama();
   }, [isAuthenticated, refreshChama]);
+
+  const handleSaveManualOrder = async (orderedUserIds: number[]) => {
+    if (!chama || !token || !joined) throw new Error("Not authenticated");
+    // The server expects member smart addresses in payout order.
+    const payoutOrder = orderedUserIds.map((id) => {
+      const m = joined.members.find((mem) => mem.id === id);
+      if (!m?.smartAddress) throw new Error("A member has no smart address");
+      return m.smartAddress;
+    });
+    const res = await setManualPayoutOrder(chama.id, payoutOrder, token);
+    if (!res?.success) throw new Error(res?.error || "Failed to save order");
+    showToast("Payout order saved", "success");
+    await refreshChama();
+  };
 
   const joinChama = async () => {
     if (!isAuthenticated || !address) {
@@ -496,6 +512,12 @@ const ChamaDetails = ({ params }: { params: { slug: string } }) => {
 
   return (
     <div className="absolute inset-0 flex flex-col bg-gray-50">
+      <ChamaTour
+        userId={authUser?.id}
+        enabled={included}
+        canAddMembers={canAddMembers}
+        onSwitchTab={(t) => setActiveTab(t as TabId)}
+      />
       {/* Fixed header */}
       <div className="bg-downy-700 rounded-b-2xl px-4 pt-4 pb-4 text-white shrink-0 safe-top">
         <div className="flex items-center justify-between mb-3">
@@ -523,6 +545,7 @@ const ChamaDetails = ({ params }: { params: { slug: string } }) => {
                 type="button"
                 onClick={() => setShowAddMemberModal(true)}
                 className="p-2 rounded-full bg-white/10 text-white"
+                data-tour="add-member"
                 aria-label="Add member"
               >
                 <FiUserPlus size={18} />
@@ -532,6 +555,7 @@ const ChamaDetails = ({ params }: { params: { slug: string } }) => {
               type="button"
               onClick={() => setShowShareModal(true)}
               className="p-2 rounded-full bg-white/10 text-white"
+              data-tour="share"
               aria-label="Share"
             >
               <FiShare2 size={18} />
@@ -579,6 +603,7 @@ const ChamaDetails = ({ params }: { params: { slug: string } }) => {
             <button
               key={tab.id}
               type="button"
+              data-tour={`tab-${tab.id}`}
               onClick={() => setActiveTab(tab.id)}
               className={`flex-1 py-2.5 px-1 rounded-md text-[12px] font-medium transition ${
                 activeTab === tab.id
@@ -621,6 +646,10 @@ const ChamaDetails = ({ params }: { params: { slug: string } }) => {
               totalPayout={joined.nextPayoutAmount}
               currentCycle={joined.currentCycle}
               currentRound={joined.currentRound}
+              isAdmin={isAdmin}
+              startDate={chama.startDate}
+              firstPayoutDate={chama.payDate}
+              onSaveManualOrder={handleSaveManualOrder}
             />
           </div>
         )}
