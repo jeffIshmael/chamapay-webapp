@@ -266,7 +266,7 @@ export default function SendModal({
                     : "bg-transparent text-gray-500"
                 }`}
               >
-                Chamapay
+                Chamapay user
               </button>
               <button
                 type="button"
@@ -282,7 +282,7 @@ export default function SendModal({
                     : "bg-transparent text-gray-500"
                 }`}
               >
-                External
+                External wallet
               </button>
             </div>
 

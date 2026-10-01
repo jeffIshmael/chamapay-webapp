@@ -201,6 +201,7 @@ const ChamaDetails = ({ params }: { params: { slug: string } }) => {
     if (!res?.success) throw new Error(res?.error || "Failed to save order");
     showToast("Payout order saved", "success");
     await refreshChama();
+    setActiveTab("schedule" as TabId);
   };
 
   const joinChama = async () => {

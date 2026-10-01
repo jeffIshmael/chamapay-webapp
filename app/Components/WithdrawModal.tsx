@@ -24,7 +24,7 @@ import MpesaConfirmDialog from "./MpesaConfirmDialog";
 type Step = "idle" | "verifying" | "processing" | "completed" | "failed";
 
 const FALLBACK_RATE = 132;
-const MIN_KES = 100;
+const MIN_KES = 150;
 const MAX_KES = 250000;
 const NETWORK = "Safaricom";
 
@@ -210,8 +210,15 @@ export default function WithdrawModal({
           >
             <div className="flex items-center justify-between min-h-[40px]">
               <div className="w-8" />
-              <Dialog.Title className="text-[15px] font-bold">
-                Withdraw to M-Pesa
+              <Dialog.Title className="text-[15px] font-bold flex items-center gap-2">
+                Withdraw to 
+                <Image
+                  src="/static/images/mpesa.png"
+                  alt="M-Pesa"
+                  width={55}
+                  height={55}
+                  className="rounded-md bg-white px-1"
+                />
               </Dialog.Title>
               <button
                 type="button"
@@ -223,13 +230,6 @@ export default function WithdrawModal({
               </button>
             </div>
             <div className="flex items-center justify-center gap-2 mt-3">
-              <Image
-                src="/static/images/mpesa.png"
-                alt="M-Pesa"
-                width={36}
-                height={36}
-                className="rounded-lg bg-white p-0.5"
-              />
               <p className="text-[12px] text-white/85 font-medium">
                 Cash out to your M-Pesa
               </p>
@@ -237,7 +237,7 @@ export default function WithdrawModal({
           </div>
 
           <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 py-4 space-y-3">
-            <p className="text-[12px] text-gray-600 text-center">
+            {/* <p className="text-[12px] text-gray-600 text-center">
               Wallet balance:{" "}
               <span className="font-bold text-gray-900">
                 {(balance * rate).toLocaleString("en-KE", {
@@ -246,37 +246,44 @@ export default function WithdrawModal({
                 })}{" "}
                 KES
               </span>
-            </p>
+            </p> */}
 
             <div>
               <label className="block text-[11px] font-semibold text-gray-600 mb-1.5">
                 M-Pesa number
               </label>
-              <div className="relative">
-                <FiSmartphone
-                  className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-                  size={15}
-                />
+              <div className="flex overflow-hidden rounded-xl border border-gray-200 bg-white focus-within:ring-2 focus-within:ring-downy-500">
+                <span className="flex items-center px-3 bg-gray-50 border-r border-gray-200 text-[13px] font-bold text-gray-600">
+                  +254
+                </span>
                 <input
                   type="tel"
+                  inputMode="numeric"
                   value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  placeholder="07XX XXX XXX"
+                  onChange={(e) =>
+                    setPhone(e.target.value.replace(/\D/g, "").slice(0, 9))
+                  }
+                  placeholder="7XX XXX XXX"
                   disabled={busy}
-                  className="w-full rounded-xl border border-gray-200 pl-9 pr-3 py-2.5 text-[13px] outline-none focus:ring-2 focus:ring-downy-500"
+                  className="flex-1 min-w-0 px-3 py-2.5 text-[13px] outline-none"
                 />
               </div>
               {phone.length > 0 && !phoneOk && (
                 <p className="text-[11px] text-red-600 mt-1 font-medium">
-                  Enter a complete M-Pesa number (e.g. 0712 345 678)
+                  Enter a complete M-Pesa number
                 </p>
               )}
             </div>
 
             <div>
-              <label className="block text-[11px] font-semibold text-gray-600 mb-1.5">
-                Amount (KES)
-              </label>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-[11px] font-semibold text-gray-600">
+                  Amount (KES)
+                </label>
+                <span className="text-[10px] font-semibold text-gray-400">
+                  1 USDC = {rate.toFixed(2)} KES
+                </span>
+              </div>
               <div className="relative">
                 <input
                   type="text"
@@ -300,9 +307,15 @@ export default function WithdrawModal({
               </div>
               <div className="flex justify-between items-center mt-1.5 gap-2">
                 <p className="text-[11px] text-gray-500">
-                  Min {MIN_KES.toLocaleString()} · Max{" "}
-                  {MAX_KES.toLocaleString()} KES
-                  {" · "}≈ {usdc || "0.000"} USDC
+                  Withdrawable bal:   <span className="font-semibold text-gray-700 ">
+                    {(balance * rate).toLocaleString("en-KE", {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                                    })}{" "}
+                  </span> <span className="text-[10px]">KES</span>
+                </p>
+                <p className="text-[11px] text-gray-500">
+                  Min: {MIN_KES}
                 </p>
                 {kesAmt > 0 && (kesAmt < MIN_KES || kesAmt > MAX_KES) && (
                   <p className="text-[11px] text-red-600 font-medium shrink-0">
@@ -314,7 +327,7 @@ export default function WithdrawModal({
 
             {kesAmt > 0 && (
               <div className="bg-white rounded-xl border border-downy-100 px-3 py-2.5 text-[11px] space-y-1">
-                <div className="flex justify-between text-gray-600">
+                <div className="flex justify-between text-amber-600">
                   <span>Fee</span>
                   <span className="font-semibold">KES {feeKes.toFixed(2)}</span>
                 </div>
@@ -326,17 +339,41 @@ export default function WithdrawModal({
             )}
 
             {step === "processing" || step === "completed" ? (
-              <div className="bg-white rounded-2xl border border-downy-100 p-3.5 text-center">
+              <div className="bg-white rounded-2xl border border-downy-100 p-5 text-center">
                 {step === "completed" ? (
-                  <FiCheck className="mx-auto text-emerald-500 mb-2" size={28} />
+                  <>
+                    <div className="h-12 w-12 mx-auto mb-3 rounded-full bg-emerald-50 flex items-center justify-center">
+                      <FiCheck className="text-emerald-500" size={26} />
+                    </div>
+                    <p className="text-[14px] font-bold text-gray-900">
+                      Transfer complete
+                    </p>
+                    <p className="text-[12px] text-gray-500 mt-1">
+                      {usdcAmt.toFixed(3)} USDC sent to {verifiedName || formatPhoneDisplay(phone)}
+                    </p>
+                  </>
                 ) : (
-                  <div className="h-8 w-8 mx-auto mb-2 rounded-full border-2 border-downy-600 border-t-transparent animate-spin" />
+                  <>
+                    <div className="h-12 w-12 mx-auto mb-3 rounded-full border-[3px] border-downy-100 border-t-downy-600 animate-spin" />
+                    <p className="text-[14px] font-bold text-gray-900">
+                      Sending USDC…
+                    </p>
+                    <p className="text-[12px] text-gray-500 mt-1.5">
+                      {verifiedName
+                        ? `Sending to ${verifiedName}`
+                        : `Sending to ${formatPhoneDisplay(phone)}`}
+                    </p>
+                    <div className="mt-4 rounded-xl bg-downy-50 px-3 py-2.5">
+                      <p className="text-[12px] text-gray-500">Amount</p>
+                      <p className="text-[15px] font-bold text-gray-900">
+                        {usdcAmt.toFixed(3)} USDC
+                      </p>
+                    </div>
+                    <p className="text-[11px] text-gray-400 mt-3">
+                      Please keep this screen open while the transfer is processed.
+                    </p>
+                  </>
                 )}
-                <p className="text-[13px] font-bold text-gray-900">
-                  {step === "processing"
-                    ? "Sending to M-Pesa…"
-                    : "Withdrawal complete"}
-                </p>
               </div>
             ) : (
               <button

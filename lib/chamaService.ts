@@ -348,6 +348,7 @@ export const getChamaBySlug = async (
     const response = await fetch(url, {
       method: "GET",
       headers,
+      cache: "no-store",
     });
 
     if (!response.ok) {

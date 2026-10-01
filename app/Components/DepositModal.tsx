@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Dialog } from "@headlessui/react";
-import { FiX, FiCheck, FiSmartphone } from "react-icons/fi";
+import { FiX, FiCheck } from "react-icons/fi";
 import Image from "next/image";
 import { showToast } from "./Toast";
 import { useAuth } from "@/app/context/AuthContext";
@@ -10,15 +10,12 @@ import {
   getExchangeRate,
   pollPretiumPaymentStatus,
   pretiumOnramp,
-  validatePhoneNumber,
 } from "@/lib/pretiumService";
 import {
-  formatPhoneDisplay,
   isValidKenyaPhone,
-  normalizeKenyaPhoneLocal,
   toKenyaE164,
 } from "@/lib/phoneUtils";
-import MpesaConfirmDialog from "./MpesaConfirmDialog";
+import { useCurrencyStore } from "@/store/useCurrencyStore";
 
 type Step =
   | "idle"
@@ -30,9 +27,9 @@ type Step =
   | "failed";
 
 const FALLBACK_RATE = 132;
-const MIN_KES = 100;
+const MIN_KES = 150;
 const MAX_KES = 250000;
-const PRESETS_KES = [500, 1000, 2000, 5000];
+const PRESETS_KES = [150, 500, 1000, 2000, 5000];
 const NETWORK = "Safaricom";
 
 export default function DepositModal({
@@ -49,9 +46,7 @@ export default function DepositModal({
   const [kes, setKes] = useState("");
   const [rate, setRate] = useState(FALLBACK_RATE);
   const [step, setStep] = useState<Step>("idle");
-  const [showConfirm, setShowConfirm] = useState(false);
-  const [verifiedName, setVerifiedName] = useState("");
-  const [verifyError, setVerifyError] = useState("");
+  const {currency} = useCurrencyStore();
 
   useEffect(() => {
     if (!isOpen) return;
@@ -69,12 +64,9 @@ export default function DepositModal({
     setPhone("");
     setKes("");
     setStep("idle");
-    setShowConfirm(false);
-    setVerifiedName("");
-    setVerifyError("");
   };
 
-  const onKesChange = (v: string) => {
+  const onKesChange = (v: string): void => {
     if (v !== "" && !/^\d*\.?\d*$/.test(v)) return;
     setKes(v);
   };
@@ -112,36 +104,6 @@ export default function DepositModal({
       return;
     }
 
-    setShowConfirm(true);
-    setStep("verifying");
-    setVerifyError("");
-    setVerifiedName("");
-    try {
-      const local = normalizeKenyaPhoneLocal(phone);
-      const result = await validatePhoneNumber(
-        "KES",
-        "mobile",
-        NETWORK,
-        `0${local}`,
-        token
-      );
-      if (!result.success) {
-        setVerifyError(result.error || "Could not verify number");
-        setStep("idle");
-        return;
-      }
-      const details = result.MobileDetails || result.details || {};
-      setVerifiedName(details.public_name || details.publicName || "M-Pesa user");
-      setStep("idle");
-    } catch {
-      setVerifyError("Verification failed");
-      setStep("idle");
-    }
-  };
-
-  const confirmDeposit = async () => {
-    if (!token) return;
-    setShowConfirm(false);
     setStep("initiating");
     try {
       const result = await pretiumOnramp(
@@ -152,6 +114,7 @@ export default function DepositModal({
         true,
         token
       );
+
       if (!result.success) {
         if (result.code === "KYC_REQUIRED") {
           setStep("idle");
@@ -205,8 +168,11 @@ export default function DepositModal({
     }
   };
 
-  const close = () => {
-    if (processing || step === "verifying") return;
+  const close = () =>{
+    if (processing) {
+      showToast("Please wait for the deposit to complete", "warning");
+      return;
+    }
     reset();
     onClose();
   };
@@ -222,8 +188,15 @@ export default function DepositModal({
           >
             <div className="flex items-center justify-between min-h-[40px]">
               <div className="w-8" />
-              <Dialog.Title className="text-[15px] font-bold">
-                Deposit with M-Pesa
+              <Dialog.Title className="text-[15px] font-bold flex items-center gap-2">
+                Deposit via 
+                <Image
+                  src="/static/images/mpesa.png"
+                  alt="M-Pesa"
+                  width={55}
+                  height={55}
+                  className="rounded-md bg-white px-1"
+                />
               </Dialog.Title>
               <button
                 type="button"
@@ -235,13 +208,6 @@ export default function DepositModal({
               </button>
             </div>
             <div className="flex items-center justify-center gap-2 mt-3">
-              <Image
-                src="/static/images/mpesa.png"
-                alt="M-Pesa"
-                width={40}
-                height={40}
-                className="rounded-lg bg-white p-0.5"
-              />
               <p className="text-[12px] text-white/85 font-medium">
                 Top up your wallet via M-Pesa
               </p>
@@ -253,31 +219,39 @@ export default function DepositModal({
               <label className="block text-[11px] font-semibold text-gray-600 mb-1.5">
                 M-Pesa number
               </label>
-              <div className="relative">
-                <FiSmartphone
-                  className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-                  size={15}
-                />
+              <div className="flex overflow-hidden rounded-xl border border-gray-200 bg-white focus-within:ring-2 focus-within:ring-downy-500">
+                <span className="flex items-center px-3 bg-gray-50 border-r border-gray-200 text-[13px] font-bold text-gray-600">
+                  +254
+                </span>
                 <input
                   type="tel"
+                  inputMode="numeric"
                   value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  placeholder="07XX XXX XXX"
+                  onChange={(e) =>
+                    setPhone(e.target.value.replace(/\D/g, "").slice(0, 9))
+                  }
+                  placeholder="7XX XXX XXX"
                   disabled={busy}
-                  className="w-full rounded-xl border border-gray-200 pl-9 pr-3 py-2.5 text-[13px] outline-none focus:ring-2 focus:ring-downy-500"
+                  className="flex-1 min-w-0 px-3 py-2.5 text-[13px] outline-none"
                 />
               </div>
               {phone.length > 0 && !phoneOk && (
                 <p className="text-[11px] text-red-600 mt-1 font-medium">
-                  Enter a complete M-Pesa number (e.g. 0712 345 678)
+                  Enter a complete M-Pesa number
                 </p>
               )}
             </div>
 
             <div>
-              <label className="block text-[11px] font-semibold text-gray-600 mb-1.5">
-                Amount (KES)
-              </label>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-[11px] font-semibold text-gray-600">
+                  Amount (KES)
+                </label>
+                <span className="text-[10px] font-semibold text-gray-400">
+                 1 USDC = {rate.toFixed(2)} KES
+                </span>
+              </div>
+
               <div className="flex items-center bg-white border border-gray-200 rounded-xl overflow-hidden">
                 <span className="px-3 py-2.5 bg-gray-50 border-r border-gray-200 text-[12px] font-bold text-gray-600">
                   KES
@@ -287,26 +261,29 @@ export default function DepositModal({
                   inputMode="decimal"
                   value={kes}
                   onChange={(e) => onKesChange(e.target.value)}
-                  placeholder="1000"
+                  placeholder="1,000"
                   disabled={busy}
                   className="flex-1 px-3 py-2.5 text-[15px] font-bold outline-none border-0"
                 />
               </div>
+
               <div className="flex justify-between items-center mt-1.5">
                 <p className="text-[11px] text-gray-500">
-                  Min {MIN_KES.toLocaleString()} · Max{" "}
-                  {MAX_KES.toLocaleString()} KES
-                  {" · "}1 USDC ≈ {rate.toFixed(2)} KES
+                  Min: {MIN_KES.toLocaleString()} KES
                 </p>
-                {kesAmt > 0 && (kesAmt < MIN_KES || kesAmt > MAX_KES) && (
-                  <p className="text-[11px] text-red-600 font-medium">
-                    {kesAmt < MIN_KES ? "Below minimum" : "Above maximum"}
-                  </p>
-                )}
+                <p className="text-[11px] text-gray-500">
+                Max: {MAX_KES.toLocaleString()} KES
+                </p>
               </div>
+
+              {kesAmt > 0 && (kesAmt < MIN_KES || kesAmt > MAX_KES) && (
+                <p className="text-[11px] text-red-600 font-medium mt-1">
+                  {kesAmt < MIN_KES ? "Below minimum" : "Above maximum"}
+                </p>
+              )}
             </div>
 
-            <div className="flex gap-1.5 flex-wrap">
+            <div className="flex gap-1.5 flex-wrap justify-end">
               {PRESETS_KES.map((p) => (
                 <button
                   key={p}
@@ -321,37 +298,73 @@ export default function DepositModal({
             </div>
 
             {kesAmt > 0 && amountOk && (
-              <div className="bg-white rounded-xl border border-downy-100 px-3 py-2.5 text-[11px] space-y-1">
-                <div className="flex justify-between text-gray-600">
-                  <span>You pay</span>
-                  <span className="font-semibold">
+              <div className="bg-white rounded-xl border border-downy-100 px-3 py-2.5 space-y-1">
+                <div className="flex justify-between text-gray-900">
+                  <span className="font-bold text-[13px]" >Total deposit</span>
+                  <div className="flex flex-col items-end gap-1">
+                  <span className="font-bold">
                     KES{" "}
                     {kesAmt.toLocaleString("en-KE", {
                       minimumFractionDigits: 2,
                       maximumFractionDigits: 2,
                     })}
                   </span>
+                  <span className="font-small text-gray-500 text-[10px]">
+                    = {" "}
+                    {usdcAmt.toFixed(3)}
+                    <span className="text-gray-500"> USDC</span>
+                  </span>
+                  </div>
+                 
                 </div>
-                <div className="flex justify-between text-gray-900 font-bold">
+                {/* <div className="flex justify-between text-gray-900 font-bold">
                   <span>You receive</span>
                   <span>{usdcAmt.toFixed(3)} USDC</span>
-                </div>
+                </div> */}
               </div>
             )}
 
             {processing || step === "completed" ? (
-              <div className="bg-white rounded-2xl border border-downy-100 p-3.5 text-center">
+              <div className="bg-white rounded-2xl border border-downy-100 p-5 text-center">
                 {step === "completed" ? (
-                  <FiCheck className="mx-auto text-emerald-500 mb-2" size={28} />
+                  <>
+                    <div className="h-12 w-12 mx-auto mb-3 rounded-full bg-emerald-50 flex items-center justify-center">
+                      <FiCheck className="text-emerald-500" size={26} />
+                    </div>
+                    <p className="text-[14px] font-bold text-gray-900">
+                      Deposit complete
+                    </p>
+                    <p className="text-[12px] text-gray-500 mt-1">
+                      {
+                        currency === "KES" ? + kesAmt + "Kes" : + usdcAmt.toFixed(3) + "USDC"
+                      }
+                       added to your wallet
+                    </p>
+                  </>
                 ) : (
-                  <div className="h-8 w-8 mx-auto mb-2 rounded-full border-2 border-downy-600 border-t-transparent animate-spin" />
+                  <>
+                    <div className="h-10 w-10 mx-auto mb-2 rounded-full border-[3px] border-downy-100 border-t-downy-600 animate-spin" />
+                    <p className="text-[14px] font-bold text-gray-900">
+                      {step === "initiating" && "Sending M-Pesa prompt…"}
+                      {step === "waiting_for_pin" && "Check your phone"}
+                      {step === "processing" && "Confirming payment…"}
+                    </p>
+                    <p className="text-[12px] text-gray-500 mt-1.5">
+                      {step === "initiating" &&
+                        `Sending a payment request to +254 ${phone}`}
+                      {step === "waiting_for_pin" &&
+                        "An M-Pesa prompt has been sent. Enter your PIN to approve the payment."}
+                      {step === "processing" &&
+                        "Your payment was received. We're crediting your balance."}
+                    </p>
+                    <div className="mt-4 rounded-xl bg-downy-50 px-3 py-2.5">
+                      <p className="text-[12px] text-gray-500">Amount</p>
+                      <p className="text-[15px] font-bold text-gray-900">
+                        {kesAmt.toLocaleString("en-KE")} <span className="text-[12px] font-semibold text-gray-600">KES</span> 
+                      </p>
+                    </div>
+                  </>
                 )}
-                <p className="text-[13px] font-bold text-gray-900">
-                  {step === "initiating" && "Starting M-Pesa…"}
-                  {step === "waiting_for_pin" && "Enter PIN on your phone"}
-                  {step === "processing" && "Confirming payment…"}
-                  {step === "completed" && "Deposit complete"}
-                </p>
               </div>
             ) : (
               <button
@@ -364,48 +377,13 @@ export default function DepositModal({
                     : "bg-downy-600 shadow-md shadow-downy-600/25"
                 }`}
               >
-                Continue
+                Deposit
               </button>
             )}
           </div>
         </Dialog.Panel>
       </div>
 
-      <MpesaConfirmDialog
-        open={showConfirm}
-        onClose={() => {
-          if (step === "verifying") return;
-          setShowConfirm(false);
-        }}
-        verifying={step === "verifying"}
-        error={verifyError || undefined}
-        title="Confirm Details"
-        subtitle="M-Pesa Deposit Verification"
-        recipientName={verifiedName}
-        phoneDisplay={formatPhoneDisplay(phone)}
-        rows={[
-          {
-            label: "You pay",
-            value: `KES ${kesAmt.toLocaleString("en-KE", {
-              minimumFractionDigits: 2,
-              maximumFractionDigits: 2,
-            })}`,
-          },
-          {
-            label: "Exchange rate",
-            value: `1 USDC = ${rate.toFixed(2)} KES`,
-          },
-          {
-            label: "You Receive",
-            value: `${usdcAmt.toFixed(3)} USDC`,
-            tone: "emphasis",
-          },
-        ]}
-        notice="An M-Pesa prompt will be sent to the verified number above. Enter your PIN to complete the deposit."
-        confirmLabel="Confirm Deposit"
-        onConfirm={confirmDeposit}
-        confirmDisabled={!verifiedName || Boolean(verifyError)}
-      />
     </Dialog>
   );
 }

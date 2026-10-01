@@ -498,7 +498,7 @@ function CreateContent() {
                   className="flex-1 px-3 py-2.5 text-gray-900 text-[13px] font-semibold border-0 focus:ring-0"
                 />
               </div>
-              {kesMode && contribution && platformRate > 0 && (
+              {/* {kesMode && contribution && platformRate > 0 && (
                 <p className="text-[11px] text-gray-500 mt-1">
                   ≈ {(parseFloat(contribution) / platformRate || 0).toFixed(3)}{" "}
                   USDC
@@ -509,7 +509,7 @@ function CreateContent() {
                   ≈ {(parseFloat(contribution) * platformRate || 0).toFixed(0)}{" "}
                   KES
                 </p>
-              )}
+              )} */}
             </div>
 
             <button
