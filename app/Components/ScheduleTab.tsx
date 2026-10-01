@@ -94,12 +94,12 @@ export default function ScheduleTab({
     members.find(
       (m) =>
         m.smartAddress?.toLowerCase() === address.toLowerCase() ||
-        m.address?.toLowerCase() === address.toLowerCase()
+        m.address?.toLowerCase() === address.toLowerCase(),
     );
 
   const getPayoutStatus = (
     payout: PayoutScheduleItem,
-    index: number
+    index: number,
   ): PayoutStatus => {
     if (payout.paid) return "completed";
     const now = new Date();
@@ -118,7 +118,7 @@ export default function ScheduleTab({
   const toggleMember = (id: number) => {
     setSaveError("");
     setSelectedIds((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
     );
   };
 
@@ -157,8 +157,8 @@ export default function ScheduleTab({
           Random Selection
         </h3>
         <p className="text-[12px] text-gray-500 leading-relaxed max-w-xs">
-          The payout schedule will be randomly generated when the chama starts.
-          All members will be notified when it&apos;s ready.
+          The payout schedule will be randomly generated or set by the admin
+          before the paydate. All members will be notified when it&apos;s ready.
         </p>
 
         {countdown && (
@@ -214,7 +214,7 @@ export default function ScheduleTab({
               role="dialog"
               aria-label="Set payout order"
               onClick={(e) => e.stopPropagation()}
-              className="w-full max-w-md bg-white rounded-t-2xl flex flex-col max-h-[88vh] text-left"
+              className="w-full max-w-sm bg-white rounded-t-2xl flex flex-col max-h-[88vh] text-left"
             >
               {/* Header */}
               <div className="px-4 pt-4 pb-3 border-b border-gray-100 flex items-start justify-between gap-2 shrink-0">
@@ -280,7 +280,9 @@ export default function ScheduleTab({
               {/* Order summary + confirm */}
               <div
                 className="shrink-0 border-t border-gray-200 bg-gray-50 px-4 pt-3"
-                style={{ paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}
+                style={{
+                  paddingBottom: "max(1rem, env(safe-area-inset-bottom))",
+                }}
               >
                 <p className="text-[11px] font-semibold text-gray-500 mb-1.5">
                   Payout order · {selectedIds.length}/{members.length}
@@ -290,18 +292,20 @@ export default function ScheduleTab({
                     Nobody selected yet.
                   </p>
                 ) : (
-                  <ol className="max-h-24 overflow-y-auto space-y-1 mb-3">
+                  <ol className="max-h-24 overflow-y-auto grid grid-cols-3 gap-x-3 gap-y-1 mb-3">
                     {selectedIds.map((id, i) => {
                       const m = members.find((x) => x.id === id);
                       return (
                         <li
                           key={id}
-                          className="flex items-center gap-2 text-[12px] text-gray-800"
+                          className="flex items-center gap-1 text-[12px] text-gray-800 min-w-0"
                         >
-                          <span className="w-5 text-right font-bold text-downy-600">
+                          <span className="w-4 shrink-0 text-right font-bold text-downy-600">
                             {i + 1}.
                           </span>
-                          <span className="truncate">{m ? memberLabel(m) : ""}</span>
+                          <span className="truncate">
+                            {m ? memberLabel(m) : ""}
+                          </span>
                         </li>
                       );
                     })}
@@ -408,7 +412,9 @@ export default function ScheduleTab({
                   ) : status === "next" ? (
                     <FiClock size={14} />
                   ) : (
-                    <span className="text-[12px] font-semibold">{index + 1}</span>
+                    <span className="text-[12px] font-semibold">
+                      {index + 1}
+                    </span>
                   )}
                 </div>
                 <div className="min-w-0">
