@@ -213,7 +213,7 @@ function CreateContent() {
           ? contribNum / platformRate
           : contribNum;
 
-      const result = await registerChamaToDatabase(
+      const resultOutcome = await registerChamaToDatabase(
         {
           name: chamaName.trim(),
           description: "",
@@ -228,13 +228,15 @@ function CreateContent() {
         token
       );
 
-      if (!result.success) {
-        setErrorText(result.error || "Failed to create chama");
+      console.log("result outcome", resultOutcome);
+
+      if (!resultOutcome.success) {
+        setErrorText(resultOutcome.error || "Failed to create chama");
         setLoading(false);
         return;
       }
 
-      const routing = result.chama ? `/Chama/${result.chama.slug}` : `/MyChamas?tab=chamas`;
+      const routing = resultOutcome.chama?.chama ? `/Chama/${resultOutcome.chama.slug}` : `/MyChamas?tab=chamas`;
  
       showToast(`${chamaName.trim()} created successfully.`, "success");
       resetForms();
@@ -438,7 +440,6 @@ function CreateContent() {
                       min={new Date().toISOString().split("T")[0]}
                       className={`${inputClass} [color-scheme:light] pr-10`}
                     />
-                    <FiCalendar className="absolute right-4 top-1/2 -translate-y-1/2 text-downy-700 pointer-events-none" />
                   </div>
                 </div>
                 <div>
@@ -452,7 +453,7 @@ function CreateContent() {
                       onChange={(e) => setStartTime(e.target.value)}
                       className={`${inputClass} [color-scheme:light] pr-10`}
                     />
-                    <FiClock className="absolute right-4 top-1/2 -translate-y-1/2 text-downy-700 pointer-events-none" />
+
                   </div>
                 </div>
               </div>

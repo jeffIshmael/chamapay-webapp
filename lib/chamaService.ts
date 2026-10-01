@@ -733,7 +733,7 @@ export const transformChamaData = (
 export const registerChamaToDatabase = async (
   chamaData: RegisterChamaRequestBody,
   token: string
-): Promise<ChamaResponse> => {
+) => {
   try {
     const response = await fetch(`${serverUrl}/chama/create`, {
       method: "POST",
