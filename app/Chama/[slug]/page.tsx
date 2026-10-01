@@ -200,7 +200,7 @@ const ChamaDetails = ({ params }: { params: { slug: string } }) => {
     const res = await setManualPayoutOrder(chama.id, payoutOrder, token);
     if (!res?.success) throw new Error(res?.error || "Failed to save order");
     showToast("Payout order saved", "success");
-    await refreshChama();
+    refreshChama();
     setActiveTab("schedule" as TabId);
   };
 
