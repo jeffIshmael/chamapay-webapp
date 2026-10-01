@@ -238,7 +238,7 @@ export default function ChamaTour({
       )}
 
       <div
-        className="absolute bg-white rounded-2xl shadow-xl p-4"
+        className="absolute bg-emerald-50 border-2 border-dashed border-emerald-300 rounded-2xl shadow-lg p-4"
         style={cardStyle}
       >
         <p className="text-[11px] font-semibold text-downy-600 mb-1">
@@ -262,7 +262,7 @@ export default function ChamaTour({
               <button
                 type="button"
                 onClick={() => go(-1)}
-                className="px-3 py-2 rounded-lg border border-gray-300 text-[12px] font-semibold text-gray-700"
+                className="px-3 py-1.5 rounded-md border border-dashed border-gray-300 bg-gray-50 text-[12px] font-medium text-gray-500"
               >
                 Back
               </button>
@@ -270,7 +270,7 @@ export default function ChamaTour({
             <button
               type="button"
               onClick={() => go(1)}
-              className="px-4 py-2 rounded-lg bg-downy-600 text-white text-[12px] font-semibold"
+              className="px-3 py-1.5 rounded-md border border-dashed border-gray-400 bg-gray-100 text-[12px] font-medium text-gray-700"
             >
               {isLast ? "Got it" : "Next"}
             </button>

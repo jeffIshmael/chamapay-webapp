@@ -234,9 +234,11 @@ function CreateContent() {
         return;
       }
 
+      const routing = result.chama ? `/Chama/${result.chama.slug}` : `/MyChamas?tab=chamas`;
+ 
       showToast(`${chamaName.trim()} created successfully.`, "success");
       resetForms();
-      router.push(`/Chama/${result.chama?.slug}`);
+      router.push(routing);
     } catch (err) {
       console.error(err);
       setErrorText("A problem occurred, try again.");
