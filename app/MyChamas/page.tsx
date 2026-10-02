@@ -32,6 +32,7 @@ import { JoinedChama } from "@/utils/typesUtils";
 import { useSessionAddress } from "@/lib/useSessionAddress";
 import { authDebug } from "@/lib/authDebug";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useUser } from "@/context/UserContext";
 
 type HomeTab = "chamas" | "goals";
 
@@ -47,6 +48,7 @@ function MyHomeContent() {
   const [userId, setUserId] = useState<number | null>(null);
   const [showingChamas, setShowingChamas] = useState<JoinedChama[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const { loading: gettingKyc, isKycApproved, isKycPending, needsKyc } = useUser();
 
   const { address, token, isAuthenticated, isGuest, isLoading: authLoading } =
     useSessionAddress();

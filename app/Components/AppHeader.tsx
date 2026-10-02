@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { FiSettings } from "react-icons/fi";
 import { useAuth } from "@/app/context/AuthContext";
+import { useUser } from "@/context/UserContext";
 
 function greetingForHour(hour: number) {
   if (hour < 12) return "Good morning";
@@ -24,6 +25,7 @@ export default function AppHeader({
   pageTitle?: string;
 }) {
   const { user, isGuest } = useAuth();
+  const { loading: kycLoading, needsKyc } = useUser();
 
   const displayName =
     user?.userName?.trim() ||
@@ -60,7 +62,7 @@ export default function AppHeader({
           </div>
 
           {showProfile && (
-            <div className="shrink-0 flex items-center gap-2">
+            <div className="shrink-0 flex items-center gap-3">
               <Link
                 href="/Settings"
                 aria-label="Settings"
@@ -69,27 +71,50 @@ export default function AppHeader({
                 <FiSettings size={15} />
               </Link>
 
-              <Link
-                href="/Settings"
-                aria-label="Profile"
-                className="h-8 w-8 rounded-full overflow-hidden border-2 border-white/40 bg-white/20 text-white flex items-center justify-center text-[10px] font-bold"
-              >
-                {avatar ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={avatar}
-                    alt=""
-                    referrerPolicy="no-referrer"
-                    className="h-full w-full object-cover"
-                    onError={(e) => {
-                      (e.currentTarget as HTMLImageElement).style.display =
-                        "none";
-                    }}
-                  />
-                ) : (
-                  initials(displayName)
-                )}
-              </Link>
+              {kycLoading ? (
+                <div
+                  aria-hidden
+                  className="h-8 w-8 rounded-full bg-white/25 animate-pulse"
+                />
+              ) : (
+                <div className="relative">
+                  <Link
+                    href="/Settings"
+                    aria-label={
+                      needsKyc ? "Profile – verification required" : "Profile"
+                    }
+                    className={`h-8 w-8 rounded-full overflow-hidden border-2 bg-white/20 text-white flex items-center justify-center text-[10px] font-bold ${
+                      needsKyc
+                        ? "border-amber-400 ring-2 ring-amber-400/40"
+                        : "border-white/40"
+                    }`}
+                  >
+                    {avatar ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={avatar}
+                        alt=""
+                        referrerPolicy="no-referrer"
+                        className="h-full w-full object-cover"
+                        onError={(e) => {
+                          (e.currentTarget as HTMLImageElement).style.display =
+                            "none";
+                        }}
+                      />
+                    ) : (
+                      initials(displayName)
+                    )}
+                  </Link>
+                  {needsKyc && (
+                    <span
+                      aria-hidden
+                      className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-amber-400 text-amber-950 border-2 border-downy-700 flex items-center justify-center text-[9px] font-extrabold leading-none"
+                    >
+                      !
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
           )}
         </div>

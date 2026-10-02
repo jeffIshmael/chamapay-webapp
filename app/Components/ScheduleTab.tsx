@@ -445,7 +445,7 @@ export default function ScheduleTab({
                 </span>
               </div>
             </div>
-            {isMe && status !== "completed" && (
+            {/* {isMe && status !== "completed" && (
               <div className="mt-2.5 p-2 bg-amber-50 rounded-lg">
                 <p className="text-[11px] text-amber-700">
                   {status === "next"
@@ -453,7 +453,7 @@ export default function ScheduleTab({
                     : "Your payout is coming up."}
                 </p>
               </div>
-            )}
+            )} */}
           </div>
         );
       })}

@@ -166,7 +166,7 @@ export interface BackendChama {
 }
 
 
-interface allUserDetails {
+export interface allUserDetails {
   user: {
     address: string;
     email: string;
@@ -180,6 +180,7 @@ interface allUserDetails {
     profileImageUrl: string;
     smartAddress: string;
     userName: string;
+    kycStatus: string;
   };
 }
 
@@ -934,6 +935,7 @@ export const getUserDetails = async (
         profileImageUrl: "",
         smartAddress: "",
         userName: "",
+        kycStatus:""
       },
     };
   }

@@ -16,9 +16,11 @@ import {
   FiFileText,
   FiInfo,
   FiLogOut,
+  FiShield,
 } from "react-icons/fi";
 import { FaWhatsapp } from "react-icons/fa";
 import { useAuth } from "@/app/context/AuthContext";
+import { useUser } from "@/context/UserContext";
 import { showToast } from "@/app/Components/Toast";
 import { serverUrl } from "@/lib/serverUrl";
 import {
@@ -68,6 +70,12 @@ export default function SettingsPage() {
     updateLocalUser,
   } = useAuth();
   const { currency, setCurrency } = useCurrencyStore();
+  const {
+    loading: kycLoading,
+    isKycApproved,
+    isKycPending,
+    needsKyc,
+  } = useUser();
   const fileRef = useRef<HTMLInputElement>(null);
   const currencyMenuRef = useRef<HTMLDivElement>(null);
 
@@ -164,6 +172,14 @@ export default function SettingsPage() {
       return;
     }
     router.push("/Settings/edit");
+  };
+
+  const handleVerifyDetails = () => {
+    if (isGuest) {
+      requireAccount();
+      return;
+    }
+    router.push("/Settings/verify");
   };
 
   const handlePhotoClick = () => {
@@ -269,14 +285,38 @@ export default function SettingsPage() {
               <p className="text-emerald-100 text-[11px] truncate mt-0.5">
                 {isGuest ? "Guest session" : user?.email || "No email provided"}
               </p>
-              <button
-                type="button"
-                onClick={handlePhotoClick}
-                disabled={imageUploading}
-                className="mt-1 text-[10px] font-semibold text-downy-200 underline underline-offset-2"
-              >
-                {imageUploading ? "Uploading…" : "Change profile photo"}
-              </button>
+              {isGuest ? null : kycLoading ? (
+                <div
+                  aria-hidden
+                  className="mt-1.5 h-3 w-28 rounded bg-white/25 animate-pulse"
+                />
+              ) : (
+                <div className="mt-1 flex items-center gap-2">
+                  <span className="flex items-center gap-1.5 text-[10px] font-semibold text-white/90">
+                    <span
+                      className={`h-2 w-2 rounded-full ${
+                        isKycApproved
+                          ? "bg-emerald-400"
+                          : "bg-amber-400 animate-pulse"
+                      }`}
+                    />
+                    {isKycApproved
+                      ? "Verified"
+                      : isKycPending
+                        ? "Pending review"
+                        : "Unverified"}
+                  </span>
+                  {needsKyc && (
+                    <button
+                      type="button"
+                      onClick={handleVerifyDetails}
+                      className="text-[10px] font-semibold text-amber-400 underline underline-offset-2"
+                    >
+                      Verify details
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -308,6 +348,60 @@ export default function SettingsPage() {
             <FiChevronRight size={16} className="text-emerald-500 shrink-0" />
           </div>
         </button>
+
+        {!isGuest && (
+          <button
+            type="button"
+            onClick={handleVerifyDetails}
+            disabled={kycLoading || isKycApproved || isKycPending}
+            className={`w-full text-left bg-white rounded-xl border shadow-sm p-3 disabled:cursor-default ${
+              needsKyc ? "border-amber-300" : "border-gray-100"
+            }`}
+          >
+            {kycLoading ? (
+              <div className="flex items-center gap-2.5 animate-pulse" aria-hidden>
+                <span className="h-9 w-9 rounded-lg bg-gray-100 shrink-0" />
+                <div className="flex-1 space-y-1.5">
+                  <div className="h-3 w-24 rounded bg-gray-100" />
+                  <div className="h-2.5 w-40 rounded bg-gray-100" />
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center justify-between gap-2.5">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <span
+                    className={`h-9 w-9 rounded-lg flex items-center justify-center shrink-0 ${
+                      isKycApproved
+                        ? "bg-emerald-100 text-emerald-600"
+                        : "bg-amber-100 text-amber-600"
+                    }`}
+                  >
+                    {isKycApproved ? (
+                      <FiCheck size={16} />
+                    ) : (
+                      <FiShield size={15} />
+                    )}
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-[13px] font-bold text-gray-900 leading-tight">
+                      Verify Details
+                    </p>
+                    <p className="text-[11px] text-gray-500 mt-0.5">
+                      {isKycApproved
+                        ? "Your identity is verified"
+                        : isKycPending
+                          ? "Your details are under review"
+                          : "Verify your identity to unlock deposits"}
+                    </p>
+                  </div>
+                </div>
+                {needsKyc && (
+                  <FiChevronRight size={16} className="text-amber-500 shrink-0" />
+                )}
+              </div>
+            )}
+          </button>
+        )}
 
         <div
           ref={currencyMenuRef}

@@ -24,9 +24,7 @@ export async function pretiumOnramp(
   goalId?: number
 ) {
   try {
-
     const url = useElementPay ? `${serverUrl}/elementpay/onramp` : `${serverUrl}/pretium/onramp`;
-
     const response = await fetch(url, {
       method: "POST",
       headers: {
@@ -77,8 +75,9 @@ export const checkPretiumPaymentStatus = async (
   token: string
 ) => {
   try {
+    const url = useElementPay ? `${serverUrl}/elementpay/status/${encodeURIComponent(transactionCode)}` : `${serverUrl}/pretium/status/${encodeURIComponent(transactionCode)}`;
     const response = await fetch(
-      `${serverUrl}/pretium/status/${encodeURIComponent(transactionCode)}`,
+      url,
       {
         method: "GET",
         headers: { Authorization: `Bearer ${token}` },

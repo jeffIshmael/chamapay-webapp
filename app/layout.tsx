@@ -5,6 +5,7 @@ import { BlockchainProviders } from "@/Providers/BlockchainProviders";
 import { Toaster } from "sonner";
 import { IsFarcasterProvider } from "./context/isFarcasterContext";
 import { AuthProvider } from "./context/AuthContext";
+import { UserProvider } from "@/context/UserContext";
 import AddToHomeScreen from "./Components/AddToHomeScreen";
 import CurrencyLocationBootstrap from "./Components/CurrencyLocationBootstrap";
 
@@ -55,10 +56,12 @@ export default function RootLayout({
               <BlockchainProviders>
                 <IsFarcasterProvider>
                   <AuthProvider>
+                    <UserProvider>
                     <Toaster position="top-center" richColors closeButton />
                     <CurrencyLocationBootstrap />
                     {children}
                     <AddToHomeScreen />
+                    </UserProvider>
                   </AuthProvider>
                 </IsFarcasterProvider>
               </BlockchainProviders>
