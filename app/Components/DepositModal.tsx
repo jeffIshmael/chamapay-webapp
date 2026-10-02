@@ -29,7 +29,7 @@ type Step =
 const FALLBACK_RATE = 132;
 const MIN_KES = 50;
 const MAX_KES = 250000;
-const PRESETS_KES = [50, 100, 500, 1000, 2000, 5000];
+const PRESETS_KES = [50, 100, 500, 1000, 2000];
 const NETWORK = "Safaricom";
 
 export default function DepositModal({
