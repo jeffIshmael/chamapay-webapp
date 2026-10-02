@@ -6,6 +6,7 @@ import { FiCheck, FiSearch, FiUser, FiX } from "react-icons/fi";
 import { isAddress } from "viem";
 import { showToast } from "./Toast";
 import { useAuth } from "@/app/context/AuthContext";
+import { useSessionAddress } from "@/lib/useSessionAddress";
 import { serverUrl } from "@/lib/serverUrl";
 import { internalTransferFee, maxSendableWithTransferFee } from "@/lib/transactionFees";
 import { useCurrencyStore } from "@/store/useCurrencyStore";
@@ -58,6 +59,7 @@ export default function SendModal({
   onSuccess?: () => void;
 }) {
   const { token, isAuthenticated } = useAuth();
+  const { address: myAddress } = useSessionAddress();
   const { currency, platformRate } = useCurrencyStore();
   const [mode, setMode] = useState<SendMode>("chamapay");
   const [kesMode, setKesMode] = useState(currency === "KES");
@@ -88,7 +90,12 @@ export default function SendModal({
           `${serverUrl}/user/search?query=${encodeURIComponent(q)}`
         );
         const data = await res.json();
-        setResults(data.success && data.users ? data.users : []);
+        const users: SearchUser[] = data.success && data.users ? data.users : [];
+        // you can't send to yourself, so never list your own account
+        const me = myAddress?.toLowerCase();
+        setResults(
+          me ? users.filter((u) => u.smartAddress?.toLowerCase() !== me) : users
+        );
       } catch {
         setResults([]);
       } finally {
@@ -96,7 +103,7 @@ export default function SendModal({
       }
     }, 350);
     return () => clearTimeout(t);
-  }, [query, mode, isOpen]);
+  }, [query, mode, isOpen, myAddress]);
 
   const reset = () => {
     setMode("chamapay");

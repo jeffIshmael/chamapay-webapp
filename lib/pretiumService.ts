@@ -157,7 +157,6 @@ export async function validatePhoneNumber(
         Authorization: `Bearer ${token}`,
       }
     });
-    console.log("Getting the value of verifying number.");
     return await response.json();
   } catch {
     return { success: false, error: "Failed to verify mobile network" };

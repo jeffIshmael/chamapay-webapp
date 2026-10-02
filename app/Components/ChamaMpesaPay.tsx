@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import React, { useEffect, useState } from "react";
-import { FiArrowLeft, FiCheck, FiSmartphone } from "react-icons/fi";
+import { FiArrowLeft, FiCheck } from "react-icons/fi";
 import { showToast } from "./Toast";
 import { useAuth } from "@/app/context/AuthContext";
 import {
@@ -29,6 +29,21 @@ const FALLBACK_RATE = 132;
 const MIN_KES = 50;
 const MAX_KES = 250000;
 const KYC_ROUTE = "/Settings/verify";
+
+/**
+ * The +254 is fixed on the left, so the field only holds the 9 digits after it.
+ * Accepts whatever the user types or pastes and reduces it to those 9 digits:
+ *   0712 345 678      -> 712345678   (typed 0 despite the +254)
+ *   +254 712 345 678  -> 712345678   (pasted full international number)
+ *   254712345678      -> 712345678
+ *   2540712345678     -> 712345678   (both prefixes)
+ */
+const sanitizePhone = (raw: string) => {
+  let d = raw.replace(/\D/g, "");
+  if (d.startsWith("254")) d = d.slice(3);
+  if (d.startsWith("0")) d = d.slice(1);
+  return d.slice(0, 9);
+};
 
 export default function ChamaMpesaPay({
   chamaId,
@@ -105,7 +120,12 @@ export default function ChamaMpesaPay({
 
   const kesAmt = parseFloat(kes) || 0;
   const usdcAmt = parseFloat(usdc) || 0;
-  const busy = step !== "idle" && step !== "failed" && step !== "completed";
+  const processing =
+    step === "initiating" ||
+    step === "waiting_for_pin" ||
+    step === "processing";
+  const busy = processing || step === "completed";
+  const kesCharged = Math.ceil(kesAmt); // what M-Pesa actually charges (whole shillings)
   const phoneOk = isValidKenyaPhone(phone);
   const amountOk = kesAmt >= MIN_KES && kesAmt <= MAX_KES;
   const canPay = phoneOk && amountOk && !busy && !isLoading;
@@ -182,17 +202,28 @@ export default function ChamaMpesaPay({
         }`,
         "success",
       );
-      setTimeout(() => onClose(), 1000);
+      setTimeout(() => onClose(), 1200);
     } catch (e: unknown) {
       setStep("failed");
-      const err = e as { status?: string; message?: string; error?: string };
+      const err = e as {
+        status?: string;
+        details?: { status?: string; message?: string };
+        message?: string;
+        error?: string;
+      };
+      // the poller rejects with the server result, so the status can live in details
+      const failStatus = err?.status || err?.details?.status;
+      const timedOut = failStatus === "timeout";
       showToast(
-        err?.status === "cancelled"
+        failStatus === "cancelled"
           ? "M-Pesa payment was cancelled"
-          : err?.status === "timeout"
-            ? "Payment timed out — try again"
-            : err?.message || err?.error || "Payment failed",
-        "error",
+          : timedOut
+            ? "Still confirming. Check your balance before trying again."
+            : err?.details?.message ||
+              err?.message ||
+              err?.error ||
+              "Payment failed",
+        timedOut ? "warning" : "error",
       );
       setTimeout(() => setStep("idle"), 1500);
     } finally {
@@ -251,13 +282,14 @@ export default function ChamaMpesaPay({
           </div>
           <button
             type="button"
+            disabled={busy || isLoading}
             onClick={() => {
               // M-Pesa KES must be whole shillings (no decimals)
               const kesFull = Math.ceil(remainingAmount * rate);
               setKes(String(kesFull));
               setUsdc(remainingAmount.toFixed(3));
             }}
-            className="shrink-0 bg-amber-600 text-white text-[11px] font-bold px-3 py-2 rounded-lg"
+            className="shrink-0 bg-amber-600 text-white text-[11px] font-bold px-3 py-2 rounded-lg disabled:opacity-50"
           >
             Pay Full
           </button>
@@ -268,23 +300,24 @@ export default function ChamaMpesaPay({
         <label className="block text-[11px] font-semibold text-gray-600 mb-1.5">
           M-Pesa number
         </label>
-        <div className="relative">
-          <FiSmartphone
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-            size={15}
-          />
+        <div className="flex overflow-hidden rounded-xl border border-gray-200 bg-white focus-within:ring-2 focus-within:ring-downy-500">
+          <span className="flex items-center px-3 bg-gray-50 border-r border-gray-200 text-[13px] font-bold text-gray-600">
+            +254
+          </span>
           <input
             type="tel"
+            inputMode="numeric"
+            autoComplete="tel-national"
             value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            placeholder="07XX XXX XXX"
+            onChange={(e) => setPhone(sanitizePhone(e.target.value))}
+            placeholder="7XX XXX XXX"
             disabled={busy || isLoading}
-            className="w-full rounded-xl border border-gray-200 pl-9 pr-3 py-2.5 text-[13px] outline-none focus:ring-2 focus:ring-downy-500"
+            className="flex-1 min-w-0 px-3 py-2.5 text-[13px] outline-none"
           />
         </div>
         {phone.length > 0 && !phoneOk && (
           <p className="text-[11px] text-red-600 mt-1 font-medium">
-            Enter a complete M-Pesa number (e.g. 0712 345 678)
+            Enter a complete M-Pesa number
           </p>
         )}
       </div>
@@ -298,6 +331,7 @@ export default function ChamaMpesaPay({
             <button
               type="button"
               onClick={() => setKesMode(true)}
+              disabled={busy || isLoading}
               className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${
                 kesMode ? "bg-downy-600 text-white" : "text-gray-500"
               }`}
@@ -307,6 +341,7 @@ export default function ChamaMpesaPay({
             <button
               type="button"
               onClick={() => setKesMode(false)}
+              disabled={busy || isLoading}
               className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${
                 !kesMode ? "bg-downy-600 text-white" : "text-gray-500"
               }`}
@@ -326,67 +361,97 @@ export default function ChamaMpesaPay({
           disabled={busy || isLoading}
           className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-[15px] font-bold outline-none focus:ring-2 focus:ring-downy-500"
         />
-        <p className="text-[11px] text-gray-500 mt-1">
+        <p className="text-[11px] flex justify-end text-gray-500 mt-1">
           {kesMode ? `≈ ${usdc || "0.000"} USDC` : `≈ ${kes || "0.00"} KES`}
-          {" · "}1 USDC = {rate} KES
         </p>
-        <div className="flex justify-between items-center mt-1 gap-2">
+        <div className="flex justify-between items-center mt-1.5">
           <p className="text-[11px] text-gray-500">
-            Min{" "}
+            Min:{" "}
             {kesMode
               ? `${MIN_KES.toLocaleString()} KES`
               : `${(Math.ceil((MIN_KES / rate) * 100) / 100).toFixed(2)} USDC`}
-            {" · "}Max{" "}
+          </p>
+          <p className="text-[11px] text-gray-500">
+            Max:{" "}
             {kesMode
               ? `${MAX_KES.toLocaleString()} KES`
               : `${(Math.floor((MAX_KES / rate) * 1000) / 1000).toFixed(3)} USDC`}
           </p>
-          {kesAmt > 0 && (kesAmt < MIN_KES || kesAmt > MAX_KES) && (
-            <p className="text-[11px] text-red-600 font-medium shrink-0">
-              {kesAmt < MIN_KES ? "Below minimum" : "Above maximum"}
-            </p>
-          )}
         </div>
+        {kesAmt > 0 && (kesAmt < MIN_KES || kesAmt > MAX_KES) && (
+          <p className="text-[11px] text-red-600 font-medium mt-1">
+            {kesAmt < MIN_KES ? "Below minimum" : "Above maximum"}
+          </p>
+        )}
       </div>
 
-      {step !== "idle" && step !== "failed" && (
-        <div className="bg-white rounded-2xl border border-downy-100 p-3.5 text-center">
+      {busy ? (
+        <div className="bg-white rounded-2xl border border-downy-100 p-5 text-center">
           {step === "completed" ? (
-            <FiCheck className="mx-auto text-emerald-500 mb-2" size={28} />
+            <>
+              <div className="h-12 w-12 mx-auto mb-3 rounded-full bg-emerald-50 flex items-center justify-center">
+                <FiCheck className="text-emerald-500" size={26} />
+              </div>
+              <p className="text-[14px] font-bold text-gray-900">
+                Payment complete
+              </p>
+              <p className="text-[12px] text-gray-500 mt-1">
+                {formatBalance(usdcAmt)} paid to {chamaName}
+                {recipientName ? ` for ${recipientName}` : ""}
+              </p>
+            </>
           ) : (
-            <div className="h-8 w-8 mx-auto mb-2 rounded-full border-2 border-downy-600 border-t-transparent animate-spin" />
+            <>
+              <div className="h-10 w-10 mx-auto mb-2 rounded-full border-[3px] border-downy-100 border-t-downy-600 animate-spin" />
+              <p className="text-[14px] font-bold text-gray-900">
+                {step === "initiating" && "Sending M-Pesa prompt…"}
+                {step === "waiting_for_pin" && "Check your phone"}
+                {step === "processing" && "Confirming payment…"}
+              </p>
+              <p className="text-[12px] text-gray-500 mt-1.5">
+                {step === "initiating" &&
+                  `Sending a payment request to ${toKenyaE164(phone)}`}
+                {step === "waiting_for_pin" &&
+                  "An M-Pesa prompt has been sent. Enter your PIN to approve the payment."}
+                {step === "processing" &&
+                  "Your payment was received. We're completing it now."}
+              </p>
+              <div className="mt-4 rounded-xl bg-downy-50 px-3 py-2.5">
+                <p className="text-[12px] text-gray-500">Amount</p>
+                <p className="text-[15px] font-bold text-gray-900">
+                  {kesCharged.toLocaleString("en-KE")}{" "}
+                  <span className="text-[12px] font-semibold text-gray-600">
+                    KES
+                  </span>
+                </p>
+              </div>
+            </>
           )}
-          <p className="text-[13px] font-bold text-gray-900">
-            {step === "initiating" && "Starting M-Pesa…"}
-            {step === "waiting_for_pin" && "Enter PIN on your phone"}
-            {step === "processing" && "Confirming payment…"}
-            {step === "completed" && "Payment complete"}
-          </p>
         </div>
+      ) : (
+        <button
+          type="button"
+          onClick={needsKyc ? goVerify : handlePay}
+          disabled={needsKyc ? false : !canPay}
+          className={`w-full py-3 rounded-xl text-[13px] font-bold transition-all ${
+            needsKyc
+              ? "border border-amber-400 bg-amber-50 text-amber-600 shadow-md shadow-amber-600/10"
+              : !canPay
+                ? "bg-gray-300 text-white"
+                : "bg-downy-600 text-white shadow-md shadow-downy-600/25"
+          }`}
+        >
+          {needsKyc ? (
+            <span className="inline-flex items-center justify-center gap-1.5 underline underline-offset-2">
+              Verify details to pay
+            </span>
+          ) : isLoading ? (
+            "Processing…"
+          ) : (
+            "Pay with M-Pesa"
+          )}
+        </button>
       )}
-
-      <button
-        type="button"
-        onClick={needsKyc ? goVerify : handlePay}
-        disabled={needsKyc ? false : !canPay}
-        className={`w-full py-3 rounded-xl text-[13px] font-bold transition-all ${
-          needsKyc
-            ? "border border-amber-400 bg-amber-50 text-amber-600 shadow-md shadow-amber-600/10"
-            : !canPay
-              ? "bg-gray-300 text-white"
-              : "bg-downy-600 text-white shadow-md shadow-downy-600/25"
-        }`}
-      >
-        {needsKyc ? (
-          <span className="inline-flex items-center justify-center gap-1.5 underline underline-offset-2">
-            Verify details to pay
-          </span>
-        ) : busy || isLoading ? (
-          "Processing…"
-        ) : (
-          "Pay with M-Pesa"
-        )}
-      </button>
     </div>
   );
 }

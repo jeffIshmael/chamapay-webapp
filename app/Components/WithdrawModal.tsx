@@ -147,8 +147,6 @@ export default function WithdrawModal({
         validatePhoneNumber(local, token),
         getOfframpQuote(token, kesAmt.toFixed(2), local),
       ]);
-      console.log("The name response", nameRes);
-      console.log("The auote", q);
       if (!nameRes.success) {
         setVerifyError(nameRes.error || "Could not verify number");
         setStep("idle");

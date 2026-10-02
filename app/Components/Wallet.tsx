@@ -20,6 +20,7 @@ import { motion } from "framer-motion";
 import {
   FiEye,
   FiEyeOff,
+  FiRefreshCw,
   FiCopy,
   FiSend,
   FiArrowUpRight,
@@ -225,13 +226,28 @@ const Wallet = () => {
               <p className="text-white/80 text-[11px] font-semibold tracking-wide uppercase">
                 Your balance
               </p>
-              <button
-                type="button"
-                onClick={() => setBalanceVisible((v) => !v)}
-                className="text-white/80 bg-transparent p-1"
-              >
-                {balanceVisible ? <FiEye size={14} /> : <FiEyeOff size={14} />}
-              </button>
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={fetchBalances}
+                  disabled={!token || isRefreshingBalance}
+                  aria-label="Refresh balance"
+                  className="text-white/80 bg-transparent p-1 disabled:opacity-60"
+                >
+                  <FiRefreshCw
+                    size={14}
+                    className={isRefreshingBalance ? "animate-spin" : ""}
+                  />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setBalanceVisible((v) => !v)}
+                  aria-label={balanceVisible ? "Hide balance" : "Show balance"}
+                  className="text-white/80 bg-transparent p-1"
+                >
+                  {balanceVisible ? <FiEye size={14} /> : <FiEyeOff size={14} />}
+                </button>
+              </div>
             </div>
 
             <div className="mt-2">
