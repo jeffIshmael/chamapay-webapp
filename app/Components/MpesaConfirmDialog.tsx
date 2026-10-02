@@ -22,19 +22,31 @@ type Props = {
   recipientName?: string;
   phoneDisplay?: string;
   rows: MpesaConfirmRow[];
+  /** Optional footnote. Nothing is shown unless a caller passes one. */
   notice?: string;
 };
 
-function rowClass(tone: MpesaConfirmRow["tone"]) {
+function labelClass(tone: MpesaConfirmRow["tone"]) {
+  switch (tone) {
+    case "emphasis":
+      return "text-[13px] font-semibold text-gray-900";
+    case "muted":
+      return "text-[11px] text-gray-400";
+    default:
+      return "text-xs text-gray-500";
+  }
+}
+
+function valueClass(tone: MpesaConfirmRow["tone"]) {
   switch (tone) {
     case "fee":
-      return "text-sm font-bold text-amber-600";
+      return "text-[13px] font-semibold text-amber-600";
     case "emphasis":
-      return "text-lg font-black text-downy-800";
+      return "text-base font-bold text-downy-800";
     case "muted":
-      return "text-xs font-bold text-gray-800";
+      return "text-[11px] font-medium text-gray-600";
     default:
-      return "text-sm font-bold text-gray-900";
+      return "text-[13px] font-semibold text-gray-900";
   }
 }
 
@@ -51,7 +63,7 @@ export default function MpesaConfirmDialog({
   recipientName,
   phoneDisplay,
   rows,
-  notice = "Funds will move instantly once you confirm.",
+  notice,
 }: Props) {
   return (
     <Dialog
@@ -65,128 +77,124 @@ export default function MpesaConfirmDialog({
       <div className="app-modal-layer !pointer-events-auto !justify-center">
         <div className="app-modal-backdrop" aria-hidden="true" />
         <Dialog.Panel className="relative w-[calc(100%-2rem)] max-w-[400px] mx-4 rounded-[28px] bg-white shadow-2xl overflow-hidden border border-downy-100">
-          <div className="bg-downy-50/90 py-6 px-5 border-b border-downy-100/60 text-center">
-            <div className="mx-auto mb-2 flex h-14 w-14 items-center justify-center">
+          <div className="bg-downy-50/90 pt-4 pb-3.5 px-5 border-b border-downy-100/60 text-center">
+            <div className="mx-auto mb-1.5 flex h-10 w-10 items-center justify-center">
               <Image
                 src="/static/images/mpesa.png"
                 alt="M-Pesa"
-                width={56}
-                height={56}
+                width={40}
+                height={40}
                 className="object-contain"
               />
             </div>
-            <Dialog.Title className="text-xl font-black text-downy-900 tracking-tight">
+            <Dialog.Title className="text-base font-bold text-downy-900">
               {title}
             </Dialog.Title>
-            <p className="text-[10px] text-downy-600 mt-1 uppercase tracking-widest font-black">
+            <p className="text-[9px] text-downy-600 mt-0.5 uppercase tracking-widest font-bold">
               {subtitle}
             </p>
           </div>
 
-          <div className="p-5">
+          <div className="p-4">
             {verifying ? (
-              <div className="flex flex-col items-center py-10">
-                <div className="h-9 w-9 rounded-full border-2 border-downy-600 border-t-transparent animate-spin mb-3" />
-                <p className="text-sm font-bold text-downy-800">
+              <div className="flex flex-col items-center py-8">
+                <div className="h-7 w-7 rounded-full border-2 border-downy-600 border-t-transparent animate-spin mb-2.5" />
+                <p className="text-[13px] font-semibold text-downy-800">
                   Verifying recipient information…
                 </p>
-                <p className="text-xs text-gray-500 mt-1">
+                <p className="text-[11px] text-gray-500 mt-1">
                   Checking phone registration status
                 </p>
               </div>
             ) : error ? (
-              <div className="text-center py-4">
-                <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-red-50 border border-red-200">
-                  <span className="text-2xl" aria-hidden>
+              <div className="text-center py-2">
+                <div className="mx-auto mb-2.5 flex h-11 w-11 items-center justify-center rounded-full bg-red-50 border border-red-200">
+                  <span className="text-xl text-red-500" aria-hidden>
                     !
                   </span>
                 </div>
-                <p className="text-base font-bold text-red-600">
+                <p className="text-sm font-bold text-red-600">
                   Verification Failed
                 </p>
-                <p className="text-sm text-gray-500 mt-2 px-2 leading-5">
+                <p className="text-xs text-gray-500 mt-1.5 px-2 leading-5">
                   {error}
                 </p>
                 <button
                   type="button"
                   onClick={onClose}
-                  className="mt-6 w-full py-3.5 rounded-2xl bg-gray-100 border border-gray-200 text-sm font-bold text-gray-800"
+                  className="mt-4 w-full py-3 rounded-2xl bg-gray-100 border border-gray-200 text-[13px] font-bold text-gray-800"
                 >
                   Try Again
                 </button>
               </div>
             ) : (
               <>
-                <div className="space-y-3">
-                  <div className="rounded-2xl bg-gray-50/90 border border-gray-100 p-4 shadow-sm">
-                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3">
+                <div className="space-y-2.5">
+                  <div className="rounded-2xl bg-gray-50/90 border border-gray-100 px-3.5 py-3">
+                    <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-2">
                       Recipient account
                     </p>
-                    <div className="flex items-center justify-between mb-3 pb-3 border-b border-gray-200/60">
-                      <span className="text-sm text-gray-500">Name</span>
-                      <span className="text-sm font-black text-gray-900 text-right max-w-[60%]">
+                    <div className="flex items-center justify-between pb-2 mb-2 border-b border-gray-200/60">
+                      <span className="text-xs text-gray-500">Name</span>
+                      <span className="text-[13px] font-semibold text-gray-900 text-right max-w-[60%] truncate">
                         {recipientName || "—"}
                       </span>
                     </div>
                     <div className="flex items-center justify-between">
-                      <span className="text-sm text-gray-500">Phone Number</span>
-                      <span className="text-sm font-black text-downy-700">
+                      <span className="text-xs text-gray-500">Phone number</span>
+                      <span className="text-[13px] font-semibold text-downy-700">
                         {phoneDisplay || "—"}
                       </span>
                     </div>
                   </div>
 
-                  <div className="rounded-2xl bg-downy-50/60 border border-downy-100/60 p-4 shadow-sm">
-                    <p className="text-[10px] font-black text-downy-600/70 uppercase tracking-widest mb-3">
+                  <div className="rounded-2xl bg-downy-50/60 border border-downy-100/60 px-3.5 py-3">
+                    <p className="text-[9px] font-bold text-downy-600/70 uppercase tracking-widest mb-2">
                       Transaction value
                     </p>
-                    {rows.map((row, i) => {
-                      const isLast = i === rows.length - 1;
-                      const bordered =
-                        row.tone === "emphasis" || row.tone === "muted";
-                      return (
-                        <div
-                          key={`${row.label}-${i}`}
-                          className={`flex items-center justify-between ${
-                            bordered
-                              ? "pt-2 mt-1 border-t border-downy-100/40"
-                              : "mb-2"
-                          } ${isLast ? "" : ""}`}
-                        >
-                          <span
-                            className={
-                              row.tone === "emphasis"
-                                ? "text-sm text-gray-900 font-bold"
-                                : row.tone === "muted"
-                                  ? "text-xs text-gray-500 font-semibold"
-                                  : "text-sm text-gray-600 font-medium"
-                            }
+                    <div className="space-y-1.5">
+                      {rows.map((row, i) => {
+                        // One divider where the summary starts (the first emphasis/muted row),
+                        // not a line above every muted row.
+                        const grouped =
+                          row.tone === "emphasis" || row.tone === "muted";
+                        const prev = rows[i - 1];
+                        const prevGrouped =
+                          prev?.tone === "emphasis" || prev?.tone === "muted";
+                        const startsGroup = grouped && !prevGrouped;
+                        return (
+                          <div
+                            key={`${row.label}-${i}`}
+                            className={`flex items-center justify-between ${
+                              startsGroup
+                                ? "pt-2 mt-2 border-t border-downy-100/60"
+                                : ""
+                            }`}
                           >
-                            {row.label}
-                          </span>
-                          <span className={rowClass(row.tone)}>
-                            {row.value}
-                          </span>
-                        </div>
-                      );
-                    })}
+                            <span className={labelClass(row.tone)}>
+                              {row.label}
+                            </span>
+                            <span className={valueClass(row.tone)}>
+                              {row.value}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
 
-                  <div className="rounded-2xl bg-amber-50 border border-amber-100 px-3.5 py-3 flex gap-2.5 items-start mb-4">
-                    <span className="text-base leading-none mt-0.5" aria-hidden>
-                      ⚡
-                    </span>
-                    <p className="text-[11px] text-amber-800 font-medium leading-4 flex-1">
+                  {notice && (
+                    <p className="px-1 text-[11px] text-gray-400 leading-4">
                       {notice}
                     </p>
-                  </div>
+                  )}
                 </div>
 
-                <div className="flex gap-3">
+                <div className="flex gap-2.5 mt-4">
                   <button
                     type="button"
                     onClick={onClose}
-                    className="flex-1 py-3.5 rounded-2xl border border-gray-300 text-sm font-bold text-gray-600"
+                    className="flex-1 py-3 rounded-2xl border border-gray-300 text-[13px] font-semibold text-gray-600"
                   >
                     Cancel
                   </button>
@@ -194,7 +202,7 @@ export default function MpesaConfirmDialog({
                     type="button"
                     onClick={onConfirm}
                     disabled={confirmDisabled}
-                    className={`flex-[1.5] py-3.5 rounded-2xl text-sm font-bold shadow-md ${
+                    className={`flex-[1.5] py-3 rounded-2xl text-[13px] font-bold shadow-md ${
                       confirmDisabled
                         ? "bg-gray-200 text-gray-400"
                         : "bg-downy-600 text-white shadow-downy-100"

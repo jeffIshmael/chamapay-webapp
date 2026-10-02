@@ -1,4 +1,5 @@
 import { serverUrl } from "@/lib/serverUrl";
+import { Console } from "console";
 
 const useElementPay = process.env.NEXT_PUBLIC_USE_ELEMENTPAY === "true";
 
@@ -145,28 +146,18 @@ export const pollPretiumPaymentStatus = async (
 };
 
 export async function validatePhoneNumber(
-  currencyCode: CurrencyCode,
-  type: string,
-  mobileNetwork: string,
   shortcode: string,
   token: string,
-  accountNumber?: string
 ) {
   try {
-    const response = await fetch(`${serverUrl}/pretium/verify/mobileNetwork`, {
-      method: "POST",
+    const response = await fetch(`${serverUrl}/pretium/verify?phoneNo=${shortcode}`, {
+      method: "GET",
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({
-        currencyCode,
-        mobileNetwork,
-        type,
-        shortcode,
-        accountNumber,
-      }),
+      }
     });
+    console.log("Getting the value of verifying number.");
     return await response.json();
   } catch {
     return { success: false, error: "Failed to verify mobile network" };

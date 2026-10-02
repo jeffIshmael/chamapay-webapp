@@ -144,9 +144,11 @@ export default function WithdrawModal({
       const local = `0${normalizeKenyaPhoneLocal(phone)}`;
       // who we are paying (Pretium lookup) + the binding Element Pay quote, in parallel
       const [nameRes, q] = await Promise.all([
-        validatePhoneNumber("KES", "mobile", NETWORK, local, token),
+        validatePhoneNumber(local, token),
         getOfframpQuote(token, kesAmt.toFixed(2), local),
       ]);
+      console.log("The name response", nameRes);
+      console.log("The auote", q);
       if (!nameRes.success) {
         setVerifyError(nameRes.error || "Could not verify number");
         setStep("idle");
