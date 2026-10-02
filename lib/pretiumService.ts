@@ -93,40 +93,38 @@ export const pollPretiumPaymentStatus = async (
   transactionCode: string,
   token: string,
   onStatusUpdate: (status: string, result?: unknown) => void,
-  maxAttempts = 30,
+  maxAttempts = 90, // ~3 minutes
   interval = 2000
 ): Promise<unknown> => {
   let attempts = 0;
+  let failures = 0;
 
   return new Promise((resolve, reject) => {
     const pollInterval = setInterval(async () => {
       attempts++;
       try {
         const result = await checkPretiumPaymentStatus(transactionCode, token);
+
         if (!result.success) {
-          clearInterval(pollInterval);
-          reject(result);
+          // tolerate occasional bad responses instead of aborting a payment that may still complete
+          if (++failures >= 5) {
+            clearInterval(pollInterval);
+            reject(result);
+          }
           return;
         }
+        failures = 0;
 
-        const transactionStatus =
-          result.details?.status?.toLowerCase() || "";
+        const transactionStatus = result.details?.status?.toLowerCase() || "";
         onStatusUpdate(transactionStatus, result);
 
-        if (
-          transactionStatus === "completed" ||
-          transactionStatus === "complete"
-        ) {
+        if (transactionStatus === "completed" || transactionStatus === "complete") {
           clearInterval(pollInterval);
           resolve(result);
           return;
         }
 
-        if (
-          ["failed", "cancelled", "timeout", "expired"].includes(
-            transactionStatus
-          )
-        ) {
+        if (["failed", "cancelled", "timeout", "expired"].includes(transactionStatus)) {
           clearInterval(pollInterval);
           reject(result);
           return;
@@ -134,15 +132,13 @@ export const pollPretiumPaymentStatus = async (
 
         if (attempts >= maxAttempts) {
           clearInterval(pollInterval);
-          reject({
-            success: false,
-            status: "timeout",
-            error: "Payment verification timed out",
-          });
+          reject({ success: false, status: "timeout", error: "Payment verification timed out" });
         }
       } catch (error) {
-        clearInterval(pollInterval);
-        reject(error);
+        if (++failures >= 5) {
+          clearInterval(pollInterval);
+          reject(error);
+        }
       }
     }, interval);
   });
