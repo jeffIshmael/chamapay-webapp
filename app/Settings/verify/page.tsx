@@ -839,8 +839,8 @@ export default function VerifyDetailsPage() {
             </h2>
 
             <p className="mt-1.5 text-[12px] text-gray-500 leading-relaxed">
-              Thanks! We're reviewing your information.
-              You'll be able to use all features once
+              Thanks! We&apos;re reviewing your information.
+              You&apos;ll be able to use all features once
               your verification is approved.
             </p>
 
