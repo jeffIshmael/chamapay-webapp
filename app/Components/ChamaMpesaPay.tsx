@@ -14,6 +14,8 @@ import {
 import { isValidKenyaPhone, toKenyaE164 } from "@/lib/phoneUtils";
 import { useCurrencyStore } from "@/store/useCurrencyStore";
 import { useFormattedBalance } from "@/lib/useFormattedBalance";
+import { useUser } from "@/context/UserContext";
+import { useRouter } from "next/navigation";
 
 type Step =
   | "idle"
@@ -24,8 +26,9 @@ type Step =
   | "failed";
 
 const FALLBACK_RATE = 132;
-const MIN_KES = 100;
+const MIN_KES = 50;
 const MAX_KES = 250000;
+const KYC_ROUTE = "/Settings/verify";
 
 export default function ChamaMpesaPay({
   chamaId,
@@ -64,6 +67,8 @@ export default function ChamaMpesaPay({
   const [kesMode, setKesMode] = useState(currency === "KES");
   const [rate, setRate] = useState(storeRate > 0 ? storeRate : FALLBACK_RATE);
   const [step, setStep] = useState<Step>("idle");
+  const router = useRouter();
+  const { needsKyc } = useUser();
 
   useEffect(() => {
     getExchangeRate("KES").then((res) => {
@@ -105,6 +110,11 @@ export default function ChamaMpesaPay({
   const amountOk = kesAmt >= MIN_KES && kesAmt <= MAX_KES;
   const canPay = phoneOk && amountOk && !busy && !isLoading;
 
+  const goVerify = () => {
+    onClose();
+    router.push(KYC_ROUTE);
+  };
+
   const handlePay = async () => {
     if (!isAuthenticated || !token) {
       showToast("Please sign in", "warning");
@@ -141,14 +151,14 @@ export default function ChamaMpesaPay({
         isMoonwellDeposit || goalId ? undefined : chamaId,
         memberForId,
         isMoonwellDeposit,
-        goalId
+        goalId,
       );
       if (!result.success) {
         if (result.code === "KYC_REQUIRED") {
           setStep("idle");
           showToast(
             result.error || "Verify your identity to increase limits",
-            "warning"
+            "warning",
           );
           return;
         }
@@ -158,23 +168,19 @@ export default function ChamaMpesaPay({
       setStep("waiting_for_pin");
       const code = extractTransactionCode(result);
       if (!code) throw new Error("No transaction code received");
-      await pollPretiumPaymentStatus(
-        code,
-        token,
-        (status) => {
-          if (status === "pending") setStep("waiting_for_pin");
-          else if (["pending_transfer", "processing"].includes(status))
-            setStep("processing");
-          else if (["completed", "complete"].includes(status))
-            setStep("completed");
-        }
-      );
+      await pollPretiumPaymentStatus(code, token, (status) => {
+        if (status === "pending") setStep("waiting_for_pin");
+        else if (["pending_transfer", "processing"].includes(status))
+          setStep("processing");
+        else if (["completed", "complete"].includes(status))
+          setStep("completed");
+      });
       setStep("completed");
       showToast(
         `${formatBalance(usdcAmt)} paid to ${chamaName}${
           recipientName ? ` for ${recipientName}` : ""
         }`,
-        "success"
+        "success",
       );
       setTimeout(() => onClose(), 1000);
     } catch (e: unknown) {
@@ -186,7 +192,7 @@ export default function ChamaMpesaPay({
           : err?.status === "timeout"
             ? "Payment timed out — try again"
             : err?.message || err?.error || "Payment failed",
-        "error"
+        "error",
       );
       setTimeout(() => setStep("idle"), 1500);
     } finally {
@@ -216,7 +222,7 @@ export default function ChamaMpesaPay({
           />
           <div className="min-w-0">
             <h3 className="text-[15px] font-semibold text-gray-800">
-              Pay with M-Pesa
+              Pay via M-Pesa
             </h3>
             <p className="text-[11px] text-gray-500 truncate">
               {recipientName ? `For ${recipientName}` : chamaName}
@@ -321,9 +327,7 @@ export default function ChamaMpesaPay({
           className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-[15px] font-bold outline-none focus:ring-2 focus:ring-downy-500"
         />
         <p className="text-[11px] text-gray-500 mt-1">
-          {kesMode
-            ? `≈ ${usdc || "0.000"} USDC`
-            : `≈ ${kes || "0.00"} KES`}
+          {kesMode ? `≈ ${usdc || "0.000"} USDC` : `≈ ${kes || "0.00"} KES`}
           {" · "}1 USDC = {rate} KES
         </p>
         <div className="flex justify-between items-center mt-1 gap-2">
@@ -363,15 +367,25 @@ export default function ChamaMpesaPay({
 
       <button
         type="button"
-        onClick={handlePay}
-        disabled={!canPay}
-        className={`w-full py-3 rounded-xl text-[13px] font-bold text-white ${
-          !canPay
-            ? "bg-gray-300"
-            : "bg-downy-600 shadow-md shadow-downy-600/25"
+        onClick={needsKyc ? goVerify : handlePay}
+        disabled={needsKyc ? false : !canPay}
+        className={`w-full py-3 rounded-xl text-[13px] font-bold transition-all ${
+          needsKyc
+            ? "border border-amber-400 bg-amber-50 text-amber-600 shadow-md shadow-amber-600/10"
+            : !canPay
+              ? "bg-gray-300 text-white"
+              : "bg-downy-600 text-white shadow-md shadow-downy-600/25"
         }`}
       >
-        {busy || isLoading ? "Processing…" : "Pay with M-Pesa"}
+        {needsKyc ? (
+          <span className="inline-flex items-center justify-center gap-1.5 underline underline-offset-2">
+            Verify details to pay
+          </span>
+        ) : busy || isLoading ? (
+          "Processing…"
+        ) : (
+          "Pay with M-Pesa"
+        )}
       </button>
     </div>
   );

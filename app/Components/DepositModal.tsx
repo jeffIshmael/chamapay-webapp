@@ -11,11 +11,10 @@ import {
   pollPretiumPaymentStatus,
   pretiumOnramp,
 } from "@/lib/pretiumService";
-import {
-  isValidKenyaPhone,
-  toKenyaE164,
-} from "@/lib/phoneUtils";
+import { isValidKenyaPhone, toKenyaE164 } from "@/lib/phoneUtils";
 import { useCurrencyStore } from "@/store/useCurrencyStore";
+import { useUser } from "@/context/UserContext";
+import { useRouter } from "next/navigation";
 
 type Step =
   | "idle"
@@ -31,6 +30,7 @@ const MIN_KES = 50;
 const MAX_KES = 250000;
 const PRESETS_KES = [50, 100, 500, 1000, 2000];
 const NETWORK = "Safaricom";
+const KYC_ROUTE = "/Settings/verify";
 
 export default function DepositModal({
   isOpen,
@@ -46,7 +46,9 @@ export default function DepositModal({
   const [kes, setKes] = useState("");
   const [rate, setRate] = useState(FALLBACK_RATE);
   const [step, setStep] = useState<Step>("idle");
-  const {currency} = useCurrencyStore();
+  const { currency } = useCurrencyStore();
+  const router = useRouter();
+  const { needsKyc } = useUser();
 
   useEffect(() => {
     if (!isOpen) return;
@@ -64,6 +66,12 @@ export default function DepositModal({
     setPhone("");
     setKes("");
     setStep("idle");
+  };
+
+  const goVerify = () => {
+    reset();
+    onClose();
+    router.push(KYC_ROUTE);
   };
 
   const onKesChange = (v: string): void => {
@@ -100,7 +108,10 @@ export default function DepositModal({
       return;
     }
     if (kesAmt > MAX_KES) {
-      showToast(`Maximum deposit is KES ${MAX_KES.toLocaleString()}`, "warning");
+      showToast(
+        `Maximum deposit is KES ${MAX_KES.toLocaleString()}`,
+        "warning",
+      );
       return;
     }
 
@@ -112,7 +123,7 @@ export default function DepositModal({
         rate,
         usdcAmt,
         true,
-        token
+        token,
       );
 
       if (!result.success) {
@@ -120,7 +131,7 @@ export default function DepositModal({
           setStep("idle");
           showToast(
             result.error || "Verify your identity to increase deposit limits",
-            "warning"
+            "warning",
           );
           return;
         }
@@ -137,7 +148,7 @@ export default function DepositModal({
             setStep("processing");
           else if (["completed", "complete"].includes(status))
             setStep("completed");
-        }
+        },
       );
       setStep("completed");
       showToast(`Deposited KES ${kesAmt.toLocaleString()}`, "success");
@@ -168,7 +179,7 @@ export default function DepositModal({
     }
   };
 
-  const close = () =>{
+  const close = () => {
     if (processing) {
       showToast("Please wait for the deposit to complete", "warning");
       return;
@@ -189,7 +200,7 @@ export default function DepositModal({
             <div className="flex items-center justify-between min-h-[40px]">
               <div className="w-8" />
               <Dialog.Title className="text-[15px] font-bold flex items-center gap-2">
-                Deposit via 
+                Deposit via
                 <Image
                   src="/static/images/mpesa.png"
                   alt="M-Pesa"
@@ -248,7 +259,7 @@ export default function DepositModal({
                   Amount (KES)
                 </label>
                 <span className="text-[10px] font-semibold text-gray-400">
-                 1 USDC = {rate.toFixed(2)} KES
+                  1 USDC = {rate.toFixed(2)} KES
                 </span>
               </div>
 
@@ -272,7 +283,7 @@ export default function DepositModal({
                   Min: {MIN_KES.toLocaleString()} KES
                 </p>
                 <p className="text-[11px] text-gray-500">
-                Max: {MAX_KES.toLocaleString()} KES
+                  Max: {MAX_KES.toLocaleString()} KES
                 </p>
               </div>
 
@@ -300,22 +311,20 @@ export default function DepositModal({
             {kesAmt > 0 && amountOk && (
               <div className="bg-white rounded-xl border border-downy-100 px-3 py-2.5 space-y-1">
                 <div className="flex justify-between text-gray-900">
-                  <span className="font-bold text-[13px]" >Total deposit</span>
+                  <span className="font-bold text-[13px]">Total deposit</span>
                   <div className="flex flex-col items-end gap-1">
-                  <span className="font-bold">
-                    KES{" "}
-                    {kesAmt.toLocaleString("en-KE", {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 2,
-                    })}
-                  </span>
-                  <span className="font-small text-gray-500 text-[10px]">
-                    = {" "}
-                    {usdcAmt.toFixed(3)}
-                    <span className="text-gray-500"> USDC</span>
-                  </span>
+                    <span className="font-bold">
+                      KES{" "}
+                      {kesAmt.toLocaleString("en-KE", {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}
+                    </span>
+                    <span className="font-small text-gray-500 text-[10px]">
+                      = {usdcAmt.toFixed(3)}
+                      <span className="text-gray-500"> USDC</span>
+                    </span>
                   </div>
-                 
                 </div>
                 {/* <div className="flex justify-between text-gray-900 font-bold">
                   <span>You receive</span>
@@ -335,10 +344,10 @@ export default function DepositModal({
                       Deposit complete
                     </p>
                     <p className="text-[12px] text-gray-500 mt-1">
-                      {
-                        currency === "KES" ? + kesAmt + "Kes" : + usdcAmt.toFixed(3) + "USDC"
-                      }
-                       added to your wallet
+                      {currency === "KES"
+                        ? +kesAmt + "Kes"
+                        : +usdcAmt.toFixed(3) + "USDC"}
+                      added to your wallet
                     </p>
                   </>
                 ) : (
@@ -360,7 +369,10 @@ export default function DepositModal({
                     <div className="mt-4 rounded-xl bg-downy-50 px-3 py-2.5">
                       <p className="text-[12px] text-gray-500">Amount</p>
                       <p className="text-[15px] font-bold text-gray-900">
-                        {kesAmt.toLocaleString("en-KE")} <span className="text-[12px] font-semibold text-gray-600">KES</span> 
+                        {kesAmt.toLocaleString("en-KE")}{" "}
+                        <span className="text-[12px] font-semibold text-gray-600">
+                          KES
+                        </span>
                       </p>
                     </div>
                   </>
@@ -369,21 +381,28 @@ export default function DepositModal({
             ) : (
               <button
                 type="button"
-                onClick={startDeposit}
-                disabled={!canSubmit}
-                className={`w-full py-3 rounded-xl text-[13px] font-bold text-white ${
-                  !canSubmit
-                    ? "bg-gray-300"
-                    : "bg-downy-600 shadow-md shadow-downy-600/25"
+                onClick={needsKyc ? goVerify : startDeposit}
+                disabled={needsKyc ? false : !canSubmit}
+                className={`w-full py-3 rounded-xl text-[13px] font-bold transition-all ${
+                  needsKyc
+                    ? "border border-amber-400 bg-amber-50 text-amber-600 shadow-md shadow-amber-600/10"
+                    : !canSubmit
+                      ? "bg-gray-300 text-white"
+                      : "bg-downy-600 text-white shadow-md shadow-downy-600/25"
                 }`}
               >
-                Deposit
+                {needsKyc ? (
+                  <span className="inline-flex items-center justify-center gap-1.5 underline underline-offset-2">
+                    Verify details to deposit
+                  </span>
+                ) : (
+                  "Deposit"
+                )}
               </button>
             )}
           </div>
         </Dialog.Panel>
       </div>
-
     </Dialog>
   );
 }
