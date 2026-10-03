@@ -294,7 +294,7 @@ export default function DepositModal({
               )}
             </div>
 
-            <div className="flex gap-1.5 flex-wrap justify-end">
+            <div className="flex gap-1.5 flex-wrap">
               {PRESETS_KES.map((p) => (
                 <button
                   key={p}
