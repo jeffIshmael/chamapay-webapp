@@ -206,20 +206,34 @@ export default function WithdrawModal({
           if (status === "processing") setPhase("Sending to M-Pesa…");
         },
         90,
-        2000
+        2000,
+        "elementpay" // this order lives in Element Pay, whatever the on-ramp flag says
       );
 
       setReceivedKes(res.kes?.receive ?? quote.kes.receive);
       setStep("completed");
       onSuccess?.();
     } catch (e: unknown) {
-      setStep("failed");
       const err = e as {
         message?: string;
         error?: string;
         status?: string;
         details?: { message?: string };
       };
+      if (err?.status === "timeout") {
+        // Not a failure: the payout is still moving and the server will finish it (webhook, polling
+        // fallback, sweeper). Refresh the balance and let the user go instead of showing "failed".
+        showToast(
+          "Still processing. Your M-Pesa and balance will update shortly.",
+          "warning"
+        );
+        setStep("idle");
+        onSuccess?.();
+        reset();
+        onClose();
+        return;
+      }
+      setStep("failed");
       showToast(
         err?.status === "timeout"
           ? "Still processing. Your M-Pesa and balance will update shortly."

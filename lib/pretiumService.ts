@@ -73,10 +73,12 @@ export async function getExchangeRate(currencyCode: CurrencyCode = "KES") {
 
 export const checkPretiumPaymentStatus = async (
   transactionCode: string,
-  token: string
+  token: string,
+  provider?: "elementpay" | "pretium" // default: follow NEXT_PUBLIC_USE_ELEMENTPAY (on-ramp behaviour unchanged)
 ) => {
   try {
-    const url = useElementPay ? `${serverUrl}/elementpay/status/${encodeURIComponent(transactionCode)}` : `${serverUrl}/pretium/status/${encodeURIComponent(transactionCode)}`;
+    const viaElementPay = provider ? provider === "elementpay" : useElementPay;
+    const url = viaElementPay ? `${serverUrl}/elementpay/status/${encodeURIComponent(transactionCode)}` : `${serverUrl}/pretium/status/${encodeURIComponent(transactionCode)}`;
     const response = await fetch(
       url,
       {
@@ -95,7 +97,8 @@ export const pollPretiumPaymentStatus = async (
   token: string,
   onStatusUpdate: (status: string, result?: unknown) => void,
   maxAttempts = 90, // ~3 minutes
-  interval = 2000
+  interval = 2000,
+  provider?: "elementpay" | "pretium"
 ): Promise<unknown> => {
   let attempts = 0;
   let failures = 0;
@@ -104,7 +107,7 @@ export const pollPretiumPaymentStatus = async (
     const pollInterval = setInterval(async () => {
       attempts++;
       try {
-        const result = await checkPretiumPaymentStatus(transactionCode, token);
+        const result = await checkPretiumPaymentStatus(transactionCode, token, provider);
 
         if (!result.success) {
           // tolerate occasional bad responses instead of aborting a payment that may still complete
