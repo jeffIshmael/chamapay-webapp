@@ -28,7 +28,7 @@ type Step =
 const FALLBACK_RATE = 132;
 const MIN_KES = 50;
 const MAX_KES = 250000;
-const PRESETS_KES = [50, 100, 500, 1000, 2000];
+const PRESETS_KES = [50, 100, 500, 1000];
 const NETWORK = "Safaricom";
 const KYC_ROUTE = "/Settings/verify";
 
@@ -294,7 +294,7 @@ export default function DepositModal({
               )}
             </div>
 
-            <div className="flex gap-1.5 flex-wrap">
+            <div className="flex gap-1.5 flex-wrap justify-end">
               {PRESETS_KES.map((p) => (
                 <button
                   key={p}
