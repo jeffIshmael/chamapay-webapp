@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, Suspense } from "react";
+import React, { useEffect, useRef, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   FiAlertTriangle,
@@ -112,6 +112,14 @@ function CreateContent() {
   const [loading, setLoading] = useState(false);
   const [errorText, setErrorText] = useState("");
 
+  // Synchronous submit lock. State (`loading`) updates on the next render, so
+  // two rapid submits can both read loading === false. A ref flips immediately.
+  const submittingRef = useRef(false);
+  const releaseSubmitLock = () => {
+    submittingRef.current = false;
+    setLoading(false);
+  };
+
   // Chama
   const [chamaName, setChamaName] = useState("");
   const [frequency, setFrequency] = useState("");
@@ -157,7 +165,6 @@ function CreateContent() {
     setShowYieldInfoModal(false);
     setNotifyPhone("");
     setErrorText("");
-    setLoading(false);
   };
 
   const selectedGoalType =
@@ -189,13 +196,14 @@ function CreateContent() {
 
   const createChama = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!chamaValid || loading) return;
+    if (!chamaValid || submittingRef.current) return;
+    submittingRef.current = true;
     setLoading(true);
     setErrorText("");
 
     if (!isAuthenticated || !token || token === "guest") {
       showToast("Please sign in to create a chama", "warning");
-      setLoading(false);
+      releaseSubmitLock();
       return;
     }
 
@@ -203,7 +211,7 @@ function CreateContent() {
       const exists = await checkChama(chamaName.trim());
       if (exists) {
         setErrorText("Chama with this name already exists");
-        setLoading(false);
+        releaseSubmitLock();
         return;
       }
 
@@ -232,7 +240,7 @@ function CreateContent() {
 
       if (!resultOutcome.success) {
         setErrorText(resultOutcome.error || "Failed to create chama");
-        setLoading(false);
+        releaseSubmitLock();
         return;
       }
 
@@ -244,19 +252,20 @@ function CreateContent() {
     } catch (err) {
       console.error(err);
       setErrorText("A problem occurred, try again.");
-      setLoading(false);
+      releaseSubmitLock();
     }
   };
 
   const createGoalAction = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!goalValid || loading) return;
+    if (!goalValid || submittingRef.current) return;
+    submittingRef.current = true;
     setLoading(true);
     setErrorText("");
 
     if (!isAuthenticated || !token || token === "guest") {
       showToast("Please sign in to create a goal", "warning");
-      setLoading(false);
+      releaseSubmitLock();
       return;
     }
 
@@ -277,17 +286,16 @@ function CreateContent() {
 
       if (!result.success || !result.goal) {
         setErrorText(result.error || "Failed to create goal");
-        setLoading(false);
+        releaseSubmitLock();
         return;
       }
-
       showToast(`${result.goal.name} created successfully.`, "success");
       resetForms();
       router.push("/MyChamas?tab=goals");
     } catch (err) {
       console.error(err);
       setErrorText("A problem occurred, try again.");
-      setLoading(false);
+      releaseSubmitLock();
     }
   };
 

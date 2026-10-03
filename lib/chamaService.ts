@@ -316,8 +316,6 @@ export const getUserChamas = async (token: string): Promise<ChamaResponse> => {
       },
     });
 
-    console.log("the response", response);
-
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
@@ -359,6 +357,31 @@ export const getChamaBySlug = async (
   } catch (error) {
     console.error("Error fetching chama:", error);
     return { success: false, error: "Failed to fetch chama" };
+  }
+};
+
+// Get chama by slug
+export const getChamaBySlugNoMin = async (
+  slug: string,
+  token: string
+): Promise<ChamaResponse> => {
+  try {
+    const response = await fetch(`${serverUrl}/chama/${slug}`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const data = await response.json();
+return data;
+  } catch (error) {
+return { success: false, error: "Failed to fetch chama" };
   }
 };
 
@@ -743,7 +766,6 @@ export const registerChamaToDatabase = async (
       body: JSON.stringify(chamaData),
     });
     const data = await response.json();
-    console.log(data);
     return data;
   } catch (error) {
     console.error("Error registering chama to database:", error);

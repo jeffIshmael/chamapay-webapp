@@ -9,6 +9,7 @@ import MembersTab from "@/app/Components/MembersTab";
 import Chat from "@/app/Components/Chat";
 import {
   getChamaBySlug as getChama,
+  getChamaBySlugNoMin,
   requestToJoinChama,
   addMemberToChama as addMemberToPublicChama,
   checkRequest,
