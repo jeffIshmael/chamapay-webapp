@@ -8,6 +8,7 @@ import { AuthProvider } from "./context/AuthContext";
 import { UserProvider } from "@/context/UserContext";
 import AddToHomeScreen from "./Components/AddToHomeScreen";
 import CurrencyLocationBootstrap from "./Components/CurrencyLocationBootstrap";
+import { Analytics } from "@vercel/analytics/next"
 
 const jakarta = Plus_Jakarta_Sans({
   subsets: ["latin"],
@@ -61,6 +62,7 @@ export default function RootLayout({
                     <CurrencyLocationBootstrap />
                     {children}
                     <AddToHomeScreen />
+                    <Analytics />
                     </UserProvider>
                   </AuthProvider>
                 </IsFarcasterProvider>
