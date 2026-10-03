@@ -26,7 +26,7 @@ import { useRouter } from "next/navigation";
 
 type Step = "idle" | "verifying" | "processing" | "completed" | "failed";
 
-const MIN_KES = 50;
+const MIN_KES = 60;
 const MAX_KES = 100000; // top of the fee table
 const NETWORK = "Safaricom";
 const KYC_ROUTE = "/Settings/verify";
