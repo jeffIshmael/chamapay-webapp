@@ -7,6 +7,7 @@ import { useAuth } from "@/app/context/AuthContext";
 import { useFormattedBalance } from "@/lib/useFormattedBalance";
 import { useCurrencyStore } from "@/store/useCurrencyStore";
 import { serverUrl } from "@/lib/serverUrl";
+import { withCommas, stripCommas } from "@/utils/amountInputUtils";
 
 export default function ChamaWithdrawModal({
   isOpen,
@@ -134,9 +135,9 @@ export default function ChamaWithdrawModal({
             <input
               type="text"
               inputMode="decimal"
-              value={amount}
+              value={withCommas(amount)}
               onChange={(e) => {
-                const v = e.target.value;
+                const v = stripCommas(e.target.value);
                 if (v === "" || /^\d*\.?\d*$/.test(v)) setAmount(v);
               }}
               placeholder="0.00"

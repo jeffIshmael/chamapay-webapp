@@ -7,6 +7,7 @@ import { useAuth } from "@/app/context/AuthContext";
 import { useFormattedBalance } from "@/lib/useFormattedBalance";
 import { useCurrencyStore } from "@/store/useCurrencyStore";
 import { withdrawFromGoal } from "@/lib/goalService";
+import { withCommas, stripCommas } from "@/utils/amountInputUtils";
 
 export default function GoalWithdrawModal({
   isOpen,
@@ -133,12 +134,15 @@ export default function GoalWithdrawModal({
             </label>
             <div className="mt-1.5 flex items-center h-12 rounded-xl border border-gray-200 bg-gray-50 px-3 mb-2">
               <input
-                type="number"
+                type="text"
                 inputMode="decimal"
-                value={amount}
+                value={withCommas(amount)}
                 onChange={(e) => {
-                  setAmount(e.target.value);
-                  setError("");
+                  const v = stripCommas(e.target.value);
+                  if (v === "" || /^\d*\.?\d*$/.test(v)) {
+                    setAmount(v);
+                    setError("");
+                  }
                 }}
                 placeholder="0.00"
                 className="flex-1 bg-transparent outline-none text-[16px] font-bold text-gray-900"

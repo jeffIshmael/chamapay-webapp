@@ -7,6 +7,7 @@ import { useFormattedBalance } from "@/lib/useFormattedBalance";
 import { useCurrencyStore } from "@/store/useCurrencyStore";
 import { withdrawFromMoonwell } from "@/lib/moonwellService";
 import { showToast } from "./Toast";
+import { withCommas, stripCommas } from "@/utils/amountInputUtils";
 
 const DUST = 0.000001;
 
@@ -263,9 +264,9 @@ export default function MoonwellWithdrawModal({
                 <input
                   type="text"
                   inputMode="decimal"
-                  value={amount}
+                  value={withCommas(amount)}
                   onChange={(e) => {
-                    const v = e.target.value;
+                    const v = stripCommas(e.target.value);
                     if (v === "" || /^\d*\.?\d*$/.test(v)) {
                       setAmount(v);
                       setIsMax(false);

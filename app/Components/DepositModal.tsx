@@ -15,6 +15,7 @@ import { isValidKenyaPhone, toKenyaE164 } from "@/lib/phoneUtils";
 import { useCurrencyStore } from "@/store/useCurrencyStore";
 import { useUser } from "@/context/UserContext";
 import { useRouter } from "next/navigation";
+import { withCommas, stripCommas } from "@/utils/amountInputUtils";
 
 type Step =
   | "idle"
@@ -270,8 +271,8 @@ export default function DepositModal({
                 <input
                   type="text"
                   inputMode="decimal"
-                  value={kes}
-                  onChange={(e) => onKesChange(e.target.value)}
+                  value={withCommas(kes)}
+                  onChange={(e) => onKesChange(stripCommas(e.target.value))}
                   placeholder="1,000"
                   disabled={busy}
                   className="flex-1 px-3 py-2.5 text-[15px] font-bold outline-none border-0"

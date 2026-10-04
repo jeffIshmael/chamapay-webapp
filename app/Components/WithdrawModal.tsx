@@ -23,6 +23,7 @@ import {
 import MpesaConfirmDialog from "./MpesaConfirmDialog";
 import { useUser } from "@/context/UserContext";
 import { useRouter } from "next/navigation";
+import { withCommas, stripCommas } from "@/utils/amountInputUtils";
 
 type Step = "idle" | "verifying" | "processing" | "completed" | "failed";
 
@@ -370,8 +371,8 @@ export default function WithdrawModal({
                     <input
                       type="text"
                       inputMode="decimal"
-                      value={kes}
-                      onChange={(e) => onKesChange(e.target.value)}
+                      value={withCommas(kes)}
+                      onChange={(e) => onKesChange(stripCommas(e.target.value))}
                       placeholder="500"
                       disabled={busy}
                       className="w-full rounded-xl border border-gray-200 px-3 py-2.5 pr-14 text-[15px] font-bold outline-none focus:ring-2 focus:ring-downy-500"

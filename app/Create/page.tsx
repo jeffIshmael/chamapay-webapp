@@ -27,12 +27,12 @@ import CycleSelector, {
   toYMD,
 } from "../Components/CycleSelector";
 import { showToast } from "../Components/Toast";
-import { checkChama } from "@/lib/chama";
 import { registerChamaToDatabase } from "@/lib/chamaService";
 import { createGoal, GoalType, goalTypeLabel } from "@/lib/goalService";
 import { useAuth } from "../context/AuthContext";
 import { useSessionAddress } from "@/lib/useSessionAddress";
 import { useCurrencyStore } from "@/store/useCurrencyStore";
+import { withCommas, stripCommas } from "@/utils/amountInputUtils";
 
 type CreateMode = "chama" | "goal";
 
@@ -245,13 +245,6 @@ function CreateContent() {
     }
 
     try {
-      const exists = await checkChama(chamaName.trim());
-      if (exists) {
-        setErrorText("Chama with this name already exists");
-        releaseSubmitLock();
-        return;
-      }
-
       const contribNum = parseFloat(contribution);
       const amountUsdc =
         kesMode && platformRate > 0 ? contribNum / platformRate : contribNum;
@@ -499,9 +492,9 @@ function CreateContent() {
                 <input
                   type="text"
                   inputMode="decimal"
-                  value={contribution}
+                  value={withCommas(contribution)}
                   onChange={(e) => {
-                    const v = e.target.value;
+                    const v = stripCommas(e.target.value);
                     if (v === "" || /^\d*\.?\d*$/.test(v)) setContribution(v);
                   }}
                   placeholder={kesMode ? "500" : "5"}
@@ -697,9 +690,9 @@ function CreateContent() {
                     <input
                       type="text"
                       inputMode="decimal"
-                      value={target}
+                      value={withCommas(target)}
                       onChange={(e) => {
-                        const v = e.target.value;
+                        const v = stripCommas(e.target.value);
                         if (v === "" || /^\d*\.?\d*$/.test(v)) setTarget(v);
                       }}
                       placeholder={kesMode ? "50000" : "400"}

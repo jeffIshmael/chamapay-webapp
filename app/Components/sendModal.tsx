@@ -10,6 +10,7 @@ import { useSessionAddress } from "@/lib/useSessionAddress";
 import { serverUrl } from "@/lib/serverUrl";
 import { internalTransferFee, maxSendableWithTransferFee } from "@/lib/transactionFees";
 import { useCurrencyStore } from "@/store/useCurrencyStore";
+import { withCommas, stripCommas } from "@/utils/amountInputUtils";
 
 type SendMode = "chamapay" | "external";
 
@@ -438,9 +439,9 @@ export default function SendModal({
                 <input
                   type="text"
                   inputMode="decimal"
-                  value={amount}
+                  value={withCommas(amount)}
                   onChange={(e) => {
-                    const v = e.target.value;
+                    const v = stripCommas(e.target.value);
                     if (v === "" || /^\d*\.?\d*$/.test(v)) setAmount(v);
                   }}
                   placeholder="0.00"

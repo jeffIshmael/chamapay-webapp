@@ -16,6 +16,7 @@ import { useCurrencyStore } from "@/store/useCurrencyStore";
 import { useFormattedBalance } from "@/lib/useFormattedBalance";
 import { useUser } from "@/context/UserContext";
 import { useRouter } from "next/navigation";
+import { withCommas, stripCommas } from "@/utils/amountInputUtils";
 
 type Step =
   | "idle"
@@ -353,10 +354,12 @@ export default function ChamaMpesaPay({
         <input
           type="text"
           inputMode="decimal"
-          value={kesMode ? kes : usdc}
-          onChange={(e) =>
-            kesMode ? onKesChange(e.target.value) : onUsdcChange(e.target.value)
-          }
+          value={withCommas(kesMode ? kes : usdc)}
+          onChange={(e) => {
+            const raw = stripCommas(e.target.value);
+            if (kesMode) onKesChange(raw);
+            else onUsdcChange(raw);
+          }}
           placeholder={kesMode ? "1000" : "5"}
           disabled={busy || isLoading}
           className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-[15px] font-bold outline-none focus:ring-2 focus:ring-downy-500"

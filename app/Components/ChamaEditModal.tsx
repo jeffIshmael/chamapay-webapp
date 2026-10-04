@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { FiAlertTriangle, FiEdit3, FiUsers, FiX } from "react-icons/fi";
 import { Member, PayoutScheduleItem } from "@/utils/typesUtils";
 import { useCurrencyStore } from "@/store/useCurrencyStore";
@@ -10,6 +10,7 @@ import CycleSelector, {
   ordinal,
 } from "@/app/Components/CycleSelector";
 import PayoutOrderPicker from "./PayoutOrderPicker";
+import {withCommas, stripCommas} from "@/utils/amountInputUtils"
 
 export interface ChamaEditInitial {
   name: string;
@@ -63,6 +64,9 @@ const formatUSDC = (value: string | number): string => {
   if (!Number.isFinite(n)) return "";
   return n.toFixed(4).replace(/\.?0+$/, "");
 };
+
+// useLayoutEffect warns during server rendering, so fall back to useEffect there.
+const useIsoLayoutEffect = typeof window !== "undefined" ? useLayoutEffect : useEffect;
 
 /** USDC text -> KES text (2 decimals), or "" when it can't be converted. */
 const usdcToKES = (usdc: string, rate: number): string => {
@@ -162,7 +166,34 @@ const ChamaEditModal = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
+  // Amount box shows commas ("1,000,000") but state stays plain digits. Keep the caret where
+  // the user is typing even though commas get inserted or removed.
+  const amountRef = useRef<HTMLInputElement>(null);
+  const caretChars = useRef<number | null>(null); // characters (excluding commas) before the caret
+
+  useIsoLayoutEffect(() => {
+    const el = amountRef.current;
+    const n = caretChars.current;
+    if (!el || n === null) return;
+    let seen = 0;
+    let pos = 0;
+    while (pos < el.value.length && seen < n) {
+      if (el.value[pos] !== ",") seen++;
+      pos++;
+    }
+    el.setSelectionRange(pos, pos);
+    caretChars.current = null;
+  }, [kesAmount, usdcAmount]);
+
   if (!open) return null;
+
+  const handleAmountInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const el = e.target;
+    caretChars.current = stripCommas(el.value.slice(0, el.selectionStart ?? el.value.length)).length;
+    const raw = stripCommas(el.value);
+    if (kesMode && canUseKES) handleKESChange(raw);
+    else handleUSDCChange(raw);
+  };
 
   const cycleChanged =
     cycle.mode !== initialCycle.mode ||
@@ -379,13 +410,11 @@ const ChamaEditModal = ({
                 {kesMode && canUseKES ? "KES" : "USDC"}
               </span>
               <input
+                ref={amountRef}
+                type="text"
                 inputMode="decimal"
-                value={kesMode && canUseKES ? kesAmount : usdcAmount}
-                onChange={(e) =>
-                  kesMode && canUseKES
-                    ? handleKESChange(e.target.value)
-                    : handleUSDCChange(e.target.value)
-                }
+                value={withCommas(kesMode && canUseKES ? kesAmount : usdcAmount)}
+                onChange={handleAmountInput}
                 placeholder={kesMode ? "e.g. 500" : "e.g. 5"}
                 className="flex-1 bg-transparent px-3 py-2.5 text-[13px] font-semibold text-gray-900 outline-none"
               />
