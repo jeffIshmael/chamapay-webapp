@@ -803,7 +803,7 @@ export const registerChamaToDatabase = async (
   token: string
 ) => {
   try {
-    console.log("the chamadata:", chamaData);
+
     const response = await fetch(`${serverUrl}/chama/create`, {
       method: "POST",
       headers: {

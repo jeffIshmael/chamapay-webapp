@@ -273,9 +273,6 @@ function CreateContent() {
         },
         token,
       );
-
-      console.log("result outcome", resultOutcome);
-
       if (!resultOutcome.success) {
         setErrorText(resultOutcome.error || "Failed to create chama");
         releaseSubmitLock();

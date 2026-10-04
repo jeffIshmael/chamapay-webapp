@@ -55,6 +55,20 @@ const toLocalInput = (value: number | string | Date): string => {
 };
 
 const DECIMAL_RE = /^\d*\.?\d*$/;
+const USDC_RE = /^\d*\.?\d{0,4}$/; // USDC is typed with at most 4 decimals
+
+/** USDC for display: at most 4 decimals, trailing zeros trimmed ("5", "3.876"). */
+const formatUSDC = (value: string | number): string => {
+  const n = typeof value === "number" ? value : parseFloat(value);
+  if (!Number.isFinite(n)) return "";
+  return n.toFixed(4).replace(/\.?0+$/, "");
+};
+
+/** USDC text -> KES text (2 decimals), or "" when it can't be converted. */
+const usdcToKES = (usdc: string, rate: number): string => {
+  const n = parseFloat(usdc);
+  return Number.isFinite(n) && rate > 0 ? (n * rate).toFixed(2) : "";
+};
 
 const truncateAddress = (address: string) =>
   address ? `${address.slice(0, 6)}…${address.slice(-4)}` : "";
@@ -123,6 +137,8 @@ const ChamaEditModal = ({
   const [cycle, setCycle] = useState<CycleValue>(initialCycle);
   const [kesMode, setKesMode] = useState(false);
   const [kesAmount, setKesAmount] = useState("");
+  const [usdcAmount, setUsdcAmount] = useState(""); // what the USDC box shows (max 4 decimals)
+  const [pickerOpen, setPickerOpen] = useState(false); // day-of-month grid, closed by default
   const [newOrder, setNewOrder] = useState<number[] | null>(null);
   const [showOrderPicker, setShowOrderPicker] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -136,11 +152,9 @@ const ChamaEditModal = ({
     // Default to KES when the user prefers it (and we have a rate).
     const startInKES = currency === "KES" && canUseKES;
     setKesMode(startInKES);
-    setKesAmount(
-      canUseKES && initialForm.amount
-        ? (parseFloat(initialForm.amount) * platformRate).toFixed(2)
-        : ""
-    );
+    setKesAmount(canUseKES ? usdcToKES(initialForm.amount, platformRate) : "");
+    setUsdcAmount(formatUSDC(initialForm.amount));
+    setPickerOpen(false);
     setNewOrder(null);
     setShowOrderPicker(false);
     setError("");
@@ -170,20 +184,24 @@ const ChamaEditModal = ({
     setForm((prev) => ({ ...prev, [key]: value }));
 
   const handleUSDCChange = (text: string) => {
-    if (!DECIMAL_RE.test(text)) return;
+    if (!USDC_RE.test(text)) return;
+    setUsdcAmount(text);
     setField("amount", text);
-    setKesAmount(text && canUseKES ? (parseFloat(text) * platformRate).toFixed(2) : "");
+    setKesAmount(canUseKES ? usdcToKES(text, platformRate) : "");
   };
 
   const handleKESChange = (text: string) => {
     if (!DECIMAL_RE.test(text)) return;
     setKesAmount(text);
-    setField(
-      "amount",
-      text && canUseKES
-        ? Number((parseFloat(text) / platformRate).toFixed(6)).toString()
-        : ""
-    );
+    const kes = parseFloat(text);
+    if (canUseKES && Number.isFinite(kes)) {
+      const usdc = kes / platformRate;
+      setField("amount", Number(usdc.toFixed(6)).toString()); // saved with full precision
+      setUsdcAmount(formatUSDC(usdc)); // shown with at most 4 decimals
+    } else {
+      setField("amount", "");
+      setUsdcAmount("");
+    }
   };
 
   const handleCycleChange = (next: CycleValue) => {
@@ -285,7 +303,7 @@ const ChamaEditModal = ({
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
-          <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-gray-100 shrink-0">
+          <div className="flex items-center rounded-t-3xl justify-between px-4 pt-4 pb-3 bg-emerald-50 border-b border-emerald-100 shrink-0">
             <div>
               <h3 className="text-[17px] font-bold text-gray-900">Edit Details</h3>
               <p className="text-[11px] text-gray-500 mt-0.5">Update chama settings</p>
@@ -362,7 +380,7 @@ const ChamaEditModal = ({
               </span>
               <input
                 inputMode="decimal"
-                value={kesMode && canUseKES ? kesAmount : form.amount}
+                value={kesMode && canUseKES ? kesAmount : usdcAmount}
                 onChange={(e) =>
                   kesMode && canUseKES
                     ? handleKESChange(e.target.value)
@@ -380,7 +398,12 @@ const ChamaEditModal = ({
                 changed.cycle ? "ring-1 ring-emerald-500 p-1.5 bg-emerald-50/40" : ""
               }`}
             >
-              <CycleSelector value={cycle} onChange={handleCycleChange} />
+              <CycleSelector
+                value={cycle}
+                onChange={handleCycleChange}
+                pickerOpen={pickerOpen}
+                onPickerOpenChange={setPickerOpen}
+              />
             </div>
 
             {/* Pay date */}

@@ -155,6 +155,7 @@ const ChamaDetails = ({ params }: { params: { slug: string } }) => {
       token || undefined,
       address as string
     );
+
     if (data && data.success && data.chama) {
       setChama(data.chama as any);
       setIncluded(data.isMember ?? false);

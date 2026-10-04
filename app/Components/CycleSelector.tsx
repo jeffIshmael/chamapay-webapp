@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { FiCheck } from "react-icons/fi";
 
 export type CycleMode = "days" | "monthly-date";
@@ -60,10 +60,20 @@ const inputClass =
 interface Props {
   value: CycleValue;
   onChange: (next: CycleValue) => void;
+  /** Optional: control whether the day grid is open. If omitted the selector manages it itself. */
+  pickerOpen?: boolean;
+  onPickerOpenChange?: (open: boolean) => void;
 }
 
-export default function CycleSelector({ value, onChange }: Props) {
+export default function CycleSelector({ value, onChange, pickerOpen, onPickerOpenChange }: Props) {
   const isDate = value.mode === "monthly-date";
+
+  // The day grid is only shown while open. Tapping "Specific date every month"
+  // selects it (and opens the grid); tapping it again toggles the grid.
+  const [innerOpen, setInnerOpen] = useState(false);
+  const controlled = pickerOpen !== undefined;
+  const open = controlled ? pickerOpen : innerOpen;
+  const setOpen = (v: boolean) => (controlled ? onPickerOpenChange?.(v) : setInnerOpen(v));
 
   const tagClass = (active: boolean) =>
     `relative py-2.5 rounded-xl border ${
@@ -116,7 +126,14 @@ export default function CycleSelector({ value, onChange }: Props) {
         {preset("30", "Monthly")}
         <button
           type="button"
-          onClick={() => onChange({ ...value, mode: "monthly-date", days: "30" })}
+          onClick={() => {
+            if (!isDate) {
+              onChange({ ...value, mode: "monthly-date", days: "30" });
+              setOpen(true); // newly selected: show the grid so a day can be picked
+            } else {
+              setOpen(!open); // already selected: tap to show or hide the grid
+            }
+          }}
           className={`${tagClass(isDate)} col-span-2`}
         >
           {isDate && check}
@@ -133,13 +150,14 @@ export default function CycleSelector({ value, onChange }: Props) {
             }`}
           >
             {isDate && value.day
-              ? `The ${ordinal(value.day)} of every month`
+              ? `${ordinal(value.day)} of every month${open ? "" : " · tap to change"}`
               : "e.g. the 15th of every month"}
           </span>
         </button>
       </div>
 
       {isDate ? (
+        open && (
         <div className="rounded-xl border border-downy-100 bg-downy-50/40 p-2.5">
           <p className="text-[11px] text-gray-600 mb-2">
             Pick the day of the month payouts happen
@@ -167,6 +185,7 @@ export default function CycleSelector({ value, onChange }: Props) {
             Days 1–28 only, so every month has your date.
           </p>
         </div>
+        )
       ) : (
         <input
           type="number"
