@@ -14,7 +14,6 @@ import {
   validatePhoneNumber,
   type OfframpQuote,
 } from "@/lib/pretiumService";
-import { withdrawalToMpesaFee } from "@/lib/transactionFees";
 import {
   formatPhoneDisplay,
   isValidKenyaPhone,
@@ -24,6 +23,8 @@ import MpesaConfirmDialog from "./MpesaConfirmDialog";
 import { useUser } from "@/context/UserContext";
 import { useRouter } from "next/navigation";
 import { withCommas, stripCommas } from "@/utils/amountInputUtils";
+// adjust this path to wherever you put the hook
+import { useOfframpQuote, isQuoteFresh } from "@/hooks/useOfframpQuote";
 
 type Step = "idle" | "verifying" | "processing" | "completed" | "failed";
 
@@ -37,6 +38,15 @@ const fmtKes = (n: number) =>
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
+
+// Pulsing placeholder used instead of "…" / "Calculating…" while something loads.
+// Pass the size through className, e.g. "h-3 w-20".
+const Skeleton = ({ className = "" }: { className?: string }) => (
+  <span
+    aria-hidden="true"
+    className={`inline-block animate-pulse rounded bg-gray-200 align-middle ${className}`}
+  />
+);
 
 export default function WithdrawModal({
   isOpen,
@@ -59,7 +69,6 @@ export default function WithdrawModal({
   const [showVerify, setShowVerify] = useState(false);
   const [verifiedName, setVerifiedName] = useState("");
   const [verifyError, setVerifyError] = useState("");
-  const [quote, setQuote] = useState<OfframpQuote | null>(null);
   const [receivedKes, setReceivedKes] = useState(0);
   const router = useRouter();
   const { needsKyc } = useUser();
@@ -81,6 +90,34 @@ export default function WithdrawModal({
     };
   }, [isOpen, token]);
 
+  const withdrawableKes = rate ? balance * rate : null;
+  const kesAmt = parseFloat(kes) || 0;
+  const phoneOk = isValidKenyaPhone(phone);
+  const phoneLocal = phoneOk ? `0${normalizeKenyaPhoneLocal(phone)}` : "";
+
+  const amountInRange =
+    kesAmt >= MIN_KES &&
+    kesAmt <= MAX_KES &&
+    withdrawableKes !== null &&
+    kesAmt <= withdrawableKes;
+
+  // Real Element Pay quote for the typed amount (fee, KES received, USDC deducted).
+  // Fires ~700ms after the user stops typing; a changed phone number re-quotes too,
+  // because the server only reuses a quote that was made for the same number.
+  const {
+    quote,
+    setQuote,
+    loading: quoteLoading,
+    error: quoteError,
+  } = useOfframpQuote({
+    token,
+    enabled: isOpen && kesAmt > 0, // never gated by balance or limits: only the button is
+    kesAmount: kesAmt,
+    phoneLocal,
+  });
+
+  const quoteTooBig = !!quote && Number(quote.usdc.gross) > balance;
+
   const reset = () => {
     setPhone("");
     setKes("");
@@ -101,14 +138,8 @@ export default function WithdrawModal({
 
   const onKesChange = (v: string) => {
     if (v !== "" && !/^\d*\.?\d{0,2}$/.test(v)) return;
-    setKes(v);
-    setQuote(null); // any earlier quote no longer matches the amount
+    setKes(v); // the quote hook clears and re-fetches on its own
   };
-
-  const withdrawableKes = rate ? balance * rate : null;
-  const kesAmt = parseFloat(kes) || 0;
-  const feeKes = kesAmt > 0 ? withdrawalToMpesaFee(kesAmt) : 0;
-  const receiveEstimate = Math.max(0, kesAmt - feeKes);
 
   const startWithdraw = async () => {
     if (!isAuthenticated || !token) {
@@ -140,13 +171,15 @@ export default function WithdrawModal({
     setStep("verifying");
     setVerifyError("");
     setVerifiedName("");
-    setQuote(null);
     try {
       const local = `0${normalizeKenyaPhoneLocal(phone)}`;
-      // who we are paying (Pretium lookup) + the binding Element Pay quote, in parallel
+      // who we are paying (Pretium lookup) + the binding Element Pay quote, in parallel.
+      // If the quote already on screen still has time left, reuse it instead of re-quoting.
       const [nameRes, q] = await Promise.all([
         validatePhoneNumber(local, token),
-        getOfframpQuote(token, kesAmt.toFixed(2), local),
+        quote && isQuoteFresh(quote)
+          ? Promise.resolve(quote)
+          : getOfframpQuote(token, kesAmt.toFixed(2), local),
       ]);
       if (!nameRes.success) {
         setVerifyError(nameRes.error || "Could not verify number");
@@ -236,13 +269,11 @@ export default function WithdrawModal({
       }
       setStep("failed");
       showToast(
-        err?.status === "timeout"
-          ? "Still processing. Your M-Pesa and balance will update shortly."
-          : err?.details?.message ||
-              err?.message ||
-              err?.error ||
-              "Withdrawal failed",
-        err?.status === "timeout" ? "warning" : "error"
+        err?.details?.message ||
+          err?.message ||
+          err?.error ||
+          "Withdrawal failed",
+        "error"
       );
       setTimeout(() => setStep("idle"), 1500);
     }
@@ -255,13 +286,9 @@ export default function WithdrawModal({
   };
 
   const busy = step === "processing" || step === "verifying";
-  const phoneOk = isValidKenyaPhone(phone);
-  const amountOk =
-    kesAmt >= MIN_KES &&
-    kesAmt <= MAX_KES &&
-    withdrawableKes !== null &&
-    kesAmt <= withdrawableKes;
-  const canSubmit = !busy && phoneOk && amountOk;
+  // Continue stays disabled until the real quote has arrived and fits the balance
+  const canSubmit =
+    !busy && phoneOk && amountInRange && !!quote && !quoteTooBig && !quoteLoading;
   const blockDismiss = () => {};
 
   return (
@@ -360,11 +387,13 @@ export default function WithdrawModal({
                       Amount (KES)
                     </label>
                     <span className="text-[10px] font-semibold text-gray-400">
-                      {rate
-                        ? `1 USDC = ${rate.toFixed(2)} KES`
-                        : rateError
-                          ? "Rate unavailable"
-                          : "Getting rate…"}
+                      {rate ? (
+                        `1 USDC = ${rate.toFixed(2)} KES`
+                      ) : rateError ? (
+                        "Rate unavailable"
+                      ) : (
+                        <Skeleton className="h-3 w-16" />
+                      )}
                     </span>
                   </div>
                   <div className="relative">
@@ -395,7 +424,13 @@ export default function WithdrawModal({
                     <p className="text-[11px] text-gray-500">
                       Withdrawable bal:{" "}
                       <span className="font-semibold text-gray-700">
-                        {withdrawableKes !== null ? fmtKes(withdrawableKes) : "…"}
+                        {withdrawableKes !== null ? (
+                          fmtKes(withdrawableKes)
+                        ) : rateError ? (
+                          "—"
+                        ) : (
+                          <Skeleton className="h-3 w-10" />
+                        )}
                       </span>{" "}
                       <span className="text-[10px]">KES</span>
                     </p>
@@ -419,15 +454,39 @@ export default function WithdrawModal({
                   <div className="bg-white rounded-xl border border-downy-100 px-3 py-2.5 text-[11px] space-y-1">
                     <div className="flex justify-between text-amber-600">
                       <span>Fee</span>
-                      <span className="font-semibold">KES {fmtKes(feeKes)}</span>
+                      <span className="font-semibold">
+                        {quote ? (
+                          `KES ${fmtKes(quote.kes.fee)}`
+                        ) : quoteLoading ? (
+                          <Skeleton className="h-3 w-16" />
+                        ) : (
+                          "—"
+                        )}
+                      </span>
                     </div>
-                    <div className="flex justify-between text-gray-900 font-bold">
+                    <div className="flex justify-between items-center text-gray-900 font-bold">
                       <span>You receive</span>
-                      <span>KES {fmtKes(receiveEstimate)}</span>
+                      <span>
+                        {quote ? (
+                          `KES ${fmtKes(quote.kes.receive)}`
+                        ) : quoteLoading ? (
+                          <Skeleton className="h-4 w-24" />
+                        ) : (
+                          "—"
+                        )}
+                      </span>
                     </div>
-                    <p className="text-[10px] text-gray-400">
-                      Final amount is confirmed on the next screen.
-                    </p>
+                    {quoteError && (
+                      <p className="text-[11px] text-red-600 font-medium">
+                        {quoteError}
+                      </p>
+                    )}
+                    {quoteTooBig &&
+                      !(withdrawableKes !== null && kesAmt > withdrawableKes) && (
+                      <p className="text-[11px] text-red-600 font-medium">
+                        Insufficient balance once fees are included
+                      </p>
+                    )}
                   </div>
                 )}
 
@@ -455,25 +514,25 @@ export default function WithdrawModal({
                   </div>
                 ) : (
                   <button
-                  type="button"
-                  onClick={needsKyc ? goVerify : startWithdraw}
-                  disabled={needsKyc ? false : !canSubmit}
-                  className={`w-full py-3 rounded-xl text-[13px] font-bold transition-all ${
-                    needsKyc
-                      ? "border border-amber-400 bg-amber-50 text-amber-600 shadow-md shadow-amber-600/10"
-                      : !canSubmit
-                        ? "bg-gray-300 text-white"
-                        : "bg-downy-600 text-white shadow-md shadow-downy-600/25"
-                  }`}
-                >
-                  {needsKyc ? (
-                  <span className="inline-flex items-center justify-center gap-1.5 underline underline-offset-2">
-                    Verify details to withdraw
-                  </span>
-                ) : (
-                  "Continue"
-                )}
-                </button>
+                    type="button"
+                    onClick={needsKyc ? goVerify : startWithdraw}
+                    disabled={needsKyc ? false : !canSubmit}
+                    className={`w-full py-3 rounded-xl text-[13px] font-bold transition-all ${
+                      needsKyc
+                        ? "border border-amber-400 bg-amber-50 text-amber-600 shadow-md shadow-amber-600/10"
+                        : !canSubmit
+                          ? "bg-gray-300 text-white"
+                          : "bg-downy-600 text-white shadow-md shadow-downy-600/25"
+                    }`}
+                  >
+                    {needsKyc ? (
+                      <span className="inline-flex items-center justify-center gap-1.5 underline underline-offset-2">
+                        Verify details to withdraw
+                      </span>
+                    ) : (
+                      "Continue"
+                    )}
+                  </button>
                 )}
               </>
             )}
