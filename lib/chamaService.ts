@@ -140,6 +140,7 @@ export interface BackendChama {
   status?: string;
   adminTerms: string | null;
   payDate: Date;
+  payDay?: number | null; // fixed day of month (1-28), null = days-based
   blockchainId: string;
   round: number;
   cycle: number;
@@ -200,6 +201,7 @@ interface RegisterChamaRequestBody {
   adminTerms: string;
   amount: string;
   cycleTime: number;
+  payoutDayOfMonth?: number; // 1-28, set when the chama pays out on a fixed day of the month
   maxNo: number;
   startDate: Date;
   promoCode?: string;
@@ -357,6 +359,49 @@ export const getChamaBySlug = async (
   } catch (error) {
     console.error("Error fetching chama:", error);
     return { success: false, error: "Failed to fetch chama" };
+  }
+};
+
+// to update the details
+export const updateChamaDetails = async (
+  chamaId: number,
+  newName: string,
+  newAmount: string,
+  newDuration: number,
+  newCycle: number,
+  newRound: number,
+  newPayDate: number,
+  token: string,
+  newPayoutDayOfMonth?: number | null,
+  // Optional: member smart addresses in the new payout order. When present, the
+  // backend updates details, pay day and payout order in one onchain transaction.
+  newPayoutOrder?: string[]
+) => {
+  try {
+    const response = await fetch(`${serverUrl}/chama/${chamaId}/details`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        chamaId,
+        newName,
+        newAmount,
+        newDuration,
+        newCycle,
+        newRound,
+        newPayDate,
+        newPayoutDayOfMonth,
+        ...(newPayoutOrder ? { payoutOrder: newPayoutOrder } : {}),
+      }),
+    });
+
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error("Error updating chama details:", error);
+    return { success: false, error: "Failed to update chama details" };
   }
 };
 
@@ -633,6 +678,7 @@ export const transformChamaData = (
     isPublic: backendChama.type === "Public",
     currentCycle: backendChama.cycle || 1,
     currentRound: backendChama.round || 1,
+    payDay: backendChama.payDay ?? null,
     blockchainId: backendChama.blockchainId,
 
     messages: backendChama.messages,
@@ -757,6 +803,7 @@ export const registerChamaToDatabase = async (
   token: string
 ) => {
   try {
+    console.log("the chamadata:", chamaData);
     const response = await fetch(`${serverUrl}/chama/create`, {
       method: "POST",
       headers: {

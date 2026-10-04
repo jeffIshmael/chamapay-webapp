@@ -14,13 +14,17 @@ import {
   checkRequest,
   transformChamaData,
   setManualPayoutOrder,
+  updateChamaDetails,
 } from "@/lib/chamaService";
 import { duration, formatTimeRemaining, getPicture } from "@/utils/duration";
 import Pay from "@/app/Components/Pay";
 import ChamaShareModal from "@/app/Components/ChamaShareModal";
 import ChamaAddMemberModal from "@/app/Components/ChamaAddMemberModal";
+import ChamaEditModal, {
+  ChamaEditValues,
+} from "@/app/Components/ChamaEditModal";
 import { useRouter } from "next/navigation";
-import { FiAlertTriangle, FiShare2, FiUserPlus } from "react-icons/fi";
+import { FiAlertTriangle, FiEdit3, FiShare2, FiUserPlus } from "react-icons/fi";
 import { showToast } from "@/app/Components/Toast";
 import { HiArrowLeft } from "react-icons/hi";
 import Link from "next/link";
@@ -110,6 +114,7 @@ const ChamaDetails = ({ params }: { params: { slug: string } }) => {
   const [sendingRequest, setSendingRequest] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
   const [showAddMemberModal, setShowAddMemberModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
   const router = useRouter();
   const { token, user: authUser } = useAuth();
   const { formatBalance } = useFormattedBalance();
@@ -189,7 +194,9 @@ const ChamaDetails = ({ params }: { params: { slug: string } }) => {
     if (isAuthenticated) refreshChama();
   }, [isAuthenticated, refreshChama]);
 
-  const handleSaveManualOrder = async (orderedUserIds: number[]) => {
+  // Saves the payout order (throws on failure). Used by the Schedule tab and
+  // by the Edit modal.
+  const saveOrder = async (orderedUserIds: number[]) => {
     if (!chama || !token || !joined) throw new Error("Not authenticated");
     // The server expects member smart addresses in payout order.
     const payoutOrder = orderedUserIds.map((id) => {
@@ -199,9 +206,47 @@ const ChamaDetails = ({ params }: { params: { slug: string } }) => {
     });
     const res = await setManualPayoutOrder(chama.id, payoutOrder, token);
     if (!res?.success) throw new Error(res?.error || "Failed to save order");
+  };
+
+  const handleSaveManualOrder = async (orderedUserIds: number[]) => {
+    await saveOrder(orderedUserIds);
     showToast("Payout order saved", "success");
     refreshChama();
     setActiveTab("schedule" as TabId);
+  };
+
+  const handleUpdateDetails = async (values: ChamaEditValues) => {
+    if (!chama || !token || !joined) throw new Error("Please refresh the page");
+
+    // The server expects member smart addresses in payout order (only when it changed).
+    const orderAddresses = values.payoutOrder?.map((id) => {
+      const m = joined.members.find((mem) => mem.id === id);
+      if (!m?.smartAddress) throw new Error("A member has no smart address");
+      return m.smartAddress;
+    });
+
+    // One request: the backend compares with what is stored and sends a single atomic
+    // onchain transaction (details, pay day and payout order) only for what changed,
+    // so there is no "details saved but order failed" half-state any more.
+    const res = await updateChamaDetails(
+      Number(chama.id),
+      values.name,
+      values.amount,
+      values.duration,
+      Number(joined.currentCycle), // cycle and round are no longer editable
+      Number(joined.currentRound),
+      values.payDate,
+      token,
+      values.monthlyDay, // null switches back to a days-based cycle
+      orderAddresses
+    );
+    if (!res?.success) {
+      throw new Error(res?.error || "Failed to update chama");
+    }
+
+    showToast("Chama updated successfully", "success");
+    setShowEditModal(false);
+    refreshChama();
   };
 
   const joinChama = async () => {
@@ -510,6 +555,12 @@ const ChamaDetails = ({ params }: { params: { slug: string } }) => {
       (m) => m.id === authUser?.id && m.role === "Admin"
     ) ?? false;
   const canAddMembers = Boolean(isAdmin && joined.canJoin);
+  // Payout order can only be changed by an admin during the first round.
+  const canEditOrder = Boolean(
+    canAddMembers &&
+      (joined.currentRound ?? 1) <= 1 &&
+      (joined.members?.length ?? 0) > 1
+  );
 
   return (
     <div className="absolute inset-0 flex flex-col bg-gray-50">
@@ -542,15 +593,26 @@ const ChamaDetails = ({ params }: { params: { slug: string } }) => {
           </div>
           <div className="flex items-center gap-1">
             {canAddMembers && (
-              <button
-                type="button"
-                onClick={() => setShowAddMemberModal(true)}
-                className="p-2 rounded-full bg-white/10 text-white"
-                data-tour="add-member"
-                aria-label="Add member"
-              >
-                <FiUserPlus size={18} />
-              </button>
+              <>
+                <button
+                  type="button"
+                  onClick={() => setShowEditModal(true)}
+                  className="p-2 rounded-full bg-white/10 text-white"
+                  data-tour="edit-details"
+                  aria-label="Edit chama details"
+                >
+                  <FiEdit3 size={18} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowAddMemberModal(true)}
+                  className="p-2 rounded-full bg-white/10 text-white"
+                  data-tour="add-member"
+                  aria-label="Add member"
+                >
+                  <FiUserPlus size={18} />
+                </button>
+              </>
             )}
             <button
               type="button"
@@ -699,6 +761,24 @@ const ChamaDetails = ({ params }: { params: { slug: string } }) => {
           isPublic={joined.isPublic}
           contribution={joined.contribution}
           memberIds={(joined.members || []).map((m) => m.id)}
+        />
+      )}
+
+      {joined && canAddMembers && (
+        <ChamaEditModal
+          open={showEditModal}
+          onClose={() => setShowEditModal(false)}
+          onSubmit={handleUpdateDetails}
+          members={joined.members || []}
+          payoutSchedule={joined.payoutSchedule || []}
+          canEditOrder={canEditOrder}
+          initial={{
+            name: joined.name,
+            amount: joined.contribution,
+            duration: joined.duration,
+            payDate: joined.contributionDueDate,
+            monthlyDay: joined.payDay ?? null, // fixed pay day (1-28), null = days-based
+          }}
         />
       )}
     </div>

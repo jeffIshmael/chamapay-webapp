@@ -131,6 +131,7 @@ export interface JoinedChama {
   isPublic: boolean;
   currentCycle: number;
   currentRound: number;
+  payDay: number | null;
   messages: Message[];
   payoutSchedule: PayoutScheduleItem[];
   members: Member[];

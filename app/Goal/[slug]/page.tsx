@@ -532,7 +532,7 @@ export default function GoalDetailsPage() {
   const inviteLink =
     typeof window !== "undefined"
       ? `${window.location.origin}/Goal/${goal.slug}`
-      : `https://chamapay.com/goal/${goal.slug}`;
+      : `https://chamapay.xyz/goal/${goal.slug}`;
   const typeTag = goalTypeTagColors(goal.goalType);
 
   const tabs: { id: TabId; label: string }[] = [

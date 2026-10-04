@@ -20,6 +20,12 @@ import {
 import type { IconType } from "react-icons";
 import BottomNavbar from "../Components/BottomNavbar";
 import AppHeader from "../Components/AppHeader";
+import CycleSelector, {
+  CycleValue,
+  nextMonthlyOccurrence,
+  ordinal,
+  toYMD,
+} from "../Components/CycleSelector";
 import { showToast } from "../Components/Toast";
 import { checkChama } from "@/lib/chama";
 import { registerChamaToDatabase } from "@/lib/chamaService";
@@ -58,12 +64,6 @@ const GOAL_TYPE_OPTIONS: Array<{
     Icon: FiGlobe,
     iconWrap: "bg-amber-50 text-amber-600",
   },
-];
-
-const CYCLE_PRESETS = [
-  { days: "7", label: "Weekly" },
-  { days: "14", label: "Biweekly" },
-  { days: "30", label: "Monthly" },
 ];
 
 function SectionHeader({
@@ -123,6 +123,8 @@ function CreateContent() {
   // Chama
   const [chamaName, setChamaName] = useState("");
   const [frequency, setFrequency] = useState("");
+  const [cycleMode, setCycleMode] = useState<"days" | "monthly-date">("days");
+  const [monthlyDay, setMonthlyDay] = useState<number | null>(null);
   const [startDate, setStartDate] = useState("");
   const [startTime, setStartTime] = useState("");
   const [contribution, setContribution] = useState("");
@@ -153,6 +155,8 @@ function CreateContent() {
   const resetForms = () => {
     setChamaName("");
     setFrequency("");
+    setCycleMode("days");
+    setMonthlyDay(null);
     setStartDate("");
     setStartTime("");
     setContribution("");
@@ -176,10 +180,43 @@ function CreateContent() {
     return new Date(`${startDate}T${startTime}:00`) > new Date();
   };
 
+  // Fixed day-of-month mode: the first payout must land on the chosen day.
+  const startDayOfMonth = startDate
+    ? parseInt(startDate.split("-")[2], 10)
+    : null;
+  // The contract checks the pay day in UTC, so the chosen date + time must land
+  // on that day in UTC as well, not just in the device's timezone.
+  const startUtcDay =
+    startDate && startTime
+      ? new Date(`${startDate}T${startTime}:00`).getUTCDate()
+      : null;
+  const monthlyDateOk =
+    cycleMode !== "monthly-date" ||
+    (monthlyDay !== null &&
+      startDayOfMonth === monthlyDay &&
+      (startUtcDay === null || startUtcDay === monthlyDay));
+
+  const handleCycleChange = (next: CycleValue) => {
+    // Picking a day moves the first payout date to that day's next occurrence.
+    if (
+      next.mode === "monthly-date" &&
+      next.day &&
+      (next.day !== monthlyDay || cycleMode !== "monthly-date")
+    ) {
+      setStartDate(
+        toYMD(nextMonthlyOccurrence(next.day, startTime || "00:00")),
+      );
+    }
+    setCycleMode(next.mode);
+    setFrequency(next.days);
+    setMonthlyDay(next.day);
+  };
+
   const chamaValid =
     chamaName.trim().length >= 3 &&
     frequency.trim() !== "" &&
     parseInt(frequency, 10) > 0 &&
+    monthlyDateOk &&
     startDate &&
     startTime &&
     isStartInFuture() &&
@@ -217,9 +254,7 @@ function CreateContent() {
 
       const contribNum = parseFloat(contribution);
       const amountUsdc =
-        kesMode && platformRate > 0
-          ? contribNum / platformRate
-          : contribNum;
+        kesMode && platformRate > 0 ? contribNum / platformRate : contribNum;
 
       const resultOutcome = await registerChamaToDatabase(
         {
@@ -229,11 +264,14 @@ function CreateContent() {
           adminTerms: "[]",
           amount: amountUsdc.toString(),
           cycleTime: parseInt(frequency, 10),
+          ...(cycleMode === "monthly-date" && monthlyDay
+            ? { payoutDayOfMonth: monthlyDay }
+            : {}),
           maxNo: 0,
           startDate: new Date(`${startDate}T${startTime}:00`),
           collateralRequired: false,
         },
-        token
+        token,
       );
 
       console.log("result outcome", resultOutcome);
@@ -244,8 +282,8 @@ function CreateContent() {
         return;
       }
 
-      const routing = resultOutcome.chama?.chama ? `/Chama/${resultOutcome.chama.slug}` : `/MyChamas?tab=chamas`;
- 
+      const routing = "/MyChamas?tab=chamas";
+
       showToast(`${chamaName.trim()} created successfully.`, "success");
       resetForms();
       router.push(routing);
@@ -360,10 +398,7 @@ function CreateContent() {
             </div> */}
 
             <div className="bg-white rounded-2xl border border-downy-100/70 p-3.5 shadow-sm">
-              <SectionHeader
-                step="01"
-                title="About your chama"
-              />
+              <SectionHeader step="01" title="About your chama" />
               <FieldLabel>
                 Chama name <span className="text-red-500">*</span>
               </FieldLabel>
@@ -386,54 +421,12 @@ function CreateContent() {
               <FieldLabel>
                 Contribution cycle <span className="text-red-500">*</span>
               </FieldLabel>
-              <div className="grid grid-cols-3 gap-1.5 mb-2.5">
-                {CYCLE_PRESETS.map((opt) => {
-                  const active = frequency === opt.days;
-                  return (
-                    <button
-                      key={opt.days}
-                      type="button"
-                      onClick={() => setFrequency(opt.days)}
-                      className={`relative py-2.5 rounded-xl border ${
-                        active
-                          ? "bg-downy-50 border-downy-400"
-                          : "bg-white border-gray-200"
-                      }`}
-                    >
-                      {active && (
-                        <span className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full bg-downy-600 text-white flex items-center justify-center">
-                          <FiCheck className="text-[10px]" strokeWidth={3} />
-                        </span>
-                      )}
-                      <span
-                        className={`block text-xs font-bold ${
-                          active ? "text-downy-800" : "text-gray-700"
-                        }`}
-                      >
-                        {opt.label}
-                      </span>
-                      <span
-                        className={`block text-[10px] mt-0.5 ${
-                          active ? "text-downy-600" : "text-gray-400"
-                        }`}
-                      >
-                        {opt.days} days
-                      </span>
-                    </button>
-                  );
-                })}
+              <div className="mb-3">
+                <CycleSelector
+                  value={{ mode: cycleMode, days: frequency, day: monthlyDay }}
+                  onChange={handleCycleChange}
+                />
               </div>
-              <input
-                type="number"
-                min={1}
-                value={frequency}
-                onChange={(e) => {
-                  const t = e.target.value;
-                  if (t === "" || /^\d+$/.test(t)) setFrequency(t);
-                }}
-                placeholder="Or enter custom days"
-                className={`${inputClass} mb-3`}
-              />
 
               <div className="grid grid-cols-2 gap-2.5 mb-3">
                 <div>
@@ -461,10 +454,23 @@ function CreateContent() {
                       onChange={(e) => setStartTime(e.target.value)}
                       className={`${inputClass} [color-scheme:light] pr-10`}
                     />
-
                   </div>
                 </div>
               </div>
+
+              {cycleMode === "monthly-date" && monthlyDay !== null && (
+                <p
+                  className={`text-[11px] -mt-1.5 mb-3 ${
+                    monthlyDateOk ? "text-downy-700" : "text-red-500"
+                  }`}
+                >
+                  {monthlyDateOk
+                    ? `Payouts happen on the ${ordinal(monthlyDay)} of every month.`
+                    : startDayOfMonth === monthlyDay
+                      ? `Try a different payout time — at this hour the payout would land on another day (UTC).`
+                      : `First payout date must fall on the ${ordinal(monthlyDay)}.`}
+                </p>
+              )}
 
               <div className="flex items-center justify-between mb-1.5">
                 <FieldLabel>
@@ -547,10 +553,7 @@ function CreateContent() {
             </div> */}
 
             <div className="bg-white rounded-2xl border border-downy-100/70 p-3.5 shadow-sm">
-              <SectionHeader
-                step="01"
-                title="Goal type"
-              />
+              <SectionHeader step="01" title="Goal type" />
               <button
                 type="button"
                 onClick={() => setShowGoalTypePicker((v) => !v)}
@@ -856,9 +859,9 @@ function CreateContent() {
                     Supplied to Moonwell
                   </p>
                   <p className="text-[12px] text-gray-500 leading-relaxed">
-                    Your goal funds are supplied to a Moonwell pool (a third-party
-                    DeFi pool) to provide liquidity. ChamaPay does not hold this
-                    yield pool itself.
+                    Your goal funds are supplied to a Moonwell pool (a
+                    third-party DeFi pool) to provide liquidity. ChamaPay does
+                    not hold this yield pool itself.
                   </p>
                 </div>
               </div>
