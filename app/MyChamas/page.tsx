@@ -205,10 +205,12 @@ function MyHomeContent() {
   }
 
   return (
-    <div className="min-h-[100dvh] bg-downy-50 pb-nav">
-      <AppHeader />
+    <div className="h-[100dvh] bg-downy-50 flex flex-col overflow-hidden">
+      <div className="shrink-0">
+        <AppHeader />
+      </div>
 
-      <div className="px-4 pt-3">
+      <div className="shrink-0 px-4 pt-3">
         <div className="flex bg-white rounded-2xl p-1 shadow-sm border border-downy-100/60">
           <button
             type="button"
@@ -255,7 +257,46 @@ function MyHomeContent() {
         </div>
       </div>
 
-      <div className="px-4 pt-4 pb-6">
+      {/* Title + subtitle: fixed, switches with the tab */}
+      {isAuthenticated && (
+        <div className="shrink-0 px-4 pt-4 pb-3">
+          {homeTab === "chamas" ? (
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-[15px] font-bold text-gray-900">My Chamas</h2>
+              <p className="text-[11px] text-gray-500 mt-0.5">
+                Rotational groups you belong to
+              </p>
+            </div>
+            <Link
+              href="/Create?mode=chama"
+              className="flex items-center gap-1 bg-downy-100 text-downy-800 px-2.5 py-1.5 rounded-full text-[11px] font-bold"
+            >
+              New <FiPlus size={12} />
+            </Link>
+          </div>
+          ) : (
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-[15px] font-bold text-gray-900">My Goals</h2>
+              <p className="text-[11px] text-gray-500 mt-0.5">
+                Save for Goal pots you created or joined
+              </p>
+            </div>
+            <Link
+              href="/Create?mode=goal"
+              className="flex items-center gap-1 bg-downy-100 text-downy-800 px-2.5 py-1.5 rounded-full text-[11px] font-bold"
+            >
+              New goal <FiPlus size={12} />
+            </Link>
+          </div>
+          )}
+        </div>
+      )}
+
+      {/* The ONLY scrollable part: the cards */}
+      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain pb-nav">
+        <div className="px-4 pb-6">
         {!isAuthenticated ? (
           <div className="flex flex-col items-center justify-center py-10 px-4">
             <p className="text-gray-500 text-center text-[13px] mb-4">
@@ -270,20 +311,6 @@ function MyHomeContent() {
           </div>
         ) : homeTab === "chamas" ? (
           <>
-            <div className="flex items-center justify-between mb-3">
-              <div>
-                <h2 className="text-[15px] font-bold text-gray-900">My Chamas</h2>
-                <p className="text-[11px] text-gray-500 mt-0.5">
-                  Rotational groups you belong to
-                </p>
-              </div>
-              <Link
-                href="/Create?mode=chama"
-                className="flex items-center gap-1 bg-downy-100 text-downy-800 px-2.5 py-1.5 rounded-full text-[11px] font-bold"
-              >
-                New <FiPlus size={12} />
-              </Link>
-            </div>
             {loading ? (
               <div className="flex flex-col items-center justify-center py-10">
                 <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-downy-500 mb-3" />
@@ -316,20 +343,6 @@ function MyHomeContent() {
           </>
         ) : (
           <>
-            <div className="flex items-center justify-between mb-3">
-              <div>
-                <h2 className="text-[15px] font-bold text-gray-900">My Goals</h2>
-                <p className="text-[11px] text-gray-500 mt-0.5">
-                  Save for Goal pots you created or joined
-                </p>
-              </div>
-              <Link
-                href="/Create?mode=goal"
-                className="flex items-center gap-1 bg-downy-100 text-downy-800 px-2.5 py-1.5 rounded-full text-[11px] font-bold"
-              >
-                New goal <FiPlus size={12} />
-              </Link>
-            </div>
             {goalsLoading ? (
               <div className="flex flex-col items-center justify-center py-10">
                 <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-downy-500 mb-3" />
@@ -356,6 +369,7 @@ function MyHomeContent() {
             )}
           </>
         )}
+        </div>
       </div>
 
       <BottomNavbar
