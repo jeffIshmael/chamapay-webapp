@@ -124,8 +124,13 @@ function validateDocumentNumber(
   return null;
 }
 
+// Light grey for placeholders, and for selects / the date field while they are still empty.
+const EMPTY_TEXT = "text-gray-400/60";
+const FILLED_TEXT = "text-gray-900";
+
+// No text colour in here on purpose: add FILLED_TEXT, or EMPTY_TEXT while a select/date has no value.
 const inputClass =
-  "w-full rounded-lg border bg-gray-50 px-3 py-2.5 text-[13px] text-gray-900 placeholder:text-gray-400 outline-none focus:bg-white focus:border-downy-500 transition";
+  "w-full rounded-lg border bg-gray-50 px-3 py-2.5 text-[13px] placeholder:text-gray-400/60 outline-none focus:bg-white focus:border-downy-500 transition";
 
 function Field({
   label,
@@ -329,6 +334,16 @@ export default function VerifyDetailsPage() {
     }
   };
 
+  // Where the user came from (deposit, wallet, settings...). If this page was opened directly there is
+  // nothing to go back to, so fall back to Settings, as before.
+  const leaveVerify = () => {
+    if (typeof window !== "undefined" && window.history.length > 1) {
+      router.back();
+    } else {
+      router.replace("/Settings");
+    }
+  };
+
   const handleContinue = () => {
     setTouchedFields({
       firstName: true,
@@ -526,8 +541,8 @@ export default function VerifyDetailsPage() {
                     }
                     onBlur={() => touch("firstName")}
                     autoComplete="given-name"
-                    placeholder="Jane"
-                    className={`${inputClass} ${border(
+                    placeholder="First name"
+                    className={`${inputClass} ${FILLED_TEXT} ${border(
                       "firstName",
                       step1Errors.firstName,
                     )}`}
@@ -548,8 +563,8 @@ export default function VerifyDetailsPage() {
                     }
                     onBlur={() => touch("lastName")}
                     autoComplete="family-name"
-                    placeholder="Wanjiku"
-                    className={`${inputClass} ${border(
+                    placeholder="Last name"
+                    className={`${inputClass} ${FILLED_TEXT} ${border(
                       "lastName",
                       step1Errors.lastName,
                     )}`}
@@ -573,7 +588,7 @@ export default function VerifyDetailsPage() {
                     setDob(e.target.value)
                   }
                   onBlur={() => touch("dob")}
-                  className={`${inputClass} ${border(
+                  className={`${inputClass} ${dob ? FILLED_TEXT : EMPTY_TEXT} ${border(
                     "dob",
                     step1Errors.dob,
                   )}`}
@@ -601,9 +616,7 @@ export default function VerifyDetailsPage() {
                       "network",
                       step1Errors.network,
                     )} appearance-none pr-10 ${
-                      !network
-                        ? "text-gray-400"
-                        : "text-gray-900"
+                      network ? FILLED_TEXT : EMPTY_TEXT
                     }`}
                   >
                     <option value="" disabled>
@@ -681,7 +694,7 @@ export default function VerifyDetailsPage() {
                     onBlur={() => touch("phone")}
                     autoComplete="tel-national"
                     placeholder="712 345 678"
-                    className="min-w-0 flex-1 bg-transparent px-3 py-2.5 text-[13px] text-gray-900 placeholder:text-gray-400 outline-none"
+                    className="min-w-0 flex-1 bg-transparent px-3 py-2.5 text-[13px] text-gray-900 placeholder:text-gray-400/60 outline-none"
                   />
                 </div>
               </Field>
@@ -730,7 +743,7 @@ export default function VerifyDetailsPage() {
                       setDocNumber("");
                       touch("docType");
                     }}
-                    className={`${inputClass} ${border(
+                    className={`${inputClass} ${docType ? FILLED_TEXT : EMPTY_TEXT} ${border(
                       "docType",
                       step2Errors.docType,
                     )} appearance-none pr-9`}
@@ -783,7 +796,7 @@ export default function VerifyDetailsPage() {
                     selectedDoc?.placeholder ??
                     "Select a document type first"
                   }
-                  className={`${inputClass} ${border(
+                  className={`${inputClass} ${FILLED_TEXT} ${border(
                     "docNumber",
                     step2Errors.docNumber,
                   )} disabled:opacity-60`}
@@ -846,9 +859,7 @@ export default function VerifyDetailsPage() {
 
             <button
               type="button"
-              onClick={() =>
-                router.replace("/Settings")
-              }
+              onClick={leaveVerify}
               className="mt-4 w-full rounded-lg bg-downy-600 py-3 text-white text-[13px] font-bold"
             >
               Done

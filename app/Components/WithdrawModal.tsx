@@ -404,7 +404,7 @@ export default function WithdrawModal({
                       onChange={(e) => onKesChange(stripCommas(e.target.value))}
                       placeholder="500"
                       disabled={busy}
-                      className="w-full rounded-xl border border-gray-200 px-3 py-2.5 pr-14 text-[15px] font-bold outline-none focus:ring-2 focus:ring-downy-500"
+                      className="w-full rounded-xl border border-gray-200 px-3 py-2.5 pr-14 text-[15px] placeholder:text-gray-400/60 placeholder:font-normal font-bold outline-none focus:ring-2 focus:ring-downy-500"
                     />
                     <button
                       type="button"

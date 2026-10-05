@@ -362,7 +362,7 @@ export default function ChamaMpesaPay({
           }}
           placeholder={kesMode ? "1000" : "5"}
           disabled={busy || isLoading}
-          className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-[15px] font-bold outline-none focus:ring-2 focus:ring-downy-500"
+          className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-[15px] placeholder:text-gray-400/60 placeholder:font-normal font-bold outline-none focus:ring-2 focus:ring-downy-500"
         />
         <p className="text-[11px] flex justify-end text-gray-500 mt-1">
           {kesMode ? `≈ ${usdc || "0.000"} USDC` : `≈ ${kes || "0.00"} KES`}

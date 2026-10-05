@@ -99,7 +99,7 @@ function FieldLabel({ children }: { children: React.ReactNode }) {
 }
 
 const inputClass =
-  "w-full bg-white border border-gray-200 rounded-xl px-3 py-2.5 text-gray-900 text-[13px] focus:border-downy-500 focus:ring-downy-500";
+  "w-full bg-white border border-gray-200 rounded-xl px-3 py-2.5 placeholder:text-gray-400/60 placeholder:font-normal text-gray-900 text-[13px] focus:border-downy-500 focus:ring-downy-500";
 
 function CreateContent() {
   const searchParams = useSearchParams();
@@ -498,7 +498,7 @@ function CreateContent() {
                     if (v === "" || /^\d*\.?\d*$/.test(v)) setContribution(v);
                   }}
                   placeholder={kesMode ? "500" : "5"}
-                  className="flex-1 px-3 py-2.5 text-gray-900 text-[13px] font-semibold border-0 focus:ring-0"
+                  className="flex-1 px-3 py-2.5 text-gray-900 text-[13px] placeholder:text-gray-400/60 placeholder:font-normal font-semibold border-0 focus:ring-0"
                 />
               </div>
               {/* {kesMode && contribution && platformRate > 0 && (
@@ -695,8 +695,8 @@ function CreateContent() {
                         const v = stripCommas(e.target.value);
                         if (v === "" || /^\d*\.?\d*$/.test(v)) setTarget(v);
                       }}
-                      placeholder={kesMode ? "50000" : "400"}
-                      className="flex-1 px-3 py-2.5 text-gray-900 text-[13px] font-semibold border-0 focus:ring-0"
+                      placeholder={kesMode ? "50,000" : "400"}
+                      className="flex-1 px-3 py-2.5 text-gray-900 text-[13px] placeholder:text-gray-400 placeholder:font-normal font-semibold border-0 focus:ring-0"
                     />
                   </div>
                   {kesMode && target && platformRate > 0 && (

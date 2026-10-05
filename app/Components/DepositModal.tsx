@@ -244,7 +244,7 @@ export default function DepositModal({
                   }
                   placeholder="7XX XXX XXX"
                   disabled={busy}
-                  className="flex-1 min-w-0 px-3 py-2.5 text-[13px] outline-none"
+                  className="flex-1 min-w-0 px-3 py-2.5 text-[13px] placeholder:text-gray-400/60 outline-none"
                 />
               </div>
               {phone.length > 0 && !phoneOk && (
@@ -275,7 +275,7 @@ export default function DepositModal({
                   onChange={(e) => onKesChange(stripCommas(e.target.value))}
                   placeholder="1,000"
                   disabled={busy}
-                  className="flex-1 px-3 py-2.5 text-[15px] font-bold outline-none border-0"
+                  className="flex-1 px-3 py-2.5 text-[15px] font-bold placeholder:text-gray-400/60 placeholder:font-normal outline-none border-0"
                 />
               </div>
 
