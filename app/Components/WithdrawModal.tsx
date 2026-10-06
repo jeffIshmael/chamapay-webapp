@@ -62,7 +62,7 @@ export default function WithdrawModal({
   const { token, isAuthenticated } = useAuth();
   const [phone, setPhone] = useState("");
   const [kes, setKes] = useState("");
-  const [rate, setRate] = useState<number | null>(null); // effective KES per 1 USDC (Element Pay)
+  const [rate, setRate] = useState<number | null>(null); // live Element Pay KES per 1 USDC
   const [rateError, setRateError] = useState(false);
   const [step, setStep] = useState<Step>("idle");
   const [phase, setPhase] = useState("Starting withdrawal…");
@@ -81,7 +81,9 @@ export default function WithdrawModal({
     setRateError(false);
     getOfframpRate(token).then((res) => {
       if (cancelled) return;
-      const r = Number(res?.effectiveRate);
+      // Verified users receive the raw Element Pay amounts.rate.
+      // Unverified users receive the configured indicative fallback.
+      const r = Number(res?.rate ?? res?.elementPayRate ?? res?.effectiveRate);
       if (r > 0) setRate(r);
       else setRateError(true);
     });
@@ -111,7 +113,9 @@ export default function WithdrawModal({
     error: quoteError,
   } = useOfframpQuote({
     token,
-    enabled: isOpen && kesAmt > 0, // never gated by balance or limits: only the button is
+    // A real provider quote requires approved KYC. Unverified users only see the
+    // indicative fallback rate and are sent to verification instead.
+    enabled: isOpen && !needsKyc && kesAmt > 0,
     kesAmount: kesAmt,
     phoneLocal,
   });
@@ -198,6 +202,8 @@ export default function WithdrawModal({
       }
       const details = nameRes.MobileDetails || nameRes.details || {};
       setVerifiedName(details.public_name || details.publicName || "M-Pesa user");
+      // The final binding quote carries the actual Element Pay rate for this amount.
+      setRate(Number(q.elementPayRate ?? q.rate) || rate);
       setQuote(q);
       setStep("idle");
     } catch {

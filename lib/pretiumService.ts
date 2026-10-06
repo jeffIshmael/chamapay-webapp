@@ -221,6 +221,8 @@ export interface OfframpQuote {
   kes: { amount: number; fee: number; receive: number };
   usdc: { gross: string; fee: string; net: string };
   rate: string;
+  // Raw Element Pay amounts.rate for the actual binding quote.
+  elementPayRate?: string;
   error?: string;
   code?: string;
 }
@@ -242,7 +244,8 @@ async function epPost(path: string, token: string, body: unknown) {
 /** Page rate: effectiveRate = KES per 1 USDC after Element Pay's fees (shared, cached ~30s on the server). */
 export async function getOfframpRate(token: string) {
   try {
-    return await epPost("/quote", token, { type: "offramp" });
+    const result = await epPost("/quote", token, { type: "offramp" });
+    return result;
   } catch {
     return { success: false, error: "Failed to get the withdrawal rate" };
   }
