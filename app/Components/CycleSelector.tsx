@@ -50,8 +50,8 @@ export const nextMonthlyOccurrence = (day: number, time = "00:00") => {
 
 const ROW_ONE = [
   { days: "1", label: "Daily" },
+  { days: "3", label: "3 Days" },
   { days: "7", label: "Weekly" },
-  { days: "14", label: "Biweekly" },
 ];
 
 const inputClass =
@@ -116,14 +116,14 @@ export default function CycleSelector({ value, onChange, pickerOpen, onPickerOpe
 
   return (
     <div>
-      {/* Row 1: Daily / Weekly / Biweekly */}
+      {/* Row 1: Daily / 3 Days / Weekly */}
       <div className="grid grid-cols-3 gap-1.5 mb-1.5">
         {ROW_ONE.map((o) => preset(o.days, o.label))}
       </div>
 
-      {/* Row 2: Monthly (1 col) + Specific date every month (2 cols) */}
+      {/* Row 2: Biweekly (1 col) + Specific date every month (2 cols) */}
       <div className="grid grid-cols-3 gap-1.5 mb-2.5">
-        {preset("30", "Monthly")}
+        {preset("14", "Biweekly")}
         <button
           type="button"
           onClick={() => {
