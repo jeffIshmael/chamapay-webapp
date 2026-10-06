@@ -218,8 +218,19 @@ export interface OfframpQuote {
   success: boolean;
   quoteId: string | null;
   expiresAt: string;
-  kes: { amount: number; fee: number; receive: number };
-  usdc: { gross: string; fee: string; net: string };
+  kes: {
+    amount: number;
+    fee: number; // ChamaPay fee
+    elementPayFee: number; // Element Pay fee, shown in KES
+    elementPayReceive: number; // Element Pay's authoritative user_receives amount
+    receive: number; // final M-Pesa amount; same as Element Pay user_receives
+  };
+  usdc: {
+    gross: string;
+    fee: string; // ChamaPay fee in USDC, removed before the Element Pay quote
+    net: string; // USDC sent to Element Pay after ChamaPay fee
+    elementPayFee: string; // Element Pay fee in USDC
+  };
   rate: string;
   // Raw Element Pay amounts.rate for the actual binding quote.
   elementPayRate?: string;

@@ -103,7 +103,8 @@ export default function WithdrawModal({
     withdrawableKes !== null &&
     kesAmt <= withdrawableKes;
 
-  // Real Element Pay quote for the typed amount (fee, KES received, USDC deducted).
+  // Real Element Pay quote for the typed amount. The quote already reflects ChamaPay's
+  // fee being removed from USDC before the provider order is created.
   // Fires ~700ms after the user stops typing; a changed phone number re-quotes too,
   // because the server only reuses a quote that was made for the same number.
   const {
@@ -458,8 +459,20 @@ export default function WithdrawModal({
 
                 {kesAmt > 0 && (
                   <div className="bg-white rounded-xl border border-downy-100 px-3 py-2.5 text-[11px] space-y-1">
+                    <div className="flex justify-between text-gray-600">
+                      <span>Providers fee</span>
+                      <span className="font-semibold">
+                        {quote ? (
+                          `KES ${fmtKes(quote.kes.elementPayFee)}`
+                        ) : quoteLoading ? (
+                          <Skeleton className="h-3 w-16" />
+                        ) : (
+                          "—"
+                        )}
+                      </span>
+                    </div>
                     <div className="flex justify-between text-amber-600">
-                      <span>Fee</span>
+                      <span>Transaction fee</span>
                       <span className="font-semibold">
                         {quote ? (
                           `KES ${fmtKes(quote.kes.fee)}`
@@ -566,7 +579,12 @@ export default function WithdrawModal({
                   value: `KES ${fmtKes(quote.kes.amount)}`,
                 },
                 {
-                  label: "Processing Fee",
+                  label: "Provider's Fee",
+                  value: `- KES ${fmtKes(quote.kes.elementPayFee)}`,
+                  tone: "fee",
+                },
+                {
+                  label: "Platform Fee",
                   value: `- KES ${fmtKes(quote.kes.fee)}`,
                   tone: "fee",
                 },
