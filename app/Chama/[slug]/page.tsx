@@ -15,6 +15,7 @@ import {
   transformChamaData,
   setManualPayoutOrder,
   updateChamaDetails,
+  removeMemberFromChama
 } from "@/lib/chamaService";
 import { duration, formatTimeRemaining, getPicture } from "@/utils/duration";
 import Pay from "@/app/Components/Pay";
@@ -30,7 +31,7 @@ import { HiArrowLeft } from "react-icons/hi";
 import Link from "next/link";
 import { useAuth } from "@/app/context/AuthContext";
 import { useSessionAddress } from "@/lib/useSessionAddress";
-import { JoinedChama } from "@/utils/typesUtils";
+import { JoinedChama, Member } from "@/utils/typesUtils";
 import { useFormattedBalance } from "@/lib/useFormattedBalance";
 import { normalizeUsdcAmount, normalizeChamaBalance } from "@/lib/normalizeUsdc";
 import { setPendingChamaFromSlug, clearPendingChamaInvite } from "@/lib/pendingInvite";
@@ -248,6 +249,32 @@ const ChamaDetails = ({ params }: { params: { slug: string } }) => {
     showToast("Chama updated successfully", "success");
     setShowEditModal(false);
     refreshChama();
+  };
+
+  const handleRemoveMember = async (member: Member) => {
+    if (!token) {
+      throw new Error("You need to be logged in to remove a member.");
+    }
+
+    if (!chama) {
+      throw new Error("Please refresh page");
+    }
+  
+    const res = await removeMemberFromChama(
+      Number(chama.id),
+      Number(member.id), // member.id is the user id, which the backend expects as memberUserId
+      token
+    );
+  
+    // Throwing makes the modal stay open and show the error message
+    if (!res?.success) {
+      throw new Error(res?.error || "Failed to remove member. Please try again.");
+    }
+
+    showToast(`${member.name} successfully removed.`, "success");
+  
+    // Refresh so the removed member disappears from the list
+    await refreshChama();
   };
 
   const joinChama = async () => {
@@ -725,6 +752,8 @@ const ChamaDetails = ({ params }: { params: { slug: string } }) => {
               eachMemberBalances={joined.eachMemberBalance || null}
               isPublic={joined.isPublic}
               contributionAmount={joined.contribution}
+              canRemoveMember={canAddMembers}
+              onRemoveMember={handleRemoveMember}
             />
           </div>
         )}

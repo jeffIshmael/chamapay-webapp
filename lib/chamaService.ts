@@ -894,6 +894,29 @@ export const addMemberToChama = async (
   }
 };
 
+// remove a member from a chama 
+export const removeMemberFromChama = async (
+  chamaId: number,
+  memberUserId: number,
+  token: string
+): Promise<ChamaResponse> => {
+  try {
+    const response = await fetch(`${serverUrl}/chama/leave`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ chamaId, memberUserId }),
+    });
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error("Error adding member to chama:", error);
+    return { success: false, error: "Failed to add member to chama" };
+  }
+};
+
 // Admin sets the payout order manually (server signs onchain via CDP).
 // `payoutOrder` is the list of members' smart addresses, first = paid first.
 // The server requires every current member exactly once and matches
