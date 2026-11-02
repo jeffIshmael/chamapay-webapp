@@ -9,7 +9,6 @@ import { useAuth } from "@/app/context/AuthContext";
 import {
   elementPayOfframp,
   getOfframpQuote,
-  getOfframpRate,
   pollPretiumPaymentStatus,
   validatePhoneNumber,
   type OfframpQuote,
@@ -23,13 +22,19 @@ import MpesaConfirmDialog from "./MpesaConfirmDialog";
 import { useUser } from "@/context/UserContext";
 import { useRouter } from "next/navigation";
 import { withCommas, stripCommas } from "@/utils/amountInputUtils";
+import { usdcToKes } from "@/lib/kesMath";
 // adjust this path to wherever you put the hook
 import { useOfframpQuote, isQuoteFresh } from "@/hooks/useOfframpQuote";
 
 type Step = "idle" | "verifying" | "processing" | "completed" | "failed";
 
 const MIN_KES = 60;
-const MAX_KES = 100000; // top of the fee table
+const MAX_KES = 100000;
+// Flat platform rate (must match CHAMAPAY_RATE on the backend) and the single withdrawal fee.
+// The 2.5% covers Element Pay's exchange-rate spread and our own fee.
+const DEFAULT_PLATFORM_RATE = 132; // KES per 1 USDC, used if the Wallet does not pass one
+const FEE_PERCENT = 2.5;
+const FEE_BPS = 250; // same 2.5%, in basis points (must match WITHDRAWAL_FEE_BPS on the backend)
 const NETWORK = "Safaricom";
 const KYC_ROUTE = "/Settings/verify";
 
@@ -39,31 +44,25 @@ const fmtKes = (n: number) =>
     maximumFractionDigits: 2,
   });
 
-// Pulsing placeholder used instead of "…" / "Calculating…" while something loads.
-// Pass the size through className, e.g. "h-3 w-20".
-const Skeleton = ({ className = "" }: { className?: string }) => (
-  <span
-    aria-hidden="true"
-    className={`inline-block animate-pulse rounded bg-gray-200 align-middle ${className}`}
-  />
-);
-
 export default function WithdrawModal({
   isOpen,
   onClose,
   balance,
+  platformRate,
   onSuccess,
 }: {
   isOpen: boolean;
   onClose: () => void;
   balance: number; // USDC
+  /** KES per 1 USDC; pass the same value the Wallet uses so both screens agree (must equal CHAMAPAY_RATE on the server) */
+  platformRate?: number;
   onSuccess?: () => void;
 }) {
+  const PLATFORM_RATE =
+    platformRate && platformRate > 0 ? platformRate : DEFAULT_PLATFORM_RATE;
   const { token, isAuthenticated } = useAuth();
   const [phone, setPhone] = useState("");
   const [kes, setKes] = useState("");
-  const [rate, setRate] = useState<number | null>(null); // live Element Pay KES per 1 USDC
-  const [rateError, setRateError] = useState(false);
   const [step, setStep] = useState<Step>("idle");
   const [phase, setPhase] = useState("Starting withdrawal…");
   const [showVerify, setShowVerify] = useState(false);
@@ -73,38 +72,28 @@ export default function WithdrawModal({
   const router = useRouter();
   const { needsKyc } = useUser();
 
-  // live effective rate every time the modal opens
-  useEffect(() => {
-    if (!isOpen || !token) return;
-    let cancelled = false;
-    setRate(null);
-    setRateError(false);
-    getOfframpRate(token).then((res) => {
-      if (cancelled) return;
-      // Verified users receive the raw Element Pay amounts.rate.
-      // Unverified users receive the configured indicative fallback.
-      const r = Number(res?.rate ?? res?.elementPayRate ?? res?.effectiveRate);
-      if (r > 0) setRate(r);
-      else setRateError(true);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [isOpen, token]);
-
-  const withdrawableKes = rate ? balance * rate : null;
+  // USDC balance valued at the platform rate, ROUNDED DOWN to whole cents (same helper as the Wallet
+  // and Send screens, so all three always agree and never overstate what can be withdrawn)
+  const withdrawableKes = usdcToKes(balance, PLATFORM_RATE, "floor");
   const kesAmt = parseFloat(kes) || 0;
+  // largest whole-KES amount that can be withdrawn (what MAX fills in)
+  const maxWithdrawKes = Math.min(MAX_KES, Math.floor(withdrawableKes));
+  // 2.5% of what the user typed is the transaction fee; the rest is what they receive
+  // Computed in whole cents with half-up rounding, exactly like the server (withdrawalFeeCents)
+  const kesCents = Math.round(kesAmt * 100);
+  const feeCents = Math.floor((kesCents * FEE_BPS + 5000) / 10000);
+  const feeKes = feeCents / 100;
+  const receiveKes = (kesCents - feeCents) / 100;
   const phoneOk = isValidKenyaPhone(phone);
   const phoneLocal = phoneOk ? `0${normalizeKenyaPhoneLocal(phone)}` : "";
 
   const amountInRange =
     kesAmt >= MIN_KES &&
     kesAmt <= MAX_KES &&
-    withdrawableKes !== null &&
     kesAmt <= withdrawableKes;
 
-  // Real Element Pay quote for the typed amount. The quote already reflects ChamaPay's
-  // fee being removed from USDC before the provider order is created.
+  // Real Element Pay quote for the typed amount. It is still needed to get the binding
+  // quoteId / expectedUsdc, but the fee and receive amounts shown here are the flat 2.5%.
   // Fires ~700ms after the user stops typing; a changed phone number re-quotes too,
   // because the server only reuses a quote that was made for the same number.
   const {
@@ -142,17 +131,14 @@ export default function WithdrawModal({
   };
 
   const onKesChange = (v: string) => {
-    if (v !== "" && !/^\d*\.?\d{0,2}$/.test(v)) return;
+    // whole shillings only, like the deposit screen (no decimals in KES)
+    if (v !== "" && !/^\d*$/.test(v)) return;
     setKes(v); // the quote hook clears and re-fetches on its own
   };
 
   const startWithdraw = async () => {
     if (!isAuthenticated || !token) {
       showToast("Please sign in", "warning");
-      return;
-    }
-    if (!rate || withdrawableKes === null) {
-      showToast("Rate unavailable. Please try again.", "warning");
       return;
     }
     if (kesAmt < MIN_KES) {
@@ -197,14 +183,12 @@ export default function WithdrawModal({
         return;
       }
       if (Number(q.usdc.gross) > balance) {
-        setVerifyError("Insufficient balance once fees are included");
+        setVerifyError("Insufficient balance");
         setStep("idle");
         return;
       }
       const details = nameRes.MobileDetails || nameRes.details || {};
       setVerifiedName(details.public_name || details.publicName || "M-Pesa user");
-      // The final binding quote carries the actual Element Pay rate for this amount.
-      setRate(Number(q.elementPayRate ?? q.rate) || rate);
       setQuote(q);
       setStep("idle");
     } catch {
@@ -251,7 +235,7 @@ export default function WithdrawModal({
         "elementpay" // this order lives in Element Pay, whatever the on-ramp flag says
       );
 
-      setReceivedKes(res.kes?.receive ?? quote.kes.receive);
+      setReceivedKes(res.kes?.receive ?? receiveKes);
       setStep("completed");
       onSuccess?.();
     } catch (e: unknown) {
@@ -393,20 +377,14 @@ export default function WithdrawModal({
                     <label className="text-[11px] font-semibold text-gray-600">
                       Amount (KES)
                     </label>
-                    <span className="text-[10px] font-semibold text-gray-400">
-                      {rate ? (
-                        `1 USDC = ${rate.toFixed(2)} KES`
-                      ) : rateError ? (
-                        "Rate unavailable"
-                      ) : (
-                        <Skeleton className="h-3 w-16" />
-                      )}
-                    </span>
+                    {/* <span className="text-[10px] font-semibold text-gray-400">
+                      {`1 USDC = ${PLATFORM_RATE} KES`}
+                    </span> */}
                   </div>
                   <div className="relative">
                     <input
                       type="text"
-                      inputMode="decimal"
+                      inputMode="numeric"
                       value={withCommas(kes)}
                       onChange={(e) => onKesChange(stripCommas(e.target.value))}
                       placeholder="500"
@@ -415,9 +393,8 @@ export default function WithdrawModal({
                     />
                     <button
                       type="button"
-                      disabled={busy || withdrawableKes === null}
+                      disabled={busy || withdrawableKes <= 0}
                       onClick={() =>
-                        withdrawableKes !== null &&
                         onKesChange(
                           String(Math.min(MAX_KES, Math.floor(withdrawableKes)))
                         )
@@ -429,15 +406,9 @@ export default function WithdrawModal({
                   </div>
                   <div className="flex justify-between items-center mt-1.5 gap-2">
                     <p className="text-[11px] text-gray-500">
-                      Withdrawable bal:{" "}
+                      Balance:{" "}
                       <span className="font-semibold text-gray-700">
-                        {withdrawableKes !== null ? (
-                          fmtKes(withdrawableKes)
-                        ) : rateError ? (
-                          "—"
-                        ) : (
-                          <Skeleton className="h-3 w-10" />
-                        )}
+                        {fmtKes(withdrawableKes)}
                       </span>{" "}
                       <span className="text-[10px]">KES</span>
                     </p>
@@ -446,64 +417,39 @@ export default function WithdrawModal({
                   {kesAmt > 0 &&
                     (kesAmt < MIN_KES ||
                       kesAmt > MAX_KES ||
-                      (withdrawableKes !== null && kesAmt > withdrawableKes)) && (
+                      kesAmt > withdrawableKes) && (
                       <p className="text-[11px] text-red-600 font-medium mt-1">
                         {kesAmt < MIN_KES
-                          ? "Below minimum"
+                          ? `Minimum withdrawal is KES ${MIN_KES.toLocaleString()}`
                           : kesAmt > MAX_KES
-                            ? "Above maximum"
-                            : "Exceeds your balance"}
+                            ? `Maximum per withdrawal is KES ${MAX_KES.toLocaleString()}`
+                            : maxWithdrawKes >= MIN_KES
+                              ? `That is more than your balance. The most you can withdraw is KES ${maxWithdrawKes.toLocaleString("en-KE")}.`
+                              : `Your balance is too low to withdraw (minimum KES ${MIN_KES.toLocaleString()}).`}
                       </p>
                     )}
                 </div>
 
                 {kesAmt > 0 && (
                   <div className="bg-white rounded-xl border border-downy-100 px-3 py-2.5 text-[11px] space-y-1">
-                    <div className="flex justify-between text-gray-600">
-                      <span>Providers fee</span>
-                      <span className="font-semibold">
-                        {quote ? (
-                          `KES ${fmtKes(quote.kes.elementPayFee)}`
-                        ) : quoteLoading ? (
-                          <Skeleton className="h-3 w-16" />
-                        ) : (
-                          "—"
-                        )}
-                      </span>
-                    </div>
                     <div className="flex justify-between text-amber-600">
-                      <span>Transaction fee</span>
+                      <span>Transaction fee ({FEE_PERCENT}%)</span>
                       <span className="font-semibold">
-                        {quote ? (
-                          `KES ${fmtKes(quote.kes.fee)}`
-                        ) : quoteLoading ? (
-                          <Skeleton className="h-3 w-16" />
-                        ) : (
-                          "—"
-                        )}
+                        - KES {fmtKes(feeKes)}
                       </span>
                     </div>
                     <div className="flex justify-between items-center text-gray-900 font-bold">
                       <span>You receive</span>
-                      <span>
-                        {quote ? (
-                          `KES ${fmtKes(quote.kes.receive)}`
-                        ) : quoteLoading ? (
-                          <Skeleton className="h-4 w-24" />
-                        ) : (
-                          "—"
-                        )}
-                      </span>
+                      <span>KES {fmtKes(receiveKes)}</span>
                     </div>
                     {quoteError && (
                       <p className="text-[11px] text-red-600 font-medium">
                         {quoteError}
                       </p>
                     )}
-                    {quoteTooBig &&
-                      !(withdrawableKes !== null && kesAmt > withdrawableKes) && (
+                    {quoteTooBig && (
                       <p className="text-[11px] text-red-600 font-medium">
-                        Insufficient balance once fees are included
+                        Insufficient balance
                       </p>
                     )}
                   </div>
@@ -522,7 +468,7 @@ export default function WithdrawModal({
                       <div className="mt-4 rounded-xl bg-downy-50 px-3 py-2.5">
                         <p className="text-[12px] text-gray-500">You receive</p>
                         <p className="text-[15px] font-bold text-gray-900">
-                          KES {fmtKes(quote.kes.receive)}
+                          KES {fmtKes(receiveKes)}
                         </p>
                       </div>
                     )}
@@ -576,28 +522,23 @@ export default function WithdrawModal({
             ? [
                 {
                   label: "Amount in KES",
-                  value: `KES ${fmtKes(quote.kes.amount)}`,
+                  value: `KES ${fmtKes(kesAmt)}`,
                 },
                 {
-                  label: "Provider's Fee",
-                  value: `- KES ${fmtKes(quote.kes.elementPayFee)}`,
-                  tone: "fee",
-                },
-                {
-                  label: "Platform Fee",
-                  value: `- KES ${fmtKes(quote.kes.fee)}`,
+                  label: `Transaction Fee (${FEE_PERCENT}%)`,
+                  value: `- KES ${fmtKes(feeKes)}`,
                   tone: "fee",
                 },
                 {
                   label: "You Receive",
-                  value: `KES ${fmtKes(quote.kes.receive)}`,
+                  value: `KES ${fmtKes(receiveKes)}`,
                   tone: "emphasis",
                 },
-                {
-                  label: "Rate",
-                  value: `1 USDC = ${Number(quote.rate).toFixed(2)} KES`,
-                  tone: "muted",
-                },
+                // {
+                //   label: "Rate",
+                //   value: `1 USDC = ${PLATFORM_RATE} KES`,
+                //   tone: "muted",
+                // },
                 {
                   label: "Total USDC Deduction",
                   value: `${Number(quote.usdc.gross).toFixed(4)} USDC`,

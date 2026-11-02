@@ -16,9 +16,7 @@ const MIN_TRANSFER_AMOUNT = 0.01;
 
 export const internalTransferFee = (amount: number): number => {
   if (amount < MIN_TRANSFER_AMOUNT) return 0;
-  const bracket = TRANSFER_FEE_BRACKETS.find(
-    (b) => amount >= b.min && amount <= b.max
-  );
+  const bracket = TRANSFER_FEE_BRACKETS.find((b) => amount <= b.max + 1e-9);
   return bracket?.fee ?? MAX_TRANSFER_FEE;
 };
 

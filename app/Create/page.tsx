@@ -98,6 +98,49 @@ function FieldLabel({ children }: { children: React.ReactNode }) {
   );
 }
 
+/** Withdrawal fee a goal can opt into. The goal target is raised by this much to cover it. */
+const GOAL_WITHDRAWAL_FEE_PERCENT = 2.5;
+
+/** target + 2.5%, to 2 decimals (KES) or 6 decimals (USDC) */
+const withGoalFee = (amount: number, kes: boolean) => {
+  const raw = amount * (1 + GOAL_WITHDRAWAL_FEE_PERCENT / 100);
+  const m = kes ? 100 : 1e6;
+  return Math.round(raw * m) / m;
+};
+
+/** Horizontal on/off switch (replaces the old checkbox). */
+function Toggle({
+  checked,
+  onChange,
+  label,
+  disabled,
+}: {
+  checked: boolean;
+  onChange: (next: boolean) => void;
+  label: string;
+  disabled?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      aria-label={label}
+      disabled={disabled}
+      onClick={() => onChange(!checked)}
+      className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-downy-500 focus-visible:ring-offset-2 disabled:opacity-50 ${
+        checked ? "bg-emerald-500" : "bg-gray-300"
+      }`}
+    >
+      <span
+        className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform duration-200 ${
+          checked ? "translate-x-[22px]" : "translate-x-0.5"
+        }`}
+      />
+    </button>
+  );
+}
+
 const inputClass =
   "w-full bg-white border border-gray-200 rounded-xl px-3 py-2.5 placeholder:text-gray-400/60 placeholder:font-normal text-gray-900 text-[13px] focus:border-downy-500 focus:ring-downy-500";
 
@@ -139,6 +182,7 @@ function CreateContent() {
   const [target, setTarget] = useState("");
   const [endDate, setEndDate] = useState("");
   const [yieldEnabled, setYieldEnabled] = useState(false);
+  const [withdrawalFeeEnabled, setWithdrawalFeeEnabled] = useState(false);
   const [showYieldInfoModal, setShowYieldInfoModal] = useState(false);
   const [notifyPhone, setNotifyPhone] = useState("");
 
@@ -166,6 +210,7 @@ function CreateContent() {
     setTarget("");
     setEndDate("");
     setYieldEnabled(false);
+    setWithdrawalFeeEnabled(false);
     setShowYieldInfoModal(false);
     setNotifyPhone("");
     setErrorText("");
@@ -230,6 +275,22 @@ function CreateContent() {
     parseFloat(target) > 0 &&
     endDate &&
     new Date(`${endDate}T23:59:59`) > new Date();
+
+  // Goal target with the optional 2.5% withdrawal fee added on top
+  const baseTargetNum = parseFloat(target) || 0;
+  const feeAmountNum =
+    Math.round(
+      (withGoalFee(baseTargetNum, kesMode) - baseTargetNum) *
+        (kesMode ? 100 : 1e6),
+    ) / (kesMode ? 100 : 1e6);
+  const goalTargetNum = withdrawalFeeEnabled
+    ? withGoalFee(baseTargetNum, kesMode)
+    : baseTargetNum;
+  const fmtGoal = (n: number) =>
+    n.toLocaleString(kesMode ? "en-KE" : "en-US", {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: kesMode ? 2 : 3,
+    });
 
   const createChama = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -296,7 +357,8 @@ function CreateContent() {
     }
 
     try {
-      const targetNum = parseFloat(target);
+      // with the withdrawal fee on, the goal the user saves toward is target + 2.5%
+      const targetNum = goalTargetNum;
       const targetUsdc =
         kesMode && platformRate > 0 ? targetNum / platformRate : targetNum;
 
@@ -307,6 +369,10 @@ function CreateContent() {
         targetAmount: targetUsdc.toString(),
         endDate: new Date(`${endDate}T23:59:59`).toISOString(),
         yieldEnabled: goalType === "public" ? false : yieldEnabled,
+        withdrawalFeeEnabled,
+        withdrawalFeePercent: withdrawalFeeEnabled
+          ? GOAL_WITHDRAWAL_FEE_PERCENT
+          : 0,
         notifyPhone: notifyPhone.trim() || undefined,
       });
 
@@ -705,6 +771,61 @@ function CreateContent() {
                       USDC
                     </p>
                   )}
+
+                  {/* Optional 2.5% withdrawal fee: ticked = goal target is raised to cover it */}
+                  <button
+                    type="button"
+                    role="checkbox"
+                    aria-checked={withdrawalFeeEnabled}
+                    onClick={() => setWithdrawalFeeEnabled((v) => !v)}
+                    className={`mt-3 w-full flex items-start gap-3 rounded-xl border px-3 py-3 text-left transition-colors ${
+                      withdrawalFeeEnabled
+                        ? "bg-downy-50 border-downy-300"
+                        : "bg-gray-50 border-gray-200"
+                    }`}
+                  >
+                    <span
+                      className={`mt-0.5 h-5 w-5 shrink-0 rounded-md border flex items-center justify-center transition-colors ${
+                        withdrawalFeeEnabled
+                          ? "bg-downy-600 border-downy-600 text-white"
+                          : "bg-white border-gray-300 text-transparent"
+                      }`}
+                    >
+                      <FiCheck size={14} strokeWidth={3} />
+                    </span>
+                    <span className="flex-1">
+                      <span className="block text-[12px] font-bold text-gray-900">
+                        Add {GOAL_WITHDRAWAL_FEE_PERCENT}% withdrawal fee
+                      </span>
+                      <span className="block text-[11px] text-gray-500 mt-0.5 leading-4">
+                        Raise the goal by {GOAL_WITHDRAWAL_FEE_PERCENT}% so the
+                        fee is covered when you withdraw.
+                      </span>
+                    </span>
+                  </button>
+
+                  {withdrawalFeeEnabled && baseTargetNum > 0 && (
+                    <div className="mt-2 rounded-xl border border-downy-100 bg-white px-3 py-2.5 text-[11px] space-y-1">
+                      <div className="flex justify-between text-gray-600">
+                        <span>Your target</span>
+                        <span className="font-semibold">
+                          {fmtGoal(baseTargetNum)} {kesMode ? "KES" : "USDC"}
+                        </span>
+                      </div>
+                      <div className="flex justify-between text-amber-600">
+                        <span>Withdrawal fee ({GOAL_WITHDRAWAL_FEE_PERCENT}%)</span>
+                        <span className="font-semibold">
+                          + {fmtGoal(feeAmountNum)} {kesMode ? "KES" : "USDC"}
+                        </span>
+                      </div>
+                      <div className="flex justify-between text-gray-900 font-bold border-t border-gray-100 pt-1">
+                        <span>Goal to reach</span>
+                        <span>
+                          {fmtGoal(goalTargetNum)} {kesMode ? "KES" : "USDC"}
+                        </span>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div>
@@ -747,18 +868,17 @@ function CreateContent() {
                         Idle funds earn on Moonwell. Tap for details.
                       </p>
                     </button>
-                    <input
-                      type="checkbox"
+                    <Toggle
                       checked={yieldEnabled}
-                      onChange={(e) => {
-                        if (e.target.checked) {
-                          setYieldEnabled(true);
+                      label="Put your savings to work"
+                      onChange={(on) => {
+                        if (on) {
+                          // stay OFF until the user taps "Got it" in the popup
                           setShowYieldInfoModal(true);
                         } else {
                           setYieldEnabled(false);
                         }
                       }}
-                      className="rounded border-gray-300 text-downy-600 focus:ring-downy-500 h-5 w-5"
                     />
                   </div>
                 )}

@@ -2,6 +2,8 @@ import { serverUrl } from "@/lib/serverUrl";
 import { Console } from "console";
 
 const useElementPay = process.env.NEXT_PUBLIC_USE_ELEMENTPAY === "true";
+/** Exposed so the deposit screen only pre-fetches Element Pay quotes when Element Pay is in use. */
+export const USE_ELEMENTPAY = useElementPay;
 
 export type CurrencyCode =
   | "KES"
@@ -22,7 +24,10 @@ export async function pretiumOnramp(
   chamaId?: number,
   memberForId?: number,
   isMoonwellDeposit?: boolean,
-  goalId?: number
+  goalId?: number,
+  // Element Pay only: a quote from getOnrampQuote for this exact amount + number. The server
+  // accepts it directly instead of creating (and waiting on) a new one. Ignored if invalid/expired.
+  quoteId?: string
 ) {
   try {
     const url = useElementPay ? `${serverUrl}/elementpay/onramp` : `${serverUrl}/pretium/onramp`;
@@ -42,6 +47,7 @@ export async function pretiumOnramp(
         memberForId,
         isMoonwellDeposit,
         goalId,
+        quoteId,
       }),
     });
     const data = await response.json();
@@ -211,7 +217,7 @@ export async function disburseToMobileNumber(
 }
 
 // ---------------------------------------------------------------------------
-// Element Pay off-ramp (KES in, fee from our bracket table)
+// Element Pay off-ramp (KES in, flat 2.5% transaction fee)
 // ---------------------------------------------------------------------------
 
 export interface OfframpQuote {
@@ -219,16 +225,16 @@ export interface OfframpQuote {
   quoteId: string | null;
   expiresAt: string;
   kes: {
-    amount: number;
-    fee: number; // ChamaPay fee
-    elementPayFee: number; // Element Pay fee, shown in KES
-    elementPayReceive: number; // Element Pay's authoritative user_receives amount
-    receive: number; // final M-Pesa amount; same as Element Pay user_receives
+    amount: number; // what the user typed (100%)
+    fee: number; // the 2.5% transaction fee
+    elementPayFee: number; // always 0 now (Element Pay removed its fee)
+    elementPayReceive: number; // Element Pay's actual payout
+    receive: number; // the amount shown to the user (typed amount minus 2.5%)
   };
   usdc: {
-    gross: string;
-    fee: string; // ChamaPay fee in USDC, removed before the Element Pay quote
-    net: string; // USDC sent to Element Pay after ChamaPay fee
+    gross: string; // typed amount at the platform rate (132); all of it leaves the wallet
+    fee: string; // gross - net, kept by the treasury (can be 0 at break-even)
+    net: string; // USDC sent to Element Pay
     elementPayFee: string; // Element Pay fee in USDC
   };
   rate: string;
@@ -301,5 +307,42 @@ export async function elementPayOfframp(
     return data;
   } catch {
     return { success: false, error: "Failed to start withdrawal" };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Element Pay on-ramp quote (pre-fetched on the deposit screen, reused on Deposit)
+// ---------------------------------------------------------------------------
+
+export interface OnrampQuote {
+  success: boolean;
+  quoteId: string;
+  expiresAt: string; // ISO time after which the server will no longer accept this quote
+  amountKes: number; // the whole-KES amount the quote was made for
+  error?: string;
+}
+
+/**
+ * Binding quote for a deposit. Nothing is charged: the quote is only accepted when the user taps
+ * Deposit and pretiumOnramp sends this quoteId back. Only the fields the UI needs are kept.
+ */
+export async function getOnrampQuote(
+  token: string,
+  amount: number,
+  phoneNo: string
+): Promise<OnrampQuote> {
+  try {
+    const data = await epPost("/quote", token, { type: "onramp", amount, phoneNo });
+    if (!data?.success || !data?.quoteId) {
+      return { success: false, quoteId: "", expiresAt: "", amountKes: amount, error: data?.error };
+    }
+    return {
+      success: true,
+      quoteId: data.quoteId,
+      expiresAt: data.expiresAt,
+      amountKes: Number(data.amountKes ?? amount),
+    };
+  } catch {
+    return { success: false, quoteId: "", expiresAt: "", amountKes: amount, error: "Could not get a quote" };
   }
 }

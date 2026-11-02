@@ -10,12 +10,19 @@ import {
   getExchangeRate,
   pollPretiumPaymentStatus,
   pretiumOnramp,
+  USE_ELEMENTPAY,
 } from "@/lib/pretiumService";
-import { isValidKenyaPhone, toKenyaE164 } from "@/lib/phoneUtils";
+import {
+  isValidKenyaPhone,
+  toKenyaE164,
+  normalizeKenyaPhoneLocal,
+} from "@/lib/phoneUtils";
 import { useCurrencyStore } from "@/store/useCurrencyStore";
 import { useUser } from "@/context/UserContext";
 import { useRouter } from "next/navigation";
 import { withCommas, stripCommas } from "@/utils/amountInputUtils";
+import { kesToUsdcCeil } from "@/lib/kesMath";
+import { useOnrampQuote, isOnrampQuoteFresh } from "@/hooks/useOnrampQuote";
 
 type Step =
   | "idle"
@@ -29,37 +36,47 @@ type Step =
 const FALLBACK_RATE = 132;
 const MIN_KES = 50;
 const MAX_KES = 250000;
-const PRESETS_KES = [50, 100, 500, 1000];
+const PRESETS_KES = [50, 500, 1000, 2000];
 const NETWORK = "Safaricom";
 const KYC_ROUTE = "/Settings/verify";
 
 export default function DepositModal({
   isOpen,
   onClose,
+  platformRate,
   onSuccess,
 }: {
   isOpen: boolean;
   onClose: () => void;
+  /** KES per 1 USDC; pass the same value the Wallet uses (must equal CHAMAPAY_RATE on the server) */
+  platformRate?: number;
   onSuccess?: () => void;
 }) {
   const { token, isAuthenticated } = useAuth();
   const [phone, setPhone] = useState("");
   const [kes, setKes] = useState("");
-  const [rate, setRate] = useState(FALLBACK_RATE);
+  const [liveRate, setLiveRate] = useState(FALLBACK_RATE);
+  // Element Pay credits at the platform rate, so the screen must quote with that same rate.
+  // The Pretium path still uses the live rate it always used.
+  const rate = USE_ELEMENTPAY
+    ? platformRate && platformRate > 0
+      ? platformRate
+      : FALLBACK_RATE
+    : liveRate;
   const [step, setStep] = useState<Step>("idle");
   const { currency } = useCurrencyStore();
   const router = useRouter();
   const { needsKyc } = useUser();
 
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen || USE_ELEMENTPAY) return;
     getExchangeRate("KES").then((res) => {
       const r =
         Number(res?.data?.buying) ||
         Number(res?.data?.rate) ||
         Number(res?.buying) ||
         Number(res?.rate);
-      if (r > 0) setRate(r);
+      if (r > 0) setLiveRate(r);
     });
   }, [isOpen]);
 
@@ -67,6 +84,7 @@ export default function DepositModal({
     setPhone("");
     setKes("");
     setStep("idle");
+    setQuote(null);
   };
 
   const goVerify = () => {
@@ -76,12 +94,15 @@ export default function DepositModal({
   };
 
   const onKesChange = (v: string): void => {
-    if (v !== "" && !/^\d*\.?\d*$/.test(v)) return;
+    // whole KES only: M-Pesa and the server take whole shillings, so a typed "100.5" used to be
+    // shown as 100.5 but charged as 101
+    if (v !== "" && !/^\d*$/.test(v)) return;
     setKes(v);
   };
 
   const kesAmt = parseFloat(kes) || 0;
-  const usdcAmt = kesAmt > 0 && rate > 0 ? kesAmt / rate : 0;
+  // USDC credited: KES / rate rounded UP to 6 decimals, exactly like the server (kesToUsdcCeil)
+  const usdcAmt = kesToUsdcCeil(kesAmt, rate);
   const processing =
     step === "initiating" ||
     step === "waiting_for_pin" ||
@@ -90,6 +111,19 @@ export default function DepositModal({
   const phoneOk = isValidKenyaPhone(phone);
   const amountOk = kesAmt >= MIN_KES && kesAmt <= MAX_KES;
   const canSubmit = !busy && phoneOk && amountOk;
+
+  // Quote ahead of the tap. The quote is only valid for this exact whole-KES amount and number;
+  // if either changes the hook drops it and the server will quote fresh (as it always did).
+  // It never gates the Deposit button.
+  const sentKes = Math.ceil(kesAmt);
+  const phoneLocal = phoneOk ? `0${normalizeKenyaPhoneLocal(phone)}` : "";
+  const { quote, setQuote } = useOnrampQuote({
+    token,
+    enabled:
+      USE_ELEMENTPAY && isOpen && !needsKyc && phoneOk && amountOk && !busy,
+    kesAmount: sentKes,
+    phoneLocal,
+  });
 
   const startDeposit = async () => {
     if (!isAuthenticated || !token) {
@@ -120,11 +154,20 @@ export default function DepositModal({
     try {
       const result = await pretiumOnramp(
         toKenyaE164(phone),
-        Math.ceil(kesAmt),
+        sentKes,
         rate,
         usdcAmt,
         true,
         token,
+        undefined, // chamaId
+        undefined, // memberForId
+        undefined, // isMoonwellDeposit
+        undefined, // goalId
+        // reuse the quote already on hand (same amount + number, not about to expire);
+        // otherwise undefined and the server quotes as before
+        quote && isOnrampQuoteFresh(quote) && quote.amountKes === sentKes
+          ? quote.quoteId
+          : undefined,
       );
 
       if (!result.success) {

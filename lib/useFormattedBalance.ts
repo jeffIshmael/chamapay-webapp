@@ -1,6 +1,7 @@
 "use client";
 
 import { useCurrencyStore } from "@/store/useCurrencyStore";
+import { usdcToKes } from "@/lib/kesMath";
 
 /**
  * Format a raw USDC amount using the user's preferred display currency.
@@ -38,9 +39,9 @@ export function useFormattedBalance() {
     if (currency === "KES") {
       const minFrac = noDecimals ? 0 : 2;
       const maxFrac = noDecimals ? 0 : 2;
-      const kesValue = noDecimals
-        ? Math.ceil(numericBalance * platformRate)
-        : Math.ceil(numericBalance * platformRate * 100) / 100;
+      // 6-decimal USDC maths, KES rounded DOWN so a balance is never shown higher than it is
+      const kes = usdcToKes(numericBalance, platformRate, "floor");
+      const kesValue = noDecimals ? Math.floor(kes) : kes;
       return ` ${kesValue.toLocaleString("en-KE", {
         minimumFractionDigits: minFrac,
         maximumFractionDigits: maxFrac,
@@ -70,9 +71,8 @@ export function useFormattedBalance() {
     let maxFrac: number;
 
     if (currency === "KES") {
-      value = noDecimals
-        ? Math.ceil(numericBalance * platformRate)
-        : Math.ceil(numericBalance * platformRate * 100) / 100;
+      const kes = usdcToKes(numericBalance, platformRate, "floor");
+      value = noDecimals ? Math.floor(kes) : kes;
       minFrac = noDecimals ? 0 : 2;
       maxFrac = noDecimals ? 0 : 2;
     } else {

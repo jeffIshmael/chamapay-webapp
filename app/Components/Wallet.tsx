@@ -37,6 +37,7 @@ import DepositModal from "./DepositModal";
 import WithdrawModal from "./WithdrawModal";
 import Link from "next/link";
 import { useFormattedBalance } from "@/lib/useFormattedBalance";
+import { usdcToKes } from "@/lib/kesMath";
 import { getRelativeTime } from "@/utils/duration";
 
 const shortAddress = (value?: string) => {
@@ -116,8 +117,9 @@ const Wallet = () => {
     minimumFractionDigits: 3,
     maximumFractionDigits: 3,
   });
-  const kesApprox =
-    Math.ceil(balance * platformRate * 100) / 100;
+  // Rounded DOWN to whole cents (integer micro-USDC, no float noise) so the wallet never shows
+  // more KES than the withdraw screen will let the user take out.
+  const kesApprox = usdcToKes(balance, platformRate, "floor");
 
   const truncatedAddress = address
     ? `${address.slice(0, 6)}...${address.slice(-4)}`
@@ -594,6 +596,7 @@ const Wallet = () => {
         <DepositModal
           isOpen={true}
           onClose={closeModal}
+          platformRate={platformRate}
           onSuccess={refreshActivity}
         />
       )}
@@ -610,6 +613,7 @@ const Wallet = () => {
           isOpen={true}
           onClose={closeModal}
           balance={balance}
+          platformRate={platformRate}
           onSuccess={refreshActivity}
         />
       )}

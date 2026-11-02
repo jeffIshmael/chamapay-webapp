@@ -8,9 +8,19 @@ import { showToast } from "./Toast";
 import { useAuth } from "@/app/context/AuthContext";
 import { useSessionAddress } from "@/lib/useSessionAddress";
 import { serverUrl } from "@/lib/serverUrl";
-import { internalTransferFee, maxSendableWithTransferFee } from "@/lib/transactionFees";
+import { internalTransferFee } from "@/lib/transactionFees";
 import { useCurrencyStore } from "@/store/useCurrencyStore";
 import { withCommas, stripCommas } from "@/utils/amountInputUtils";
+import {
+  usdcToKes,
+  kesToUsdcCeil,
+  floorUsdc,
+  ceilUsdc,
+  toMicro,
+} from "@/lib/kesMath";
+
+/** Smallest external send. internalTransferFee() charges nothing below this, so it is also enforced. */
+const MIN_EXTERNAL_USDC = 0.01;
 
 type SendMode = "chamapay" | "external";
 
@@ -27,21 +37,18 @@ function formatInUnit(
   usdcAmount: number,
   kesMode: boolean,
   platformRate: number,
-  /** Floor for withdrawable/max so reverse conversion never overshoots balance. */
+  /** "floor" for what the user has (balance, max); "ceil" for what they pay (fee, total, minimum). */
   round: "ceil" | "floor" = "ceil"
 ) {
   if (kesMode && platformRate > 0) {
-    const raw = usdcAmount * platformRate;
-    const kes =
-      round === "floor"
-        ? Math.floor(raw * 100) / 100
-        : Math.ceil(raw * 100) / 100;
+    const kes = usdcToKes(usdcAmount, platformRate, round);
     return `${kes.toLocaleString("en-KE", {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     })} KES`;
   }
-  const usdc = Math.round(usdcAmount * 1000) / 1000;
+  const usdc =
+    round === "floor" ? floorUsdc(usdcAmount, 3) : ceilUsdc(usdcAmount, 3);
   return `${usdc.toLocaleString("en-US", {
     minimumFractionDigits: 3,
     maximumFractionDigits: 3,
@@ -123,24 +130,24 @@ export default function SendModal({
   };
 
   const parsedDisplay = parseFloat(amount) || 0;
+  // KES -> USDC rounds UP to 6 decimals so the recipient never receives less than the KES typed
   const parsedAmount =
     kesMode && platformRate > 0
-      ? parsedDisplay / platformRate
-      : parsedDisplay;
+      ? kesToUsdcCeil(parsedDisplay, platformRate)
+      : Math.round(parsedDisplay * 1e6) / 1e6;
   const fee =
     mode === "external" && parsedAmount > 0
       ? internalTransferFee(parsedAmount)
       : 0;
-  const total = parsedAmount + fee;
+  const total = Math.round((parsedAmount + fee) * 1e6) / 1e6;
 
-  /** Max USDC the user can actually send (fee reserved for external). */
-  const withdrawableUsdc = useMemo(() => {
-    if (mode === "external") return maxSendableWithTransferFee(balance);
-    return Math.floor(Math.max(0, balance) * 1000) / 1000;
-  }, [mode, balance]);
-
-  const reservedFeeUsdc =
-    mode === "external" ? Math.max(0, balance - withdrawableUsdc) : 0;
+  // Smallest wallet balance that can make an external send: the minimum amount plus its own fee
+  const minWithFeeUsdc =
+    MIN_EXTERNAL_USDC + internalTransferFee(MIN_EXTERNAL_USDC);
+  const belowMin =
+    mode === "external" &&
+    parsedAmount > 0 &&
+    toMicro(parsedAmount) < toMicro(MIN_EXTERNAL_USDC);
 
   const externalAddressOk = useMemo(
     () => isAddress(recipient.trim() as `0x${string}`),
@@ -154,31 +161,112 @@ export default function SendModal({
     !sending &&
     recipientReady &&
     parsedAmount > 0 &&
-    total <= balance + 0.0000001;
+    !belowMin &&
+    toMicro(total) <= toMicro(balance);
+
+  /**
+   * Largest amount that can be sent, in the unit the user is typing: KES to the cent in KES mode,
+   * USDC (6 decimals) otherwise. Amount + fee always fits the wallet.
+   */
+  const maxAmount = useMemo(() => {
+    const balMicro = toMicro(balance);
+    const feeOf = (usdc: number) =>
+      mode === "external" ? internalTransferFee(usdc) : 0;
+    const fits = (usdc: number) => toMicro(usdc + feeOf(usdc)) <= balMicro;
+
+    // amount + fee only ever grows with the amount, so a binary search finds the exact largest
+    // amount that fits. (The old stepping loops gave up after a few thousand tiny steps and could
+    // stop short of a fee-bracket boundary, which is why Max did nothing for external wallets.)
+    let best: number;
+    if (kesMode && platformRate > 0) {
+      let lo = 0; // KES cents
+      let hi = Math.round(usdcToKes(balance, platformRate, "floor") * 100);
+      while (lo < hi) {
+        const mid = Math.ceil((lo + hi) / 2);
+        if (fits(kesToUsdcCeil(mid / 100, platformRate))) lo = mid;
+        else hi = mid - 1;
+      }
+      best = lo / 100;
+      // an external send below the minimum is not allowed, so there is no usable max
+      if (mode === "external" && kesToUsdcCeil(best, platformRate) < MIN_EXTERNAL_USDC)
+        best = 0;
+    } else {
+      let lo = 0; // micro-USDC
+      let hi = balMicro;
+      while (lo < hi) {
+        const mid = Math.ceil((lo + hi) / 2);
+        if (fits(mid / 1e6)) lo = mid;
+        else hi = mid - 1;
+      }
+      best = lo / 1e6;
+      if (mode === "external" && best < MIN_EXTERNAL_USDC) best = 0;
+    }
+    return best;
+  }, [kesMode, platformRate, mode, balance]);
 
   const applyMax = () => {
-    let maxUsdc = withdrawableUsdc;
-    if (kesMode && platformRate > 0) {
-      // Floor KES so amount/rate + fee never exceeds wallet after conversion.
-      let kes = Math.floor(maxUsdc * platformRate * 100) / 100;
-      // Nudge down if float reverse-conversion still overshoots.
-      for (let i = 0; i < 5; i++) {
-        const usdc = kes / platformRate;
-        const f = mode === "external" ? internalTransferFee(usdc) : 0;
-        if (usdc + f <= balance + 1e-9) break;
-        kes = Math.floor((kes - 0.01) * 100) / 100;
-      }
-      setAmount(kes > 0 ? kes.toFixed(2) : "");
+    if (maxAmount <= 0) {
+      // tell the user why Max did nothing instead of silently leaving the field empty
+      showToast(
+        mode === "external"
+          ? `Your balance is too low for an external send. You need at least ${minTotalLabel}.`
+          : "Your balance is too low to send.",
+        "warning",
+      );
       return;
     }
-    // Ensure Max still fits after fee (USDC mode).
-    while (maxUsdc > 0) {
-      const f = mode === "external" ? internalTransferFee(maxUsdc) : 0;
-      if (maxUsdc + f <= balance + 1e-9) break;
-      maxUsdc = Math.floor((maxUsdc - 0.001) * 1000) / 1000;
-    }
-    setAmount(maxUsdc > 0 ? maxUsdc.toFixed(3) : "");
+    setAmount(
+      maxAmount > 0
+        ? kesMode
+          ? String(Number(maxAmount.toFixed(2)))
+          : String(Number(maxAmount.toFixed(6)))
+        : "",
+    );
   };
+
+  // ---- feedback for the user -------------------------------------------------------------
+  const overBalance = parsedAmount > 0 && toMicro(total) > toMicro(balance);
+  // the amount ALONE is more than the wallet holds (vs. amount fits but amount + fee does not)
+  const exceedsBalance = parsedAmount > 0 && toMicro(parsedAmount) > toMicro(balance);
+  const maxLabel =
+    kesMode && platformRate > 0
+      ? `${maxAmount.toLocaleString("en-KE", {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        })} KES`
+      : `${floorUsdc(maxAmount, 3).toLocaleString("en-US", {
+          minimumFractionDigits: 3,
+          maximumFractionDigits: 3,
+        })} USDC`;
+  const feeLabel = formatInUnit(fee, kesMode, platformRate, "ceil");
+  const minSendLabel = formatInUnit(
+    MIN_EXTERNAL_USDC,
+    kesMode,
+    platformRate,
+    "ceil",
+  );
+  // Total = what the user typed + the fee, added in the unit they are using. It must never be
+  // re-converted from USDC and rounded up: that is what showed 0.16 under an amount of 0.15.
+  const totalLabel =
+    kesMode && platformRate > 0
+      ? `${(
+          (Math.round(parsedDisplay * 100) +
+            Math.round(usdcToKes(fee, platformRate, "ceil") * 100)) /
+          100
+        ).toLocaleString("en-KE", {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        })} KES`
+      : `${total.toLocaleString("en-US", {
+          minimumFractionDigits: 3,
+          maximumFractionDigits: 6,
+        })} USDC`;
+  const minTotalLabel = formatInUnit(
+    minWithFeeUsdc,
+    kesMode,
+    platformRate,
+    "ceil",
+  );
 
   const handleSend = async () => {
     if (!isAuthenticated || !token) {
@@ -202,7 +290,11 @@ export default function SendModal({
       showToast("Enter a valid amount", "warning");
       return;
     }
-    if (total > balance) {
+    if (belowMin) {
+      showToast("Below the minimum amount for external wallets", "warning");
+      return;
+    }
+    if (toMicro(total) > toMicro(balance)) {
       showToast("Insufficient balance (including fee)", "error");
       return;
     }
@@ -217,8 +309,10 @@ export default function SendModal({
         },
         body: JSON.stringify({
           receiver: to,
-          amount: parsedAmount.toFixed(3),
-          fee: fee.toFixed(3),
+          // 6 decimals (USDC's real precision). 3 decimals cut up to 0.001 USDC (~0.13 KES) off
+          // the balance. The /user/sendUSDC route must accept 6 decimals for amount and fee.
+          amount: parsedAmount.toFixed(6),
+          fee: fee.toFixed(6),
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -442,7 +536,11 @@ export default function SendModal({
                   value={withCommas(amount)}
                   onChange={(e) => {
                     const v = stripCommas(e.target.value);
-                    if (v === "" || /^\d*\.?\d*$/.test(v)) setAmount(v);
+                    // decimals are allowed in both units: KES to the cent, USDC to 6 places
+                    const ok = kesMode
+                      ? /^\d*\.?\d{0,2}$/.test(v)
+                      : /^\d*\.?\d{0,6}$/.test(v);
+                    if (v === "" || ok) setAmount(v);
                   }}
                   placeholder="0.00"
                   className="w-full rounded-xl border border-gray-200 px-3 py-2.5 pr-14 text-[15px] font-bold outline-none focus:ring-2 focus:ring-downy-500"
@@ -455,36 +553,62 @@ export default function SendModal({
                   Max
                 </button>
               </div>
-              <div className="mt-1.5 space-y-0.5">
-                <p className="text-[11px] text-gray-500">
-                  {mode === "external" ? "Withdrawable " : "Available "}
+              <div className="mt-1.5 flex items-center justify-between gap-2 text-[11px]">
+                <p className="text-gray-500">
+                  Available balance{" "}
                   <span className="font-semibold text-gray-800">
-                    {formatInUnit(
-                      withdrawableUsdc,
-                      kesMode,
-                      platformRate,
-                      "floor"
-                    )}
+                    {formatInUnit(balance, kesMode, platformRate, "floor")}
                   </span>
                 </p>
                 {mode === "external" && (
-                  <p className="text-[10px] text-gray-400">
-                    Wallet{" "}
-                    {formatInUnit(balance, kesMode, platformRate, "floor")}
-                    {reservedFeeUsdc > 0
-                      ? ` · fee reserved ≈ ${formatInUnit(
-                          reservedFeeUsdc,
-                          kesMode,
-                          platformRate,
-                          "ceil"
-                        )}`
-                      : withdrawableUsdc <= 0
-                        ? " · balance too low after network fee"
-                        : ""}
+                  <p
+                    className={belowMin ? "text-red-600 font-medium" : "text-gray-500"}
+                  >
+                    Min{" "}
+                    <span className="font-semibold">
+                      {formatInUnit(minWithFeeUsdc, kesMode, platformRate, "ceil")}
+                    </span>
                   </p>
                 )}
               </div>
             </div>
+
+            {overBalance && (
+              <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-[11px] text-red-700">
+                {exceedsBalance ? (
+                  // the amount alone is already more than the wallet holds
+                  "Amount exceeds your balance."
+                ) : maxAmount > 0 ? (
+                  // the amount fits the balance, but the network fee on top does not
+                  <>
+                    You have enough for this amount, but not for the {feeLabel}{" "}
+                    network fee on top of it. Try {maxLabel} or less.{" "}
+                    <button
+                      type="button"
+                      onClick={applyMax}
+                      className="font-bold underline bg-transparent"
+                    >
+                      Use {maxLabel}
+                    </button>
+                  </>
+                ) : (
+                  `Your balance is too low to cover the network fee. You need at least ${minTotalLabel}.`
+                )}
+              </div>
+            )}
+            {!overBalance && belowMin && (
+              <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-[11px] text-red-700">
+                The minimum send to an external wallet is {minSendLabel} (
+                {minTotalLabel} with the fee).
+              </div>
+            )}
+            {!overBalance && !belowMin && parsedAmount > 0 && !recipientReady && (
+              <p className="text-[11px] text-amber-700 font-medium">
+                {mode === "chamapay"
+                  ? "Select a Chamapay user to continue."
+                  : "Enter a valid wallet address to continue."}
+              </p>
+            )}
 
             {parsedAmount > 0 && (
               <div className="bg-white rounded-xl border border-downy-100 px-3 py-2.5 text-[11px] space-y-1">
@@ -498,7 +622,7 @@ export default function SendModal({
                 </div>
                 <div className="flex justify-between text-gray-900 font-bold">
                   <span>Total</span>
-                  <span>{formatInUnit(total, kesMode, platformRate)}</span>
+                  <span>{totalLabel}</span>
                 </div>
               </div>
             )}
