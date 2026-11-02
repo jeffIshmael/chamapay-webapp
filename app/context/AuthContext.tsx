@@ -6,12 +6,13 @@ import React, {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
 import { serverUrl } from "@/lib/serverUrl";
 import { showToast } from "@/app/Components/Toast";
-import { authDebug, decodeJwtPayload } from "@/lib/authDebug";
+import { authDebug } from "@/lib/authDebug";
 
 export interface AuthUser {
   id: number;
@@ -23,6 +24,15 @@ export interface AuthUser {
   phoneNo?: string | number | null;
   isGuest?: boolean;
   [key: string]: unknown;
+}
+
+/** A verified email that still has to create its account. */
+export interface PendingProfile {
+  email: string;
+  name?: string;
+  picture?: string;
+  /** proof from the server that this email was verified; /auth/register requires it */
+  registrationToken?: string;
 }
 
 interface AuthContextType {
@@ -43,8 +53,8 @@ interface AuthContextType {
   }) => Promise<boolean>;
   /** Temporary browse-only session while Google auth is fixed */
   continueAsGuest: () => void;
-  setPendingProfile: (profile: { email: string; name?: string; picture?: string } | null) => void;
-  pendingProfile: { email: string; name?: string; picture?: string } | null;
+  setPendingProfile: (profile: PendingProfile | null) => void;
+  pendingProfile: PendingProfile | null;
   logout: () => void;
   refreshUser: () => Promise<void>;
   updateLocalUser: (patch: Partial<AuthUser>) => void;
@@ -59,34 +69,49 @@ const REFRESH_KEY = "web_refresh_token";
 const USER_KEY = "web_user";
 export const GUEST_TOKEN = "guest";
 
-async function checkUserExists(email: string): Promise<boolean> {
-  const response = await fetch(`${serverUrl}/user/checkUserExists`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email: email.toLowerCase().trim() }),
-  });
-  const data = await response.json().catch(() => ({}));
-  return Boolean(data?.success || data?.exists);
+/** Refresh the session when the access token has less than this left. */
+const REFRESH_WINDOW_SECONDS = 24 * 60 * 60;
+
+/** `exp` (seconds) of a JWT, or null. Only used to decide WHEN to refresh, never to trust a token. */
+function jwtExpSeconds(token: string): number | null {
+  try {
+    const part = token.split(".")[1];
+    if (!part) return null;
+    const json = JSON.parse(atob(part.replace(/-/g, "+").replace(/_/g, "/")));
+    return typeof json.exp === "number" ? json.exp : null;
+  } catch {
+    return null;
+  }
 }
 
-async function authenticateEmail(email: string, provider: string) {
-  const response = await fetch(`${serverUrl}/auth/authenticate`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email: email.toLowerCase().trim(), provider }),
-  });
-  return { ok: response.ok, data: await response.json().catch(() => ({})) };
+/** The Bearer token a request was sent with. */
+function bearerFrom(init?: RequestInit): string | null {
+  const h = init?.headers;
+  if (!h) return null;
+  let v: string | null | undefined;
+  if (typeof Headers !== "undefined" && h instanceof Headers) {
+    v = h.get("Authorization");
+  } else if (Array.isArray(h)) {
+    v = h.find(([k]) => k.toLowerCase() === "authorization")?.[1];
+  } else {
+    const rec = h as Record<string, string>;
+    const key = Object.keys(rec).find((k) => k.toLowerCase() === "authorization");
+    v = key ? rec[key] : null;
+  }
+  return v ? v.replace(/^Bearer\s+/i, "") : null;
+}
+
+function withBearer(init: RequestInit | undefined, token: string): RequestInit {
+  const headers = new Headers(init?.headers);
+  headers.set("Authorization", `Bearer ${token}`);
+  return { ...init, headers };
 }
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [token, setToken] = useState<string | null>(null);
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [pendingProfile, setPendingProfile] = useState<{
-    email: string;
-    name?: string;
-    picture?: string;
-  } | null>(null);
+  const [pendingProfile, setPendingProfile] = useState<PendingProfile | null>(null);
 
   useEffect(() => {
     try {
@@ -138,6 +163,123 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     });
   }, []);
 
+  // --- keeping the session alive -------------------------------------------------------------
+  const nativeFetchRef = useRef<typeof fetch | null>(null);
+  const refreshInFlight = useRef<Promise<boolean> | null>(null);
+
+  /** The refresh token is dead too: sign out cleanly and say why. */
+  const expireSession = useCallback(() => {
+    logout();
+    showToast("Your session expired. Please sign in again.", "warning");
+  }, [logout]);
+
+  /**
+   * Swap the refresh token for fresh tokens. One request at a time: callers that arrive while a
+   * refresh is running share its result. Returns true when new tokens are stored. A network error
+   * or a server error keeps the session (it may work again shortly); only a rejected refresh
+   * token signs the user out.
+   */
+  const refreshSession = useCallback((): Promise<boolean> => {
+    if (refreshInFlight.current) return refreshInFlight.current;
+    const run = (async () => {
+      const f = nativeFetchRef.current ?? fetch;
+      const refreshToken = localStorage.getItem(REFRESH_KEY);
+      if (!refreshToken) {
+        // nothing to refresh with: only an already-expired access token is a dead session
+        const t = localStorage.getItem(TOKEN_KEY);
+        const exp = t ? jwtExpSeconds(t) : null;
+        if (exp && exp * 1000 <= Date.now()) expireSession();
+        return false;
+      }
+      try {
+        const res = await f(`${serverUrl}/auth/refresh`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ refreshToken }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (res.ok && data?.token && data?.user) {
+          persistSession(data.token, data.user, data.refreshToken);
+          authDebug("session refreshed", { userId: data.user?.id });
+          return true;
+        }
+        if (res.status >= 500) return false; // server trouble: keep the session, try later
+        expireSession(); // 400/401/404: the refresh token is invalid or expired
+        return false;
+      } catch {
+        return false; // offline: keep the session
+      }
+    })();
+    refreshInFlight.current = run.finally(() => {
+      refreshInFlight.current = null;
+    });
+    return refreshInFlight.current;
+  }, [persistSession, expireSession]);
+
+  // Any API call that comes back 401 gets ONE refresh and ONE retry before the user ever sees an
+  // error. This covers every screen that calls fetch with the token, without editing each one.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const w = window as unknown as { __chamapayNativeFetch?: typeof fetch };
+    const original = w.__chamapayNativeFetch ?? window.fetch.bind(window);
+    w.__chamapayNativeFetch = original;
+    nativeFetchRef.current = original;
+
+    const patched: typeof fetch = async (input, init) => {
+      const res = await original(input, init);
+      if (res.status !== 401 || typeof input !== "string") return res;
+      // only our own API, and never the auth endpoints themselves
+      if (!input.startsWith(serverUrl) || input.startsWith(`${serverUrl}/auth/`)) return res;
+
+      const used = bearerFrom(init);
+      if (!used || used === GUEST_TOKEN) return res;
+
+      // another request may already have refreshed: reuse the newer token instead of refreshing again
+      const stored = localStorage.getItem(TOKEN_KEY);
+      let next = stored && stored !== used ? stored : null;
+      if (!next) {
+        const ok = await refreshSession();
+        if (!ok) return res;
+        next = localStorage.getItem(TOKEN_KEY);
+      }
+      if (!next) return res;
+      return original(input, withBearer(init, next));
+    };
+
+    window.fetch = patched;
+    return () => {
+      if (window.fetch === patched) window.fetch = original;
+    };
+  }, [refreshSession]);
+
+  // Renew before the token runs out: on load, whenever the tab comes back, on regaining network,
+  // and every few minutes. A user who returns after days finds a fresh session, not a dead one.
+  useEffect(() => {
+    if (isLoading) return;
+    const check = () => {
+      const t = localStorage.getItem(TOKEN_KEY);
+      if (!t || t === GUEST_TOKEN) return;
+      const exp = jwtExpSeconds(t);
+      if (exp && exp - Date.now() / 1000 < REFRESH_WINDOW_SECONDS) {
+        void refreshSession();
+      }
+    };
+    check();
+    const onVisible = () => {
+      if (document.visibilityState === "visible") check();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", check);
+    window.addEventListener("online", check);
+    const id = window.setInterval(check, 5 * 60 * 1000);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", check);
+      window.removeEventListener("online", check);
+      window.clearInterval(id);
+    };
+  }, [isLoading, refreshSession]);
+
   const refreshUser = useCallback(async () => {
     const storedToken = localStorage.getItem(TOKEN_KEY);
     if (!storedToken || storedToken === GUEST_TOKEN) return;
@@ -163,47 +305,35 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       tokenType: "id" | "access" = "id"
     ): Promise<"ok" | "register" | "error"> => {
       try {
-        let email = "";
-        let name = "";
-        let picture = "";
-
-        if (tokenType === "id") {
-          const payload = decodeJwtPayload(rawToken);
-          email = String(payload.email || "");
-          name = String(payload.name || "");
-          picture = String(payload.picture || "");
-          authDebug("google id token decoded", { email, hasName: Boolean(name) });
-        } else {
-          const res = await fetch("https://www.googleapis.com/userinfo/v2/me", {
-            headers: { Authorization: `Bearer ${rawToken}` },
-          });
-          const info = await res.json();
-          email = info.email || "";
-          name = info.name || "";
-          picture = info.picture || "";
-          authDebug("google access token profile", { email });
-        }
-
-        if (!email) {
-          showToast("Could not get email from Google", "error");
-          return "error";
-        }
-
-        const exists = await checkUserExists(email);
-        authDebug("checkUserExists", { email, exists });
-        if (!exists) {
-          setPendingProfile({ email, name, picture });
-          return "register";
-        }
-
-        const { ok, data } = await authenticateEmail(email, "google");
-        authDebug("authenticateEmail", {
-          ok,
+        // Send Google's token itself. The server verifies it with Google and works out the email;
+        // the client no longer decides who is signing in.
+        const response = await fetch(`${serverUrl}/auth/authenticate`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(
+            tokenType === "id"
+              ? { provider: "google", idToken: rawToken }
+              : { provider: "google", accessToken: rawToken }
+          ),
+        });
+        const data = await response.json().catch(() => ({}));
+        authDebug("google authenticate", {
+          ok: response.ok,
           hasToken: Boolean(data?.token),
-          hasUser: Boolean(data?.user),
+          isNewUser: Boolean(data?.isNewUser),
           message: data?.message,
         });
-        if (ok && data?.token && data?.user) {
+
+        if (response.ok && data?.isNewUser && data?.email) {
+          setPendingProfile({
+            email: data.email,
+            name: data.name,
+            picture: data.picture,
+            registrationToken: data.registrationToken,
+          });
+          return "register";
+        }
+        if (response.ok && data?.token && data?.user) {
           persistSession(data.token, data.user, data.refreshToken);
           showToast("Signed in with Google", "success");
           return "ok";
@@ -257,27 +387,23 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           return "error";
         }
 
-        // Existing user may already get tokens from verify-code
+        // Existing user: the server already issued tokens
         if (data?.token && data?.user) {
           persistSession(data.token, data.user, data.refreshToken);
           showToast("Signed in", "success");
           return "ok";
         }
 
-        const exists = await checkUserExists(email);
-        if (!exists) {
-          setPendingProfile({ email });
+        // New user: the server verified the code and gave a registration token
+        if (data?.isNewUser && data?.registrationToken) {
+          setPendingProfile({
+            email: email.toLowerCase().trim(),
+            registrationToken: data.registrationToken,
+          });
           return "register";
         }
 
-        const { ok, data: authData } = await authenticateEmail(email, "email");
-        if (ok && authData?.token && authData?.user) {
-          persistSession(authData.token, authData.user, authData.refreshToken);
-          showToast("Signed in", "success");
-          return "ok";
-        }
-
-        showToast(authData?.message || "Authentication failed", "error");
+        showToast(data?.message || "Authentication failed", "error");
         return "error";
       } catch {
         showToast("Verification failed", "error");
@@ -301,6 +427,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             email: data.email.toLowerCase().trim(),
             userName: data.userName.trim(),
             profileImageUrl: data.profileImageUrl || "",
+            registrationToken: pendingProfile?.registrationToken,
           }),
         });
         const result = await response.json().catch(() => ({}));
@@ -317,7 +444,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         return false;
       }
     },
-    [persistSession]
+    [persistSession, pendingProfile]
   );
 
   /** Legacy wallet login — unused; kept so old imports don't crash */

@@ -369,10 +369,6 @@ function CreateContent() {
         targetAmount: targetUsdc.toString(),
         endDate: new Date(`${endDate}T23:59:59`).toISOString(),
         yieldEnabled: goalType === "public" ? false : yieldEnabled,
-        withdrawalFeeEnabled,
-        withdrawalFeePercent: withdrawalFeeEnabled
-          ? GOAL_WITHDRAWAL_FEE_PERCENT
-          : 0,
         notifyPhone: notifyPhone.trim() || undefined,
       });
 
