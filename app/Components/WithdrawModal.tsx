@@ -419,13 +419,11 @@ export default function WithdrawModal({
                       kesAmt > MAX_KES ||
                       kesAmt > withdrawableKes) && (
                       <p className="text-[11px] text-red-600 font-medium mt-1">
-                        {kesAmt < MIN_KES
-                          ? `Minimum withdrawal is KES ${MIN_KES.toLocaleString()}`
-                          : kesAmt > MAX_KES
-                            ? `Maximum per withdrawal is KES ${MAX_KES.toLocaleString()}`
-                            : maxWithdrawKes >= MIN_KES
-                              ? `That is more than your balance. The most you can withdraw is KES ${maxWithdrawKes.toLocaleString("en-KE")}.`
-                              : `Your balance is too low to withdraw (minimum KES ${MIN_KES.toLocaleString()}).`}
+                        {kesAmt > withdrawableKes
+                          ? "Exceeds balance"
+                          : kesAmt < MIN_KES
+                            ? `Minimum withdrawal is KES ${MIN_KES.toLocaleString()}`
+                            : `Maximum per withdrawal is KES ${MAX_KES.toLocaleString()}`}
                       </p>
                     )}
                 </div>
@@ -447,7 +445,7 @@ export default function WithdrawModal({
                         {quoteError}
                       </p>
                     )}
-                    {quoteTooBig && (
+                    {quoteTooBig && kesAmt <= withdrawableKes && (
                       <p className="text-[11px] text-red-600 font-medium">
                         Insufficient balance
                       </p>
