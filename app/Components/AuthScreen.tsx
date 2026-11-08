@@ -30,6 +30,48 @@ declare global {
 
 const AUTH_PRIMARY = "#1c8584";
 
+// ---------------------------------------------------------------------------
+// Persisted "code was sent" state, so the verify modal survives a tab reload
+// (e.g. when the user switches to their email app and comes back).
+// ---------------------------------------------------------------------------
+const VERIFY_KEY = "chamapay_pending_verify";
+// Keep this at or below your backend's code expiry
+const VERIFY_TTL_MS = 10 * 60 * 1000;
+
+function saveVerifyState(email: string) {
+  try {
+    localStorage.setItem(
+      VERIFY_KEY,
+      JSON.stringify({ email, sentAt: Date.now() })
+    );
+  } catch {}
+}
+
+function loadVerifyState(): { email: string; sentAt: number } | null {
+  try {
+    const raw = localStorage.getItem(VERIFY_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (
+      !parsed?.email ||
+      typeof parsed.sentAt !== "number" ||
+      Date.now() - parsed.sentAt > VERIFY_TTL_MS
+    ) {
+      localStorage.removeItem(VERIFY_KEY);
+      return null;
+    }
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function clearVerifyState() {
+  try {
+    localStorage.removeItem(VERIFY_KEY);
+  } catch {}
+}
+
 export default function AuthScreen() {
   const router = useRouter();
   const {
@@ -53,6 +95,7 @@ export default function AuthScreen() {
   const [busy, setBusy] = useState(false);
   const [pageOrigin, setPageOrigin] = useState("");
   const [showSetup, setShowSetup] = useState(false);
+  const [hydrated, setHydrated] = useState(false);
   const googleBtnRef = useRef<HTMLDivElement>(null);
   const codeInputRef = useRef<HTMLInputElement>(null);
   const verifyingRef = useRef(false);
@@ -74,6 +117,17 @@ export default function AuthScreen() {
     setPageOrigin(window.location.origin);
   }, []);
 
+  // Restore the verify modal if a code was already sent (page reloaded)
+  useEffect(() => {
+    const saved = loadVerifyState();
+    if (saved) {
+      setEmail(saved.email);
+      setShowVerifyModal(true);
+      setTimeout(() => codeInputRef.current?.focus(), 300);
+    }
+    setHydrated(true);
+  }, []);
+
   // Lock parent shell scroll on the auth form (not account setup)
   useEffect(() => {
     if (showSetup) return;
@@ -90,6 +144,7 @@ export default function AuthScreen() {
   useEffect(() => {
     if (!isLoading && isAuthenticated) {
       authDebug("AuthScreen already authenticated → post-auth redirect");
+      clearVerifyState();
       dismissGoogleToast();
       router.replace(getPostAuthRedirect());
     }
@@ -97,6 +152,7 @@ export default function AuthScreen() {
 
   useEffect(() => {
     if (pendingProfile?.email) {
+      clearVerifyState();
       setEmail(pendingProfile.email);
       setShowSetup(true);
       setShowVerifyModal(false);
@@ -186,6 +242,8 @@ export default function AuthScreen() {
     const ok = await sendEmailCode(email.trim());
     setSendingEmail(false);
     if (ok) {
+      // Also refreshes the timestamp when the user taps "Resend now"
+      saveVerifyState(email.trim());
       setShowVerifyModal(true);
       setTimeout(() => codeInputRef.current?.focus(), 250);
     }
@@ -200,18 +258,21 @@ export default function AuthScreen() {
     setCode(value);
     const result = await verifyEmailCode(email.trim(), value);
     if (result === "ok") {
+      clearVerifyState();
       setVerifySuccess(true);
       setTimeout(() => {
         setShowVerifyModal(false);
         router.replace(getPostAuthRedirect());
       }, 700);
     } else if (result === "register") {
+      clearVerifyState();
       setVerifySuccess(true);
       setTimeout(() => {
         setShowVerifyModal(false);
         setShowSetup(true);
       }, 500);
     } else {
+      // Wrong/expired code: keep the modal (and saved state) so they can retry
       setVerifyError("Invalid or expired code. Try again.");
       setCode("");
       setTimeout(() => codeInputRef.current?.focus(), 50);
@@ -222,6 +283,7 @@ export default function AuthScreen() {
 
   const closeVerifyModal = () => {
     if (verifying || verifySuccess) return;
+    clearVerifyState();
     setShowVerifyModal(false);
     setCode("");
     setVerifyError("");
@@ -236,7 +298,7 @@ export default function AuthScreen() {
     );
   }
 
-  if (isLoading) {
+  if (isLoading || !hydrated) {
     return (
       <div className="min-h-[100dvh] flex flex-col items-center justify-center gap-3 bg-downy-50">
         <div className="h-9 w-9 rounded-full border-2 border-downy-600 border-t-transparent animate-spin" />
