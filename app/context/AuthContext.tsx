@@ -12,7 +12,7 @@ import React, {
 } from "react";
 import { serverUrl } from "@/lib/serverUrl";
 import { showToast } from "@/app/Components/Toast";
-import { authDebug } from "@/lib/authDebug";
+import { authDebug, decodeJwtPayload } from "@/lib/authDebug";
 
 export interface AuthUser {
   id: number;
@@ -305,16 +305,33 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       tokenType: "id" | "access" = "id"
     ): Promise<"ok" | "register" | "error"> => {
       try {
-        // Send Google's token itself. The server verifies it with Google and works out the email;
-        // the client no longer decides who is signing in.
+        let email = "";
+        let name = "";
+        let picture = "";
+
+        if (tokenType === "id") {
+          try {
+            const payload = decodeJwtPayload(rawToken);
+            email = String(payload.email || "");
+            name = String(payload.name || "");
+            picture = String(payload.picture || "");
+          } catch (e) {
+            authDebug("decodeJwtPayload failed", e);
+          }
+        }
+
         const response = await fetch(`${serverUrl}/auth/authenticate`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(
-            tokenType === "id"
-              ? { provider: "google", idToken: rawToken }
-              : { provider: "google", accessToken: rawToken }
-          ),
+          body: JSON.stringify({
+            provider: "google",
+            ...(tokenType === "id"
+              ? { idToken: rawToken }
+              : { accessToken: rawToken }),
+            ...(email ? { email } : {}),
+            ...(name ? { name } : {}),
+            ...(picture ? { picture } : {}),
+          }),
         });
         const data = await response.json().catch(() => ({}));
         authDebug("google authenticate", {
@@ -324,12 +341,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           message: data?.message,
         });
 
-        if (response.ok && data?.isNewUser && data?.email) {
+        if (response.ok && data?.isNewUser && (data?.email || email)) {
           setPendingProfile({
-            email: data.email,
-            name: data.name,
-            picture: data.picture,
-            registrationToken: data.registrationToken,
+            email: data?.email || email,
+            name: data?.name || name,
+            picture: data?.picture || picture,
+            registrationToken: data?.registrationToken,
           });
           return "register";
         }
