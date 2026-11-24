@@ -631,7 +631,7 @@ const ChamaDetails = ({ params }: { params: { slug: string } }) => {
                 </p>
                 <p className="text-[13px] text-amber-700 mt-0.5">
                   New members can only join during round 1. This chama is on
-                  round {chama.round}, so you can't join right now.
+                  round {chama.round}, so you can&apos;t join right now.
                 </p>
               </div>
             </div>
@@ -688,7 +688,7 @@ const ChamaDetails = ({ params }: { params: { slug: string } }) => {
                 {isPublicChama ? "Join Chama" : "Request to Join"}
               </button>
               <p className="text-center text-xs text-gray-500 mt-2">
-                This chama is in the middle of a cycle, so you can't join
+                This chama is in the middle of a cycle, so you can&apos;t join
                 currently.
               </p>
             </>
