@@ -101,6 +101,15 @@ function FieldLabel({ children }: { children: React.ReactNode }) {
 /** Withdrawal fee a goal can opt into. The goal target is raised by this much to cover it. */
 const GOAL_WITHDRAWAL_FEE_PERCENT = 2.5;
 
+/** Minimum chama contribution per cycle, in KES (USDC minimum = this / platformRate). */
+const MIN_CHAMA_CONTRIBUTION_KES = 100;
+
+/** Minimum goal target, in KES (USDC minimum = this / platformRate). */
+const MIN_GOAL_TARGET_KES = 500;
+
+/** Round up to 3 decimals so the displayed USDC minimum is always enough to pass the check. */
+const ceil3 = (n: number) => Math.ceil(n * 1000) / 1000;
+
 /** target + 2.5%, to 2 decimals (KES) or 6 decimals (USDC) */
 const withGoalFee = (amount: number, kes: boolean) => {
   const raw = amount * (1 + GOAL_WITHDRAWAL_FEE_PERCENT / 100);
@@ -257,6 +266,39 @@ function CreateContent() {
     setMonthlyDay(next.day);
   };
 
+  // Minimums are defined in KES. In USDC mode the minimum is minKes / platformRate
+  // (e.g. 100 KES at a rate of 132 -> 100 / 132 ≈ 0.758 USDC).
+  const meetsMinimum = (value: string, minKes: number) => {
+    const n = parseFloat(value);
+    if (!(n > 0)) return false;
+    if (kesMode) return n >= minKes;
+    // Can't verify a USDC amount without a rate.
+    if (!(platformRate > 0)) return false;
+    return n + 1e-9 >= minKes / platformRate;
+  };
+
+  const minimumLabel = (minKes: number) => {
+    if (kesMode) return `${minKes.toLocaleString("en-KE")} KES`;
+    if (platformRate > 0)
+      return `${ceil3(minKes / platformRate)} USDC (${minKes.toLocaleString(
+        "en-KE",
+      )} KES)`;
+    return `${minKes.toLocaleString("en-KE")} KES`;
+  };
+
+  const contributionMeetsMin = meetsMinimum(
+    contribution,
+    MIN_CHAMA_CONTRIBUTION_KES,
+  );
+  const contributionBelowMin =
+    contribution.trim() !== "" &&
+    parseFloat(contribution) > 0 &&
+    !contributionMeetsMin;
+
+  const targetMeetsMin = meetsMinimum(target, MIN_GOAL_TARGET_KES);
+  const targetBelowMin =
+    target.trim() !== "" && parseFloat(target) > 0 && !targetMeetsMin;
+
   const chamaValid =
     chamaName.trim().length >= 3 &&
     frequency.trim() !== "" &&
@@ -266,13 +308,15 @@ function CreateContent() {
     startTime &&
     isStartInFuture() &&
     contribution.trim() !== "" &&
-    parseFloat(contribution) > 0;
+    parseFloat(contribution) > 0 &&
+    contributionMeetsMin;
 
   const goalValid =
     goalName.trim().length >= 2 &&
     goalDescription.trim() !== "" &&
     target.trim() !== "" &&
     parseFloat(target) > 0 &&
+    targetMeetsMin &&
     endDate &&
     new Date(`${endDate}T23:59:59`) > new Date();
 
@@ -547,7 +591,11 @@ function CreateContent() {
                   </button>
                 </div>
               </div>
-              <div className="flex items-center bg-white border border-gray-200 rounded-xl overflow-hidden">
+              <div
+                className={`flex items-center bg-white border rounded-xl overflow-hidden ${
+                  contributionBelowMin ? "border-red-300" : "border-gray-200"
+                }`}
+              >
                 <span className="px-3 py-2.5 bg-gray-50 border-r border-gray-200 text-[12px] font-bold text-gray-600">
                   {kesMode ? "KES" : "USDC"}
                 </span>
@@ -563,6 +611,13 @@ function CreateContent() {
                   className="flex-1 px-3 py-2.5 text-gray-900 text-[13px] placeholder:text-gray-400/60 placeholder:font-normal font-semibold border-0 focus:ring-0"
                 />
               </div>
+              <p
+                className={`text-[11px] mt-1 ${
+                  contributionBelowMin ? "text-red-500" : "text-gray-500"
+                }`}
+              >
+                Minimum contribution: {minimumLabel(MIN_CHAMA_CONTRIBUTION_KES)}
+              </p>
               {/* {kesMode && contribution && platformRate > 0 && (
                 <p className="text-[11px] text-gray-500 mt-1">
                   ≈ {(parseFloat(contribution) / platformRate || 0).toFixed(3)}{" "}
@@ -745,7 +800,11 @@ function CreateContent() {
                       </button>
                     </div>
                   </div>
-                  <div className="flex items-center bg-white border border-gray-200 rounded-xl overflow-hidden">
+                  <div
+                    className={`flex items-center bg-white border rounded-xl overflow-hidden ${
+                      targetBelowMin ? "border-red-300" : "border-gray-200"
+                    }`}
+                  >
                     <span className="px-3 py-2.5 bg-gray-50 border-r border-gray-200 text-[12px] font-bold text-gray-600">
                       {kesMode ? "KES" : "USDC"}
                     </span>
@@ -761,6 +820,13 @@ function CreateContent() {
                       className="flex-1 px-3 py-2.5 text-gray-900 text-[13px] placeholder:text-gray-400 placeholder:font-normal font-semibold border-0 focus:ring-0"
                     />
                   </div>
+                  <p
+                    className={`text-[11px] mt-1 ${
+                      targetBelowMin ? "text-red-500" : "text-gray-500"
+                    }`}
+                  >
+                    Minimum target: {minimumLabel(MIN_GOAL_TARGET_KES)}
+                  </p>
                   {kesMode && target && platformRate > 0 && (
                     <p className="text-[11px] text-gray-500 mt-1">
                       ≈ {(parseFloat(target) / platformRate || 0).toFixed(3)}{" "}
