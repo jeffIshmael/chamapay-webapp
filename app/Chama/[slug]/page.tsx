@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import React, { useCallback, useEffect, useState } from "react";
 import ChamaOverview from "@/app/Components/ChamaOverview";
 import ScheduleTab from "@/app/Components/ScheduleTab";
@@ -17,7 +16,7 @@ import {
   updateChamaDetails,
   removeMemberFromChama
 } from "@/lib/chamaService";
-import { duration, formatTimeRemaining, getPicture } from "@/utils/duration";
+import { duration, formatTimeRemaining } from "@/utils/duration";
 import Pay from "@/app/Components/Pay";
 import ChamaShareModal from "@/app/Components/ChamaShareModal";
 import ChamaAddMemberModal from "@/app/Components/ChamaAddMemberModal";
@@ -98,8 +97,7 @@ const AVATAR_COLORS = [
   "from-rose-500 to-pink-700",
 ];
 
-// Shows the chama picture, but falls back to a coloured circle with the
-// chama's initials if the image fails to load (IPFS gateways can be flaky).
+// Chamas have no logo, so show a coloured circle with the chama's initials.
 const ChamaAvatar = ({
   id,
   name,
@@ -109,7 +107,6 @@ const ChamaAvatar = ({
   name: string;
   size?: number;
 }) => {
-  const [failed, setFailed] = useState(false);
   const initials = (name || "C")
     .split(" ")
     .filter(Boolean)
@@ -119,25 +116,12 @@ const ChamaAvatar = ({
 
   return (
     <div
-      className={`relative rounded-full overflow-hidden ring-4 ring-white/30 shadow-lg bg-gradient-to-br ${
+      className={`rounded-full ring-4 ring-white/30 shadow-lg bg-gradient-to-br ${
         AVATAR_COLORS[id % AVATAR_COLORS.length]
       } flex items-center justify-center text-white font-bold`}
       style={{ width: size, height: size, fontSize: size / 3 }}
     >
       {initials}
-      {!failed && (
-        <Image
-          src={`https://ipfs.io/ipfs/Qmd1VFua3zc65LT93Sv81VVu6BGa2QEuAakAFJexmRDGtX/${getPicture(
-            id
-          )}.jpg`}
-          alt={name}
-          width={size}
-          height={size}
-          className="absolute inset-0 w-full h-full object-cover"
-          onError={() => setFailed(true)}
-          unoptimized
-        />
-      )}
     </div>
   );
 };
@@ -510,19 +494,21 @@ const ChamaDetails = ({ params }: { params: { slug: string } }) => {
     const memberCount = chama.members?.length || 0;
     const fillPct =
       chama.maxNo > 0 ? Math.min(100, (memberCount / chama.maxNo) * 100) : 0;
-    const dateLabel = new Date(
-      chama.started ? chama.payDate : chama.startDate
-    ).toLocaleDateString("en-GB", {
-      day: "numeric",
-      month: "short",
-      year: "numeric",
-    });
+    // The start date is the payout date.
+    const payoutDate = new Date(chama.payDate);
+    const dateLabel = isNaN(payoutDate.getTime())
+      ? "To be announced"
+      : payoutDate.toLocaleDateString("en-GB", {
+          day: "numeric",
+          month: "short",
+          year: "numeric",
+        });
 
     return (
-      <div className="min-h-[100dvh] bg-gray-50 flex flex-col">
+      <div className="absolute inset-0 flex flex-col bg-gray-50">
         {/* Join confirmation modal */}
         {showModal && (
-          <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/40 p-4">
+          <div className="absolute inset-0 z-[100] flex items-end justify-center bg-black/40 p-4">
             <div className="bg-white p-6 rounded-2xl shadow-xl w-full max-w-sm">
               {error && (
                 <div
@@ -559,6 +545,8 @@ const ChamaDetails = ({ params }: { params: { slug: string } }) => {
           </div>
         )}
 
+        {/* Scrollable page (hero + content) */}
+        <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain [-webkit-overflow-scrolling:touch]">
         {/* Hero header */}
         <div className="bg-gradient-to-b from-downy-700 to-downy-600 rounded-b-3xl px-4 pt-4 pb-8 text-white safe-top">
           <button
@@ -591,7 +579,7 @@ const ChamaDetails = ({ params }: { params: { slug: string } }) => {
         </div>
 
         {/* Content */}
-        <div className="flex-1 px-4 -mt-4 pb-32 space-y-3">
+        <div className="px-4 -mt-4 pb-6 space-y-3">
           <div className="grid grid-cols-2 gap-3">
             <StatCard label="Contribution" value={contributionLabel()} />
             <StatCard
@@ -608,7 +596,7 @@ const ChamaDetails = ({ params }: { params: { slug: string } }) => {
               )}
             </StatCard>
             <StatCard
-              label={chama.started ? "Next payout" : "Starts"}
+              label={chama.started ? "Next payout" : "First payout"}
               value={dateLabel}
               className="col-span-2"
             />
@@ -670,8 +658,10 @@ const ChamaDetails = ({ params }: { params: { slug: string } }) => {
           </div>
         </div>
 
-        {/* Sticky action bar */}
-        <div className="fixed bottom-0 inset-x-0 bg-white/95 backdrop-blur border-t border-gray-100 px-4 pt-3 pb-5 safe-bottom">
+        </div>
+
+        {/* Action bar (kept inside the mobile screen) */}
+        <div className="shrink-0 bg-white border-t border-gray-100 px-4 pt-3 pb-5 safe-bottom">
           {isFull ? (
             <button
               disabled
