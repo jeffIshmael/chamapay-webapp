@@ -559,7 +559,7 @@ const ChamaDetails = ({ params }: { params: { slug: string } }) => {
           </button>
 
           <div className="flex flex-col items-center text-center mt-1">
-            <ChamaAvatar id={Number(chama.id)} name={chama.name} />
+            {/* <ChamaAvatar id={Number(chama.id)} name={chama.name} /> */}
             <h1 className="text-xl font-bold mt-3 px-4 break-words">
               {chama.name}
             </h1>
@@ -571,9 +571,9 @@ const ChamaDetails = ({ params }: { params: { slug: string } }) => {
               >
                 {isPublicChama ? "🌍 Public" : "🔒 Private"}
               </span>
-              <span className="inline-flex px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-white/15">
+              {/* <span className="inline-flex px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-white/15">
                 {chama.started ? `Round ${chama.round}` : "Not started"}
-              </span>
+              </span> */}
             </div>
           </div>
         </div>
@@ -596,7 +596,7 @@ const ChamaDetails = ({ params }: { params: { slug: string } }) => {
               )}
             </StatCard>
             <StatCard
-              label={chama.started ? "Next payout" : "First payout"}
+              label={chama.started ? "Next payout Date" : "Payout Date"}
               value={dateLabel}
               className="col-span-2"
             />
