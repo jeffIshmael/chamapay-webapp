@@ -280,9 +280,7 @@ function CreateContent() {
   const minimumLabel = (minKes: number) => {
     if (kesMode) return `${minKes.toLocaleString("en-KE")} KES`;
     if (platformRate > 0)
-      return `${ceil3(minKes / platformRate)} USDC (${minKes.toLocaleString(
-        "en-KE",
-      )} KES)`;
+      return `${ceil3(minKes / platformRate)} USDC`;
     return `${minKes.toLocaleString("en-KE")} KES`;
   };
 
