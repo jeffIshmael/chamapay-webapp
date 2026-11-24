@@ -90,6 +90,80 @@ const TABS: { id: TabId; label: string }[] = [
   { id: "members", label: "Members" },
 ];
 
+const AVATAR_COLORS = [
+  "from-downy-600 to-downy-800",
+  "from-emerald-500 to-teal-700",
+  "from-sky-500 to-indigo-700",
+  "from-amber-500 to-orange-700",
+  "from-rose-500 to-pink-700",
+];
+
+// Shows the chama picture, but falls back to a coloured circle with the
+// chama's initials if the image fails to load (IPFS gateways can be flaky).
+const ChamaAvatar = ({
+  id,
+  name,
+  size = 72,
+}: {
+  id: number;
+  name: string;
+  size?: number;
+}) => {
+  const [failed, setFailed] = useState(false);
+  const initials = (name || "C")
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((w) => w[0]?.toUpperCase())
+    .join("");
+
+  return (
+    <div
+      className={`relative rounded-full overflow-hidden ring-4 ring-white/30 shadow-lg bg-gradient-to-br ${
+        AVATAR_COLORS[id % AVATAR_COLORS.length]
+      } flex items-center justify-center text-white font-bold`}
+      style={{ width: size, height: size, fontSize: size / 3 }}
+    >
+      {initials}
+      {!failed && (
+        <Image
+          src={`https://ipfs.io/ipfs/Qmd1VFua3zc65LT93Sv81VVu6BGa2QEuAakAFJexmRDGtX/${getPicture(
+            id
+          )}.jpg`}
+          alt={name}
+          width={size}
+          height={size}
+          className="absolute inset-0 w-full h-full object-cover"
+          onError={() => setFailed(true)}
+          unoptimized
+        />
+      )}
+    </div>
+  );
+};
+
+const StatCard = ({
+  label,
+  value,
+  children,
+  className = "",
+}: {
+  label: string;
+  value: React.ReactNode;
+  children?: React.ReactNode;
+  className?: string;
+}) => (
+  <div
+    className={`bg-white rounded-2xl p-3.5 shadow-sm border border-gray-100 ${className}`}
+  >
+    <p className="text-[11px] uppercase tracking-wide text-gray-400 font-medium">
+      {label}
+    </p>
+    <p className="text-[15px] font-semibold text-gray-800 mt-1">{value}</p>
+    {children}
+  </div>
+);
+
 const ChamaDetails = ({ params }: { params: { slug: string } }) => {
   const [activeTab, setActiveTab] = useState<TabId>("overview");
   const [chama, setChama] = useState<Chama | null>(null);
@@ -259,25 +333,34 @@ const ChamaDetails = ({ params }: { params: { slug: string } }) => {
     if (!chama) {
       throw new Error("Please refresh page");
     }
-  
+
     const res = await removeMemberFromChama(
       Number(chama.id),
       Number(member.id), // member.id is the user id, which the backend expects as memberUserId
       token
     );
-  
+
     // Throwing makes the modal stay open and show the error message
     if (!res?.success) {
       throw new Error(res?.error || "Failed to remove member. Please try again.");
     }
 
     showToast(`${member.name} successfully removed.`, "success");
-  
+
     // Refresh so the removed member disappears from the list
     await refreshChama();
   };
 
   const joinChama = async () => {
+    // Joining is only allowed during round 1.
+    if ((chama?.round ?? 1) > 1) {
+      showToast(
+        "This chama is in the middle of a cycle. You can't join right now.",
+        "warning"
+      );
+      return;
+    }
+
     if (!isAuthenticated || !address) {
       showToast("Please sign in to join", "warning");
       return;
@@ -310,6 +393,16 @@ const ChamaDetails = ({ params }: { params: { slug: string } }) => {
 
   const joinPublicChama = async () => {
     setError("");
+
+    // Joining is only allowed during round 1.
+    if ((chama?.round ?? 1) > 1) {
+      showToast(
+        "This chama is in the middle of a cycle. You can't join right now.",
+        "warning"
+      );
+      return;
+    }
+
     if (!isAuthenticated || !address || !user?.id) {
       setError("Please sign in to join");
       return;
@@ -412,28 +505,44 @@ const ChamaDetails = ({ params }: { params: { slug: string } }) => {
 
   // Discover / join view for non-members
   if (!included) {
+    const isFirstRound = (chama.round ?? 1) <= 1;
+    const isPublicChama = chamaType?.toLowerCase() === "public";
+    const memberCount = chama.members?.length || 0;
+    const fillPct =
+      chama.maxNo > 0 ? Math.min(100, (memberCount / chama.maxNo) * 100) : 0;
+    const dateLabel = new Date(
+      chama.started ? chama.payDate : chama.startDate
+    ).toLocaleDateString("en-GB", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    });
+
     return (
-      <div className="bg-downy-100 min-h-screen flex flex-col items-center py-1">
+      <div className="min-h-[100dvh] bg-gray-50 flex flex-col">
+        {/* Join confirmation modal */}
         {showModal && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black bg-opacity-40">
-            <div className="bg-white p-6 rounded-xl shadow-lg w-96">
+          <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/40 p-4">
+            <div className="bg-white p-6 rounded-2xl shadow-xl w-full max-w-sm">
               {error && (
                 <div
-                  className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4"
+                  className="bg-red-50 border border-red-200 text-red-700 text-sm px-3 py-2.5 rounded-xl mb-4 flex items-start gap-2"
                   role="alert"
                 >
-                  <FiAlertTriangle className="inline mr-2" />
-                  {error}
+                  <FiAlertTriangle className="mt-0.5 shrink-0" />
+                  <span>{error}</span>
                 </div>
               )}
-              <h3 className="text-lg font-semibold mb-2">Join {chama.name}?</h3>
-              <p className="text-sm text-gray-600 mb-4">
+              <h3 className="text-lg font-semibold text-gray-800 mb-1">
+                Join {chama.name}?
+              </h3>
+              <p className="text-sm text-gray-500 mb-5">
                 You will lock the required collateral via your Chamapay wallet.
               </p>
               <div className="flex gap-2">
                 <button
                   onClick={() => setShowModal(false)}
-                  className="flex-1 py-2 bg-gray-200 rounded-lg"
+                  className="flex-1 py-3 bg-gray-100 text-gray-700 rounded-xl font-medium"
                   disabled={loading || processing}
                 >
                   Cancel
@@ -441,7 +550,7 @@ const ChamaDetails = ({ params }: { params: { slug: string } }) => {
                 <button
                   onClick={joinPublicChama}
                   disabled={loading || processing}
-                  className="flex-1 py-2 bg-downy-600 text-white rounded-lg"
+                  className="flex-1 py-3 bg-downy-600 text-white rounded-xl font-semibold disabled:opacity-60"
                 >
                   {loading || processing ? "Joining..." : "Confirm"}
                 </button>
@@ -450,86 +559,165 @@ const ChamaDetails = ({ params }: { params: { slug: string } }) => {
           </div>
         )}
 
-        <div className="w-full px-4">
+        {/* Hero header */}
+        <div className="bg-gradient-to-b from-downy-700 to-downy-600 rounded-b-3xl px-4 pt-4 pb-8 text-white safe-top">
           <button
+            type="button"
             onClick={() => router.replace("/MyChamas")}
-            className="flex items-center text-downy-700 mb-2"
+            className="p-2 rounded-full bg-white/10 text-white"
+            aria-label="Back"
           >
-            <HiArrowLeft className="mr-1" /> Back
+            <HiArrowLeft size={18} />
           </button>
 
-          <div className="bg-white rounded-2xl p-4 shadow-sm">
-            <div className="flex items-center space-x-3">
-              <Image
-                src={`https://ipfs.io/ipfs/Qmd1VFua3zc65LT93Sv81VVu6BGa2QEuAakAFJexmRDGtX/${getPicture(
-                  Number(chama.id)
-                )}.jpg`}
-                alt={chama.name}
-                width={56}
-                height={56}
-                className="rounded-full"
-              />
-              <div>
-                <h1 className="text-xl font-bold text-gray-800">{chama.name}</h1>
-                <p className="text-sm text-gray-500 capitalize">
-                  {chamaType} chama
-                </p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3 mt-4 text-sm">
-              <div className="bg-downy-50 p-3 rounded-xl">
-                <p className="text-gray-500">Contribution</p>
-                <p className="font-semibold">{contributionLabel()}</p>
-              </div>
-              <div className="bg-downy-50 p-3 rounded-xl">
-                <p className="text-gray-500">Members</p>
-                <p className="font-semibold">
-                  {chama.members?.length || 0}
-                  {chama.maxNo ? ` / ${chama.maxNo}` : ""}
-                </p>
-              </div>
-              <div className="bg-downy-50 p-3 rounded-xl col-span-2">
-                <p className="text-gray-500">
-                  {chama.started ? "Next payout" : "Starts"}
-                </p>
-                <p className="font-semibold">
-                  {new Date(
-                    chama.started ? chama.payDate : chama.startDate
-                  ).toLocaleDateString("en-GB", {
-                    day: "numeric",
-                    month: "short",
-                    year: "numeric",
-                  })}
-                </p>
-              </div>
-            </div>
-
-            <div className="mt-4">
-              {isFull ? (
-                <p className="text-center text-gray-500">This chama is full</p>
-              ) : chamaType?.toLowerCase() === "public" ? (
-                <button
-                  onClick={() => setShowModal(true)}
-                  className="w-full py-3 bg-downy-600 text-white rounded-xl font-semibold"
-                >
-                  Join Chama
-                </button>
-              ) : hasRequest ? (
-                <p className="text-center text-gray-500">
-                  Join request pending approval
-                </p>
-              ) : (
-                <button
-                  onClick={joinChama}
-                  disabled={sendingRequest}
-                  className="w-full py-3 bg-downy-600 text-white rounded-xl font-semibold"
-                >
-                  {sendingRequest ? "Sending..." : "Request to Join"}
-                </button>
-              )}
+          <div className="flex flex-col items-center text-center mt-1">
+            <ChamaAvatar id={Number(chama.id)} name={chama.name} />
+            <h1 className="text-xl font-bold mt-3 px-4 break-words">
+              {chama.name}
+            </h1>
+            <div className="flex items-center gap-2 mt-2">
+              <span
+                className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold ${
+                  isPublicChama ? "bg-emerald-500/30" : "bg-white/15"
+                }`}
+              >
+                {isPublicChama ? "🌍 Public" : "🔒 Private"}
+              </span>
+              <span className="inline-flex px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-white/15">
+                {chama.started ? `Round ${chama.round}` : "Not started"}
+              </span>
             </div>
           </div>
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 px-4 -mt-4 pb-32 space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            <StatCard label="Contribution" value={contributionLabel()} />
+            <StatCard
+              label="Members"
+              value={`${memberCount}${chama.maxNo ? ` / ${chama.maxNo}` : ""}`}
+            >
+              {chama.maxNo > 0 && (
+                <div className="h-1.5 bg-gray-100 rounded-full mt-2 overflow-hidden">
+                  <div
+                    className="h-full bg-downy-500 rounded-full"
+                    style={{ width: `${fillPct}%` }}
+                  />
+                </div>
+              )}
+            </StatCard>
+            <StatCard
+              label={chama.started ? "Next payout" : "Starts"}
+              value={dateLabel}
+              className="col-span-2"
+            />
+          </div>
+
+          {/* Status notice */}
+          {isFull ? (
+            <div className="rounded-2xl bg-gray-100 border border-gray-200 p-3.5 text-sm text-gray-600">
+              This chama is full and not accepting new members.
+            </div>
+          ) : !isFirstRound ? (
+            <div className="rounded-2xl bg-amber-50 border border-amber-200 p-3.5 flex gap-3">
+              <FiAlertTriangle
+                className="text-amber-600 mt-0.5 shrink-0"
+                size={18}
+              />
+              <div>
+                <p className="text-sm font-semibold text-amber-800">
+                  Chama is in the middle of a cycle
+                </p>
+                <p className="text-[13px] text-amber-700 mt-0.5">
+                  New members can only join during round 1. This chama is on
+                  round {chama.round}, so you can't join right now.
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="rounded-2xl bg-downy-50 border border-downy-100 p-3.5">
+              <p className="text-sm font-semibold text-downy-800">
+                Open for new members
+              </p>
+              <p className="text-[13px] text-downy-700 mt-0.5">
+                {isPublicChama
+                  ? "Join instantly by locking your collateral."
+                  : "Send a request and the admin will review it."}
+              </p>
+            </div>
+          )}
+
+          {/* How it works */}
+          <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
+            <p className="text-sm font-semibold text-gray-800 mb-3">
+              How a chama works
+            </p>
+            <ul className="space-y-2.5 text-[13px] text-gray-600">
+              <li className="flex gap-2.5">
+                <span className="text-downy-600 font-bold">1.</span>
+                Everyone contributes the same amount every cycle.
+              </li>
+              <li className="flex gap-2.5">
+                <span className="text-downy-600 font-bold">2.</span>
+                Each cycle, one member receives the full pot.
+              </li>
+              <li className="flex gap-2.5">
+                <span className="text-downy-600 font-bold">3.</span>
+                Everyone gets a turn before the round ends.
+              </li>
+            </ul>
+          </div>
+        </div>
+
+        {/* Sticky action bar */}
+        <div className="fixed bottom-0 inset-x-0 bg-white/95 backdrop-blur border-t border-gray-100 px-4 pt-3 pb-5 safe-bottom">
+          {isFull ? (
+            <button
+              disabled
+              className="w-full py-3.5 rounded-xl font-semibold bg-gray-200 text-gray-500 cursor-not-allowed"
+            >
+              Chama is full
+            </button>
+          ) : !isFirstRound ? (
+            <>
+              <button
+                disabled
+                className="w-full py-3.5 rounded-xl font-semibold bg-gray-200 text-gray-500 cursor-not-allowed"
+              >
+                {isPublicChama ? "Join Chama" : "Request to Join"}
+              </button>
+              <p className="text-center text-xs text-gray-500 mt-2">
+                This chama is in the middle of a cycle, so you can't join
+                currently.
+              </p>
+            </>
+          ) : isPublicChama ? (
+            <button
+              onClick={() => {
+                setError("");
+                setShowModal(true);
+              }}
+              className="w-full py-3.5 bg-downy-600 active:bg-downy-700 text-white rounded-xl font-semibold shadow-sm"
+            >
+              Join Chama
+            </button>
+          ) : hasRequest ? (
+            <button
+              disabled
+              className="w-full py-3.5 rounded-xl font-semibold bg-downy-100 text-downy-700 cursor-default"
+            >
+              ⏳ Request pending approval
+            </button>
+          ) : (
+            <button
+              onClick={joinChama}
+              disabled={sendingRequest}
+              className="w-full py-3.5 bg-downy-600 active:bg-downy-700 text-white rounded-xl font-semibold shadow-sm disabled:opacity-60"
+            >
+              {sendingRequest ? "Sending..." : "Request to Join"}
+            </button>
+          )}
         </div>
       </div>
     );
