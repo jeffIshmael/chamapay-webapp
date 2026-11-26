@@ -22,8 +22,6 @@ import {
   getKycJob,
   getKycStatus,
   reportKycClientResult,
-  sendKycPhoneOtp,
-  verifyKycPhoneOtp,
   type KycStatusResponse,
 } from "@/lib/kycService";
 import {
@@ -32,28 +30,20 @@ import {
   type CountryInfo,
 } from "@/lib/countries";
 
-type Step = "phone" | "didit" | "checking" | "done";
+type Step = "setup" | "checking" | "done";
 
 export default function VerifyDetailsPage() {
   const router = useRouter();
   const { token, isAuthenticated, isGuest, isLoading: authLoading } = useAuth();
   const { user, isKycApproved, isKycPending, refreshUser } = useUser();
 
-  const [step, setStep] = useState<Step>("phone");
+  const [step, setStep] = useState<Step>("setup");
   const [selectedCountry, setSelectedCountry] = useState<CountryInfo>(DEFAULT_COUNTRY);
   const [countryDropdownOpen, setCountryDropdownOpen] = useState(false);
   const [countrySearch, setCountrySearch] = useState("");
-
-  // Phone Step
   const [phoneNumber, setPhoneNumber] = useState("");
-  const [otpSent, setOtpSent] = useState(false);
-  const [otpCode, setOtpCode] = useState("");
-  const [sendingOtp, setSendingOtp] = useState(false);
-  const [verifyingOtp, setVerifyingOtp] = useState(false);
-  const [phoneVerified, setPhoneVerified] = useState(false);
-  const [resendCooldown, setResendCooldown] = useState(0);
 
-  // Didit Step
+  // Didit State
   const [sessionUrl, setSessionUrl] = useState<string | null>(null);
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
   const [launchingDidit, setLaunchingDidit] = useState(false);
@@ -83,21 +73,11 @@ export default function VerifyDetailsPage() {
         if (res.kycTier >= 2 && res.kycStatus === "approved") {
           setStep("done");
         } else if (res.phoneE164) {
-          setPhoneVerified(true);
           setPhoneNumber(res.phoneE164);
         }
       }
     });
   }, [token]);
-
-  // Resend cooldown timer
-  useEffect(() => {
-    if (resendCooldown <= 0) return;
-    const timer = setInterval(() => {
-      setResendCooldown((prev) => Math.max(0, prev - 1));
-    }, 1000);
-    return () => clearInterval(timer);
-  }, [resendCooldown]);
 
   // Filtered countries for dropdown
   const filteredCountries = useMemo(() => {
@@ -112,66 +92,14 @@ export default function VerifyDetailsPage() {
   }, [countrySearch]);
 
   // -------------------------
-  // Step 1: Phone OTP Handlers
+  // Launch Didit Verification directly (No OTP block)
   // -------------------------
-  const handleSendOtp = async () => {
-    if (!phoneNumber.trim()) {
-      showToast("Please enter your phone number", "warning");
-      return;
-    }
+  const handleStartDidit = async () => {
     if (!token) {
       showToast("Please sign in first", "warning");
       return;
     }
 
-    setSendingOtp(true);
-    setDiditError(null);
-    try {
-      const res = await sendKycPhoneOtp(token, phoneNumber.trim(), selectedCountry.dialCode);
-      if (res.success) {
-        setOtpSent(true);
-        setResendCooldown(60);
-        showToast("Verification code sent to WhatsApp! 📲", "success");
-      } else {
-        showToast(res.error || "Failed to send code", "error");
-      }
-    } catch (err: any) {
-      showToast(err.message || "Failed to send code", "error");
-    } finally {
-      setSendingOtp(false);
-    }
-  };
-
-  const handleVerifyOtp = async () => {
-    if (!otpCode.trim() || otpCode.trim().length < 6) {
-      showToast("Please enter the 6-digit verification code", "warning");
-      return;
-    }
-    if (!token) return;
-
-    setVerifyingOtp(true);
-    try {
-      const res = await verifyKycPhoneOtp(token, otpCode.trim());
-      if (res.success) {
-        setPhoneVerified(true);
-        showToast("Phone number verified! ✅", "success");
-        void refreshUser();
-        setStep("didit");
-      } else {
-        showToast(res.error || "Invalid code", "error");
-      }
-    } catch (err: any) {
-      showToast(err.message || "Failed to verify code", "error");
-    } finally {
-      setVerifyingOtp(false);
-    }
-  };
-
-  // -------------------------
-  // Step 2: Launch Didit Verification
-  // -------------------------
-  const handleStartDidit = async () => {
-    if (!token) return;
     setLaunchingDidit(true);
     setDiditError(null);
 
@@ -226,7 +154,7 @@ export default function VerifyDetailsPage() {
   };
 
   // -------------------------
-  // Step 3: Polling for Webhook / Approval Decision
+  // Polling for Webhook / Approval Decision
   // -------------------------
   const startPollingDecision = (jobId: string) => {
     if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
@@ -235,9 +163,8 @@ export default function VerifyDetailsPage() {
     pollIntervalRef.current = setInterval(async () => {
       attempts++;
       if (attempts > 30) {
-        // Stop polling after ~75 seconds
         if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
-        setCheckingMessage("Verification is taking a little longer to process. You'll receive notification when complete.");
+        setCheckingMessage("Verification is being processed. You will be notified when complete.");
         return;
       }
 
@@ -251,7 +178,7 @@ export default function VerifyDetailsPage() {
         setStep("done");
       } else if (job?.status === "rejected" || job?.status === "failed") {
         if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
-        setStep("didit");
+        setStep("setup");
         setDiditError("Verification was not approved. Please ensure clear photos of your document and face.");
       }
     }, 2500);
@@ -264,11 +191,7 @@ export default function VerifyDetailsPage() {
   }, []);
 
   const handleBack = () => {
-    if (step === "didit" && !phoneVerified) {
-      setStep("phone");
-    } else {
-      router.back();
-    }
+    router.back();
   };
 
   const leaveVerify = () => {
@@ -281,12 +204,12 @@ export default function VerifyDetailsPage() {
 
   return (
     <div className="absolute inset-0 flex flex-col bg-gray-50">
-      {/* Header + stepper */}
+      {/* Header */}
       <div
-        className="shrink-0 px-4 pt-2 pb-4 rounded-b-2xl text-white safe-top shadow-md shadow-downy-900/20"
+        className="shrink-0 px-4 pt-2 pb-5 rounded-b-2xl text-white safe-top shadow-md shadow-downy-900/20"
         style={{ backgroundColor: "#1a6b6b" }}
       >
-        <div className="flex items-center justify-between mb-4 min-h-[32px]">
+        <div className="flex items-center justify-between min-h-[32px]">
           <button
             type="button"
             onClick={handleBack}
@@ -302,76 +225,28 @@ export default function VerifyDetailsPage() {
 
           <div className="w-8" />
         </div>
-
-        {/* Stepper indicator */}
-        <div className="flex items-center px-6">
-          {[
-            { id: "phone", label: "Phone" },
-            { id: "didit", label: "Identity" },
-            { id: "done", label: "Verified" },
-          ].map((s, i, arr) => {
-            const stepOrder = ["phone", "didit", "checking", "done"];
-            const currentIndex = stepOrder.indexOf(step);
-            const thisIndex = stepOrder.indexOf(s.id);
-            const isCompleted = currentIndex > thisIndex || (step === "checking" && s.id === "didit") || step === "done";
-            const isActive = step === s.id || (step === "checking" && s.id === "didit");
-
-            return (
-              <div key={s.id} className="flex items-center flex-1 last:flex-none">
-                <div className="flex flex-col items-center gap-1">
-                  <span
-                    className={`h-7 w-7 rounded-full flex items-center justify-center text-[12px] font-bold border-2 transition ${
-                      isCompleted
-                        ? "bg-emerald-400 border-emerald-400 text-white"
-                        : isActive
-                          ? "bg-white border-white text-downy-800"
-                          : "bg-transparent border-white/40 text-white/60"
-                    }`}
-                  >
-                    {isCompleted ? <FiCheck size={14} /> : i + 1}
-                  </span>
-                  <span
-                    className={`text-[10px] font-semibold ${
-                      isActive || isCompleted ? "text-white" : "text-white/60"
-                    }`}
-                  >
-                    {s.label}
-                  </span>
-                </div>
-
-                {i < arr.length - 1 && (
-                  <div
-                    className={`flex-1 h-0.5 mx-2 mb-4 rounded ${
-                      currentIndex > thisIndex ? "bg-emerald-400" : "bg-white/20"
-                    }`}
-                  />
-                )}
-              </div>
-            );
-          })}
-        </div>
       </div>
 
       {/* Main Content Area */}
       <div className="flex-1 overflow-y-auto px-4 py-5 safe-bottom">
         <div className="mx-auto max-w-sm space-y-4">
-          {/* STEP 1: Phone Verification */}
-          {step === "phone" && (
-            <div className="rounded-2xl bg-white p-5 shadow-sm border border-gray-100 space-y-4">
-              <div className="flex items-center gap-3 pb-2 border-b border-gray-100">
-                <div className="h-10 w-10 rounded-xl bg-downy-50 text-downy-600 flex items-center justify-center text-lg">
-                  <FiSmartphone />
+          {/* STEP: Setup & Start Verification */}
+          {step === "setup" && (
+            <div className="rounded-2xl bg-white p-5 shadow-sm border border-gray-100 space-y-5">
+              <div className="text-center space-y-1">
+                <div className="mx-auto h-12 w-12 rounded-2xl bg-downy-50 text-downy-600 flex items-center justify-center text-xl mb-2">
+                  <FiShield />
                 </div>
-                <div>
-                  <h2 className="text-[14px] font-bold text-gray-900">Phone Verification</h2>
-                  <p className="text-[11px] text-gray-500">We verify your phone to protect your wallet and prevent fraud</p>
-                </div>
+                <h2 className="text-[16px] font-bold text-gray-900">Identity Verification</h2>
+                <p className="text-[12px] text-gray-500 leading-relaxed">
+                  Verify your government-issued ID to upgrade your Chama account to Tier 2 (100,000 KES/month limit).
+                </p>
               </div>
 
               {/* Country Selection */}
               <div className="relative">
                 <label className="block text-[11px] font-semibold text-gray-700 mb-1">
-                  Country
+                  Document Country
                 </label>
                 <button
                   type="button"
@@ -381,7 +256,6 @@ export default function VerifyDetailsPage() {
                   <span className="flex items-center gap-2">
                     <span className="text-lg">{selectedCountry.flag}</span>
                     <span className="font-medium">{selectedCountry.name}</span>
-                    <span className="text-gray-400 text-xs">(+{selectedCountry.dialCode})</span>
                   </span>
                   <FiChevronDown className={`text-gray-400 transition-transform ${countryDropdownOpen ? "rotate-180" : ""}`} />
                 </button>
@@ -416,7 +290,6 @@ export default function VerifyDetailsPage() {
                             <span>{c.flag}</span>
                             <span>{c.name}</span>
                           </span>
-                          <span className="text-gray-400">+{c.dialCode}</span>
                         </button>
                       ))}
                     </div>
@@ -424,10 +297,10 @@ export default function VerifyDetailsPage() {
                 )}
               </div>
 
-              {/* Phone Input */}
+              {/* Optional Phone Number */}
               <div>
                 <label className="block text-[11px] font-semibold text-gray-700 mb-1">
-                  Phone Number (WhatsApp)
+                  Phone Number <span className="text-gray-400 font-normal">(Optional)</span>
                 </label>
                 <div className="flex items-center rounded-lg border border-gray-200 bg-gray-50 overflow-hidden focus-within:border-downy-500 focus-within:bg-white transition">
                   <span className="px-3 text-xs font-semibold text-gray-500 bg-gray-100/80 border-r border-gray-200 py-2.5">
@@ -438,91 +311,9 @@ export default function VerifyDetailsPage() {
                     value={phoneNumber}
                     onChange={(e) => setPhoneNumber(e.target.value)}
                     placeholder={selectedCountry.placeholder || "712 345 678"}
-                    disabled={otpSent}
                     className="flex-1 bg-transparent px-3 py-2.5 text-[13px] text-gray-900 outline-none"
                   />
-                  {otpSent && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setOtpSent(false);
-                        setOtpCode("");
-                      }}
-                      className="text-xs text-downy-600 font-semibold px-3 hover:underline"
-                    >
-                      Change
-                    </button>
-                  )}
                 </div>
-              </div>
-
-              {/* Send or Verify OTP */}
-              {!otpSent ? (
-                <button
-                  type="button"
-                  onClick={handleSendOtp}
-                  disabled={sendingOtp || !phoneNumber.trim()}
-                  className="w-full rounded-xl bg-downy-600 py-3 text-white text-[13px] font-bold flex items-center justify-center gap-2 shadow-md shadow-downy-600/20 active:opacity-90 transition disabled:opacity-50"
-                >
-                  {sendingOtp && <span className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
-                  {sendingOtp ? "Sending code..." : "Send Verification Code"}
-                </button>
-              ) : (
-                <div className="space-y-3 pt-1">
-                  <div>
-                    <label className="block text-[11px] font-semibold text-gray-700 mb-1">
-                      Enter 6-Digit WhatsApp Code
-                    </label>
-                    <input
-                      type="text"
-                      maxLength={6}
-                      value={otpCode}
-                      onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ""))}
-                      placeholder="• • • • • •"
-                      className="w-full text-center tracking-[0.4em] font-mono text-lg font-bold rounded-lg border border-gray-200 bg-gray-50 py-2.5 text-gray-900 outline-none focus:bg-white focus:border-downy-500 transition"
-                      autoFocus
-                    />
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={handleVerifyOtp}
-                    disabled={verifyingOtp || otpCode.length < 6}
-                    className="w-full rounded-xl bg-downy-600 py-3 text-white text-[13px] font-bold flex items-center justify-center gap-2 shadow-md shadow-downy-600/20 active:opacity-90 transition disabled:opacity-50"
-                  >
-                    {verifyingOtp && <span className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
-                    {verifyingOtp ? "Verifying code..." : "Verify & Continue"}
-                  </button>
-
-                  <div className="text-center pt-1">
-                    {resendCooldown > 0 ? (
-                      <span className="text-[11px] text-gray-400">Resend code in {resendCooldown}s</span>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={handleSendOtp}
-                        className="text-[11px] text-downy-600 font-semibold hover:underline"
-                      >
-                        Didn&apos;t receive code? Resend
-                      </button>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* STEP 2: Didit Live Document & Selfie Verification */}
-          {step === "didit" && (
-            <div className="rounded-2xl bg-white p-5 shadow-sm border border-gray-100 space-y-5">
-              <div className="text-center space-y-1">
-                <div className="mx-auto h-12 w-12 rounded-2xl bg-downy-50 text-downy-600 flex items-center justify-center text-xl mb-2">
-                  <FiShield />
-                </div>
-                <h2 className="text-[16px] font-bold text-gray-900">Live Identity Verification</h2>
-                <p className="text-[12px] text-gray-500 leading-relaxed">
-                  Verify with Didit Protocol to unlock higher limits and protect against identity theft.
-                </p>
               </div>
 
               {/* What will be checked */}
@@ -531,7 +322,7 @@ export default function VerifyDetailsPage() {
                   <span className="text-downy-600 mt-0.5"><FiCamera /></span>
                   <div>
                     <span className="font-semibold text-gray-800">Government ID (Front & Back)</span>
-                    <p className="text-gray-500 text-[11px]">Passport, National ID card, or Driver’s License from {selectedCountry.name} or any country.</p>
+                    <p className="text-gray-500 text-[11px]">Passport, National ID card, or Driver’s License from {selectedCountry.name} or worldwide.</p>
                   </div>
                 </div>
 
@@ -547,7 +338,7 @@ export default function VerifyDetailsPage() {
                   <span className="text-downy-600 mt-0.5"><FiLock /></span>
                   <div>
                     <span className="font-semibold text-gray-800">AES-256 Encryption</span>
-                    <p className="text-gray-500 text-[11px]">Your ID number is securely encrypted and never exposed in plaintext.</p>
+                    <p className="text-gray-500 text-[11px]">Your ID number is securely encrypted and stored with full data protection.</p>
                   </div>
                 </div>
               </div>
@@ -588,7 +379,7 @@ export default function VerifyDetailsPage() {
             </div>
           )}
 
-          {/* STEP 3: Checking / Decision */}
+          {/* STEP: Checking / Decision */}
           {step === "checking" && (
             <div className="rounded-2xl bg-white p-7 text-center shadow-sm border border-gray-100 space-y-4">
               <div className="mx-auto h-14 w-14 rounded-full bg-downy-50 text-downy-600 flex items-center justify-center text-2xl animate-spin">
@@ -606,7 +397,7 @@ export default function VerifyDetailsPage() {
             </div>
           )}
 
-          {/* STEP 4: Success / Done */}
+          {/* STEP: Success / Done */}
           {step === "done" && (
             <div className="rounded-2xl bg-white p-6 text-center shadow-sm border border-gray-100 space-y-4">
               <div className="mx-auto h-16 w-16 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center text-3xl">
