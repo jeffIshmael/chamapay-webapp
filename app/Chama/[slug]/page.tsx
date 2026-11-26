@@ -353,20 +353,24 @@ const ChamaDetails = ({ params }: { params: { slug: string } }) => {
     try {
       setSendingRequest(true);
       if (!token) throw new Error("Not authenticated");
-      const request = await requestToJoinChama(
+      const res = await requestToJoinChama(
         address as string,
         chama?.id ?? 0,
         token
       );
-      if (!request) {
-        showToast(
-          "✅ Join request sent to admin. wait for approval.",
-          "success"
-        );
+      if (res?.success) {
+        if (res.alreadyExists) {
+          showToast("You already sent a request.", "warning");
+        } else {
+          showToast(
+            "✅ Join request sent to admin. wait for approval.",
+            "success"
+          );
+        }
         setHasRequest(true);
         return;
       }
-      showToast("You already sent a request.", "warning");
+      showToast(res?.error || "An error occurred while sending the join request.", "error");
     } catch (error: unknown) {
       console.log(error);
       showToast("An error occurred while sending the join request.", "error");
