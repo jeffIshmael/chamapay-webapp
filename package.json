@@ -9,6 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@didit-protocol/sdk-web": "^0.7.0",
     "@farcaster/frame-sdk": "^0.0.39",
     "@farcaster/frame-wagmi-connector": "^0.0.27",
     "@headlessui/react": "^2.2.2",

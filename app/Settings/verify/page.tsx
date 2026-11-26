@@ -1,429 +1,281 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   FiArrowLeft,
   FiCheck,
   FiChevronDown,
-  FiArrowRight,
+  FiShield,
+  FiCamera,
+  FiSmartphone,
+  FiLock,
+  FiExternalLink,
+  FiAlertCircle,
+  FiRefreshCw,
 } from "react-icons/fi";
 import { useAuth } from "@/app/context/AuthContext";
 import { useUser } from "@/context/UserContext";
 import { showToast } from "@/app/Components/Toast";
 import {
-  submitKycDetails,
-  type KycDocumentType,
-  type KycNetwork,
+  createKycSession,
+  getKycJob,
+  getKycStatus,
+  reportKycClientResult,
+  sendKycPhoneOtp,
+  verifyKycPhoneOtp,
+  type KycStatusResponse,
 } from "@/lib/kycService";
+import {
+  COUNTRIES,
+  DEFAULT_COUNTRY,
+  type CountryInfo,
+} from "@/lib/countries";
 
-const NETWORKS: {
-  id: KycNetwork;
-  label: string;
-  logo: string;
-}[] = [
-  {
-    id: "safaricom",
-    label: "Safaricom",
-    logo: "/images/safaricom.jpeg",
-  },
-  {
-    id: "airtel",
-    label: "Airtel",
-    logo: "/images/Airtel-logo.jpg",
-  },
-];
-
-const DOCUMENT_TYPES: {
-  id: KycDocumentType;
-  label: string;
-  numberLabel: string;
-  placeholder: string;
-}[] = [
-  {
-    id: "national_id",
-    label: "National ID",
-    numberLabel: "National ID number",
-    placeholder: "e.g. 12345678",
-  },
-  {
-    id: "passport",
-    label: "Passport",
-    numberLabel: "Passport number",
-    placeholder: "e.g. A1234567",
-  },
-  {
-    id: "driving_license",
-    label: "Driving License",
-    numberLabel: "Driving license number",
-    placeholder: "e.g. ABC123456",
-  },
-];
-
-/**
- * Normalizes Kenyan phone numbers into:
- * 2547XXXXXXXX
- *
- * Accepts:
- * 0712 345 678
- * 0712345678
- * 712 345 678
- * 712345678
- * +254712345678
- * 254712345678
- */
-function normalizeKenyanPhone(raw: string): string | null {
-  // Keep digits only
-  let digits = raw.replace(/\D/g, "");
-
-  // Full international format
-  if (digits.startsWith("254")) {
-    digits = digits.slice(3);
-  }
-
-  // Local format with leading zero
-  if (digits.startsWith("0")) {
-    digits = digits.slice(1);
-  }
-
-  // Kenyan mobile numbers supported here:
-  // 7XXXXXXXX
-  // 1XXXXXXXX
-  if (!/^[17]\d{8}$/.test(digits)) {
-    return null;
-  }
-
-  return `254${digits}`;
-}
-
-function validateDocumentNumber(
-  type: KycDocumentType,
-  value: string,
-): string | null {
-  const v = value.trim();
-
-  if (!v) {
-    return "Enter your document number";
-  }
-
-  if (type === "national_id" && !/^\d{7,8}$/.test(v)) {
-    return "National ID must be 7–8 digits";
-  }
-
-  if (type === "passport" && !/^[A-Za-z0-9]{6,9}$/.test(v)) {
-    return "Enter a valid passport number";
-  }
-
-  if (
-    type === "driving_license" &&
-    !/^[A-Za-z0-9]{6,12}$/.test(v)
-  ) {
-    return "Enter a valid license number";
-  }
-
-  return null;
-}
-
-// Light grey for placeholders, and for selects / the date field while they are still empty.
-const EMPTY_TEXT = "text-gray-400/60";
-const FILLED_TEXT = "text-gray-900";
-
-// No text colour in here on purpose: add FILLED_TEXT, or EMPTY_TEXT while a select/date has no value.
-const inputClass =
-  "w-full rounded-lg border bg-gray-50 px-3 py-2.5 text-[13px] placeholder:text-gray-400/60 outline-none focus:bg-white focus:border-downy-500 transition";
-
-function Field({
-  label,
-  error,
-  children,
-}: {
-  label: string;
-  error?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div>
-      <label className="block text-[11px] font-semibold text-gray-600 mb-1">
-        {label}
-      </label>
-
-      {children}
-
-      {error && (
-        <p className="mt-1 text-[10px] text-red-600">
-          {error}
-        </p>
-      )}
-    </div>
-  );
-}
+type Step = "phone" | "didit" | "checking" | "done";
 
 export default function VerifyDetailsPage() {
   const router = useRouter();
+  const { token, isAuthenticated, isGuest, isLoading: authLoading } = useAuth();
+  const { user, isKycApproved, isKycPending, refreshUser } = useUser();
 
-  const {
-    token,
-    isAuthenticated,
-    isGuest,
-    isLoading: authLoading,
-  } = useAuth();
+  const [step, setStep] = useState<Step>("phone");
+  const [selectedCountry, setSelectedCountry] = useState<CountryInfo>(DEFAULT_COUNTRY);
+  const [countryDropdownOpen, setCountryDropdownOpen] = useState(false);
+  const [countrySearch, setCountrySearch] = useState("");
 
-  const {
-    isKycApproved,
-    isKycPending,
-    refreshUser,
-  } = useUser();
+  // Phone Step
+  const [phoneNumber, setPhoneNumber] = useState("");
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpCode, setOtpCode] = useState("");
+  const [sendingOtp, setSendingOtp] = useState(false);
+  const [verifyingOtp, setVerifyingOtp] = useState(false);
+  const [phoneVerified, setPhoneVerified] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState(0);
 
-  const [step, setStep] = useState<1 | 2>(1);
-  const [submitting, setSubmitting] = useState(false);
-  const [showSuccess, setShowSuccess] = useState(false);
+  // Didit Step
+  const [sessionUrl, setSessionUrl] = useState<string | null>(null);
+  const [activeJobId, setActiveJobId] = useState<string | null>(null);
+  const [launchingDidit, setLaunchingDidit] = useState(false);
+  const [diditStarted, setDiditStarted] = useState(false);
+  const [diditError, setDiditError] = useState<string | null>(null);
 
-  const [touchedFields, setTouchedFields] = useState<
-    Record<string, boolean>
-  >({});
-
-  // Step 1
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
-  const [dob, setDob] = useState("");
-  const [phone, setPhone] = useState("");
-  const [network, setNetwork] = useState<KycNetwork | "">("");
-
-  // Step 2
-  const [docType, setDocType] = useState<KycDocumentType | "">("");
-  const [docNumber, setDocNumber] = useState("");
+  // Status & Polling
+  const [kycData, setKycData] = useState<KycStatusResponse | null>(null);
+  const [checkingMessage, setCheckingMessage] = useState("Checking verification status...");
+  const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // -------------------------
-  // Authentication redirects
+  // Auth checks & Existing KYC
   // -------------------------
-
   useEffect(() => {
     if (authLoading) return;
-
     if (!isAuthenticated || isGuest) {
       router.replace("/Settings");
     }
   }, [authLoading, isAuthenticated, isGuest, router]);
 
+  useEffect(() => {
+    if (!token) return;
+    getKycStatus(token).then((res) => {
+      if (res && res.success) {
+        setKycData(res);
+        if (res.kycTier >= 2 && res.kycStatus === "approved") {
+          setStep("done");
+        } else if (res.phoneE164) {
+          setPhoneVerified(true);
+          setPhoneNumber(res.phoneE164);
+        }
+      }
+    });
+  }, [token]);
+
+  // Resend cooldown timer
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const timer = setInterval(() => {
+      setResendCooldown((prev) => Math.max(0, prev - 1));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [resendCooldown]);
+
+  // Filtered countries for dropdown
+  const filteredCountries = useMemo(() => {
+    if (!countrySearch.trim()) return COUNTRIES;
+    const q = countrySearch.toLowerCase();
+    return COUNTRIES.filter(
+      (c) =>
+        c.name.toLowerCase().includes(q) ||
+        c.dialCode.includes(q) ||
+        c.iso2.toLowerCase().includes(q)
+    );
+  }, [countrySearch]);
+
   // -------------------------
-  // Existing KYC redirects
+  // Step 1: Phone OTP Handlers
   // -------------------------
+  const handleSendOtp = async () => {
+    if (!phoneNumber.trim()) {
+      showToast("Please enter your phone number", "warning");
+      return;
+    }
+    if (!token) {
+      showToast("Please sign in first", "warning");
+      return;
+    }
+
+    setSendingOtp(true);
+    setDiditError(null);
+    try {
+      const res = await sendKycPhoneOtp(token, phoneNumber.trim(), selectedCountry.dialCode);
+      if (res.success) {
+        setOtpSent(true);
+        setResendCooldown(60);
+        showToast("Verification code sent to WhatsApp! 📲", "success");
+      } else {
+        showToast(res.error || "Failed to send code", "error");
+      }
+    } catch (err: any) {
+      showToast(err.message || "Failed to send code", "error");
+    } finally {
+      setSendingOtp(false);
+    }
+  };
+
+  const handleVerifyOtp = async () => {
+    if (!otpCode.trim() || otpCode.trim().length < 6) {
+      showToast("Please enter the 6-digit verification code", "warning");
+      return;
+    }
+    if (!token) return;
+
+    setVerifyingOtp(true);
+    try {
+      const res = await verifyKycPhoneOtp(token, otpCode.trim());
+      if (res.success) {
+        setPhoneVerified(true);
+        showToast("Phone number verified! ✅", "success");
+        void refreshUser();
+        setStep("didit");
+      } else {
+        showToast(res.error || "Invalid code", "error");
+      }
+    } catch (err: any) {
+      showToast(err.message || "Failed to verify code", "error");
+    } finally {
+      setVerifyingOtp(false);
+    }
+  };
+
+  // -------------------------
+  // Step 2: Launch Didit Verification
+  // -------------------------
+  const handleStartDidit = async () => {
+    if (!token) return;
+    setLaunchingDidit(true);
+    setDiditError(null);
+
+    try {
+      const session = await createKycSession(token, {
+        countryCode: selectedCountry.iso3,
+        platform: "web",
+      });
+
+      if (session.alreadyVerified) {
+        setStep("done");
+        return;
+      }
+
+      if (!session.success || !session.jobId || !session.url) {
+        throw new Error(session.error || session.details || "Could not start Didit verification");
+      }
+
+      const jobId = session.jobId;
+      setActiveJobId(jobId);
+      setSessionUrl(session.url);
+      setDiditStarted(true);
+
+      // Dynamically import and initialize DiditSdk
+      const { DiditSdk } = await import("@didit-protocol/sdk-web");
+
+      DiditSdk.shared.onComplete = async (result: any) => {
+        console.log("[Didit Web SDK] onComplete:", result);
+        if (result?.type === "completed") {
+          await reportKycClientResult(token, jobId, JSON.stringify(result), result?.status || "Completed");
+          setStep("checking");
+          startPollingDecision(jobId);
+        } else if (result?.type === "cancelled") {
+          setDiditStarted(false);
+          showToast("Verification was cancelled. You can retry anytime.", "warning");
+        } else if (result?.type === "failed") {
+          setDiditError(result?.error?.message || "Verification failed. Please try again.");
+          setDiditStarted(false);
+        }
+      };
+
+      DiditSdk.shared.startVerification({
+        url: session.url,
+      });
+    } catch (err: any) {
+      console.error("Start Didit error:", err);
+      setDiditError(err.message || "Failed to launch verification");
+      showToast(err.message || "Failed to start verification", "error");
+    } finally {
+      setLaunchingDidit(false);
+    }
+  };
+
+  // -------------------------
+  // Step 3: Polling for Webhook / Approval Decision
+  // -------------------------
+  const startPollingDecision = (jobId: string) => {
+    if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+    let attempts = 0;
+
+    pollIntervalRef.current = setInterval(async () => {
+      attempts++;
+      if (attempts > 30) {
+        // Stop polling after ~75 seconds
+        if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+        setCheckingMessage("Verification is taking a little longer to process. You'll receive notification when complete.");
+        return;
+      }
+
+      if (!token) return;
+      const job = await getKycJob(token, jobId);
+      if (job?.status === "approved" || job?.kycTier >= 2) {
+        if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+        await refreshUser();
+        const updatedStatus = await getKycStatus(token);
+        if (updatedStatus) setKycData(updatedStatus);
+        setStep("done");
+      } else if (job?.status === "rejected" || job?.status === "failed") {
+        if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+        setStep("didit");
+        setDiditError("Verification was not approved. Please ensure clear photos of your document and face.");
+      }
+    }, 2500);
+  };
 
   useEffect(() => {
-    if (showSuccess) return;
-
-    if (isKycApproved || isKycPending) {
-      router.replace("/Settings");
-    }
-  }, [
-    isKycApproved,
-    isKycPending,
-    showSuccess,
-    router,
-  ]);
-
-  // -------------------------
-  // Date validation
-  // -------------------------
-
-  const maxDob = useMemo(() => {
-    const d = new Date();
-
-    d.setFullYear(d.getFullYear() - 18);
-
-    return d.toISOString().split("T")[0];
+    return () => {
+      if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+    };
   }, []);
 
-  const selectedDoc = DOCUMENT_TYPES.find(
-    (d) => d.id === docType,
-  );
-
-  const selectedNetwork = NETWORKS.find(
-    (n) => n.id === network,
-  );
-
-  // -------------------------
-  // Validation
-  // -------------------------
-
-  const step1Errors = {
-    firstName:
-      firstName.trim().length < 2
-        ? "Enter your first name"
-        : "",
-
-    lastName:
-      lastName.trim().length < 2
-        ? "Enter your last name"
-        : "",
-
-    dob: !dob
-      ? "Select your date of birth"
-      : dob > maxDob
-        ? "You must be 18 or older"
-        : "",
-
-    network: network
-      ? ""
-      : "Select your mobile network",
-
-    phone: normalizeKenyanPhone(phone)
-      ? ""
-      : "Enter a valid Kenyan phone number",
-  };
-
-  const step1Valid = Object.values(step1Errors).every(
-    (error) => !error,
-  );
-
-  const step2Errors = {
-    docType: docType
-      ? ""
-      : "Select a document type",
-
-    docNumber: docType
-      ? (validateDocumentNumber(
-          docType,
-          docNumber,
-        ) ?? "")
-      : "",
-  };
-
-  const step2Valid =
-    !step2Errors.docType &&
-    !step2Errors.docNumber &&
-    !!docType;
-
-  // -------------------------
-  // Field helpers
-  // -------------------------
-
-  const touch = (field: string) => {
-    setTouchedFields((current) => ({
-      ...current,
-      [field]: true,
-    }));
-  };
-
-  const showError = (
-    field: string,
-    message: string,
-  ) =>
-    touchedFields[field]
-      ? message || undefined
-      : undefined;
-
-  const border = (
-    field: string,
-    message: string,
-  ) =>
-    touchedFields[field] && message
-      ? "border-red-400"
-      : "border-gray-200";
-
-  // -------------------------
-  // Navigation
-  // -------------------------
-
   const handleBack = () => {
-    if (step === 2) {
-      setStep(1);
-      setTouchedFields({});
+    if (step === "didit" && !phoneVerified) {
+      setStep("phone");
     } else {
       router.back();
     }
   };
 
-  // Where the user came from (deposit, wallet, settings...). If this page was opened directly there is
-  // nothing to go back to, so fall back to Settings, as before.
   const leaveVerify = () => {
     if (typeof window !== "undefined" && window.history.length > 1) {
       router.back();
     } else {
       router.replace("/Settings");
-    }
-  };
-
-  const handleContinue = () => {
-    setTouchedFields({
-      firstName: true,
-      lastName: true,
-      dob: true,
-      phone: true,
-      network: true,
-    });
-
-    if (!step1Valid) return;
-
-    setStep(2);
-    setTouchedFields({});
-  };
-
-  // -------------------------
-  // Submit
-  // -------------------------
-
-  const handleSubmit = async () => {
-    setTouchedFields({
-      docType: true,
-      docNumber: true,
-    });
-
-    if (
-      !step2Valid ||
-      !step1Valid ||
-      !docType ||
-      !network
-    ) {
-      return;
-    }
-
-    if (!token || token === "guest") {
-      showToast("Please sign in again", "warning");
-      return;
-    }
-
-    const normalizedPhone = normalizeKenyanPhone(phone);
-
-    if (!normalizedPhone) {
-      showToast(
-        "Please enter a valid Kenyan phone number",
-        "warning",
-      );
-      return;
-    }
-
-    setSubmitting(true);
-
-    try {
-      await submitKycDetails(token, {
-        firstName: firstName.trim(),
-        lastName: lastName.trim(),
-        dateOfBirth: dob,
-
-        // Always submitted as:
-        // 2547XXXXXXXX
-        phoneNumber: normalizedPhone,
-
-        network,
-        documentType: docType,
-        documentNumber: docNumber
-          .trim()
-          .toUpperCase(),
-      });
-
-      setShowSuccess(true);
-
-      void refreshUser();
-    } catch (e) {
-      showToast(
-        e instanceof Error
-          ? e.message
-          : "Could not submit your information",
-        "error",
-      );
-    } finally {
-      setSubmitting(false);
     }
   };
 
@@ -434,7 +286,6 @@ export default function VerifyDetailsPage() {
         className="shrink-0 px-4 pt-2 pb-4 rounded-b-2xl text-white safe-top shadow-md shadow-downy-900/20"
         style={{ backgroundColor: "#1a6b6b" }}
       >
-        {/* Header */}
         <div className="flex items-center justify-between mb-4 min-h-[32px]">
           <button
             type="button"
@@ -445,60 +296,53 @@ export default function VerifyDetailsPage() {
             <FiArrowLeft size={16} />
           </button>
 
-          <h1 className="text-display text-[14px] font-bold">
-            Verify Details
+          <h1 className="text-display text-[15px] font-bold">
+            Verify Identity (Tier 2)
           </h1>
 
           <div className="w-8" />
         </div>
 
-        {/* Stepper */}
+        {/* Stepper indicator */}
         <div className="flex items-center px-6">
-          {[1, 2].map((n, i) => {
-            const done = step > n;
-            const active = step === n;
+          {[
+            { id: "phone", label: "Phone" },
+            { id: "didit", label: "Identity" },
+            { id: "done", label: "Verified" },
+          ].map((s, i, arr) => {
+            const stepOrder = ["phone", "didit", "checking", "done"];
+            const currentIndex = stepOrder.indexOf(step);
+            const thisIndex = stepOrder.indexOf(s.id);
+            const isCompleted = currentIndex > thisIndex || (step === "checking" && s.id === "didit") || step === "done";
+            const isActive = step === s.id || (step === "checking" && s.id === "didit");
 
             return (
-              <div
-                key={n}
-                className="flex items-center flex-1 last:flex-none"
-              >
+              <div key={s.id} className="flex items-center flex-1 last:flex-none">
                 <div className="flex flex-col items-center gap-1">
                   <span
                     className={`h-7 w-7 rounded-full flex items-center justify-center text-[12px] font-bold border-2 transition ${
-                      done
+                      isCompleted
                         ? "bg-emerald-400 border-emerald-400 text-white"
-                        : active
+                        : isActive
                           ? "bg-white border-white text-downy-800"
                           : "bg-transparent border-white/40 text-white/60"
                     }`}
                   >
-                    {done ? (
-                      <FiCheck size={14} />
-                    ) : (
-                      n
-                    )}
+                    {isCompleted ? <FiCheck size={14} /> : i + 1}
                   </span>
-
                   <span
                     className={`text-[10px] font-semibold ${
-                      active || done
-                        ? "text-white"
-                        : "text-white/60"
+                      isActive || isCompleted ? "text-white" : "text-white/60"
                     }`}
                   >
-                    {n === 1
-                      ? "Personal"
-                      : "Identity"}
+                    {s.label}
                   </span>
                 </div>
 
-                {i === 0 && (
+                {i < arr.length - 1 && (
                   <div
                     className={`flex-1 h-0.5 mx-2 mb-4 rounded ${
-                      step > 1
-                        ? "bg-emerald-400"
-                        : "bg-white/30"
+                      currentIndex > thisIndex ? "bg-emerald-400" : "bg-white/20"
                     }`}
                   />
                 )}
@@ -508,365 +352,309 @@ export default function VerifyDetailsPage() {
         </div>
       </div>
 
-      {/* Form */}
-      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-3.5 pt-3 pb-8 [-webkit-overflow-scrolling:touch]">
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-3.5 space-y-3.5">
-          {step === 1 ? (
-            <>
-              {/* Personal information */}
-              <div>
-                <p className="text-[13px] font-bold text-gray-900">
-                  Personal information
-                </p>
-
-                <p className="text-[11px] text-gray-500 mt-0.5">
-                  Use your name exactly as it appears on
-                  your ID.
-                </p>
-              </div>
-
-              {/* Names */}
-              <div className="grid grid-cols-2 gap-2.5">
-                <Field
-                  label="First name"
-                  error={showError(
-                    "firstName",
-                    step1Errors.firstName,
-                  )}
-                >
-                  <input
-                    value={firstName}
-                    onChange={(e) =>
-                      setFirstName(e.target.value)
-                    }
-                    onBlur={() => touch("firstName")}
-                    autoComplete="given-name"
-                    placeholder="First name"
-                    className={`${inputClass} ${FILLED_TEXT} ${border(
-                      "firstName",
-                      step1Errors.firstName,
-                    )}`}
-                  />
-                </Field>
-
-                <Field
-                  label="Last name"
-                  error={showError(
-                    "lastName",
-                    step1Errors.lastName,
-                  )}
-                >
-                  <input
-                    value={lastName}
-                    onChange={(e) =>
-                      setLastName(e.target.value)
-                    }
-                    onBlur={() => touch("lastName")}
-                    autoComplete="family-name"
-                    placeholder="Last name"
-                    className={`${inputClass} ${FILLED_TEXT} ${border(
-                      "lastName",
-                      step1Errors.lastName,
-                    )}`}
-                  />
-                </Field>
-              </div>
-
-              {/* Date of birth */}
-              <Field
-                label="Date of birth"
-                error={showError(
-                  "dob",
-                  step1Errors.dob,
-                )}
-              >
-                <input
-                  type="date"
-                  value={dob}
-                  max={maxDob}
-                  onChange={(e) =>
-                    setDob(e.target.value)
-                  }
-                  onBlur={() => touch("dob")}
-                  className={`${inputClass} ${dob ? FILLED_TEXT : EMPTY_TEXT} ${border(
-                    "dob",
-                    step1Errors.dob,
-                  )}`}
-                />
-              </Field>
-
-              {/* Mobile network */}
-              <Field
-                label="Mobile network"
-                error={showError(
-                  "network",
-                  step1Errors.network,
-                )}
-              >
-                <div className="relative">
-                  <select
-                    value={network}
-                    onChange={(e) => {
-                      setNetwork(
-                        e.target.value as KycNetwork,
-                      );
-                      touch("network");
-                    }}
-                    className={`${inputClass} ${border(
-                      "network",
-                      step1Errors.network,
-                    )} appearance-none pr-10 ${
-                      network ? FILLED_TEXT : EMPTY_TEXT
-                    }`}
-                  >
-                    <option value="" disabled>
-                      Select your network
-                    </option>
-
-                    {NETWORKS.map((n) => (
-                      <option
-                        key={n.id}
-                        value={n.id}
-                      >
-                        {n.label}
-                      </option>
-                    ))}
-                  </select>
-
-                  {selectedNetwork && (
-                    <img
-                      src={selectedNetwork.logo}
-                      alt=""
-                      className="pointer-events-none absolute right-8 top-1/2 -translate-y-1/2 h-5 w-5 object-contain"
-                    />
-                  )}
-
-                  <FiChevronDown
-                    size={16}
-                    className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-400"
-                  />
+      {/* Main Content Area */}
+      <div className="flex-1 overflow-y-auto px-4 py-5 safe-bottom">
+        <div className="mx-auto max-w-sm space-y-4">
+          {/* STEP 1: Phone Verification */}
+          {step === "phone" && (
+            <div className="rounded-2xl bg-white p-5 shadow-sm border border-gray-100 space-y-4">
+              <div className="flex items-center gap-3 pb-2 border-b border-gray-100">
+                <div className="h-10 w-10 rounded-xl bg-downy-50 text-downy-600 flex items-center justify-center text-lg">
+                  <FiSmartphone />
                 </div>
-              </Field>
+                <div>
+                  <h2 className="text-[14px] font-bold text-gray-900">Phone Verification</h2>
+                  <p className="text-[11px] text-gray-500">We verify your phone to protect your wallet and prevent fraud</p>
+                </div>
+              </div>
 
-              {/* Phone number */}
-              <Field
-                label="Phone number"
-                error={showError(
-                  "phone",
-                  step1Errors.phone,
-                )}
-              >
-                <div
-                  className={`flex rounded-lg border bg-gray-50 overflow-hidden focus-within:bg-white focus-within:border-downy-500 transition ${
-                    touchedFields.phone &&
-                    step1Errors.phone
-                      ? "border-red-400"
-                      : "border-gray-200"
-                  }`}
+              {/* Country Selection */}
+              <div className="relative">
+                <label className="block text-[11px] font-semibold text-gray-700 mb-1">
+                  Country
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setCountryDropdownOpen(!countryDropdownOpen)}
+                  className="w-full flex items-center justify-between rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5 text-[13px] text-gray-900 active:bg-gray-100 transition"
                 >
-                  {/* Fixed Kenya country code */}
-                  <div className="shrink-0 flex items-center gap-1.5 px-3 border-r border-gray-200 text-[13px] text-gray-800">
-                    <span className="text-[16px] leading-none">
-                      🇰🇪
-                    </span>
+                  <span className="flex items-center gap-2">
+                    <span className="text-lg">{selectedCountry.flag}</span>
+                    <span className="font-medium">{selectedCountry.name}</span>
+                    <span className="text-gray-400 text-xs">(+{selectedCountry.dialCode})</span>
+                  </span>
+                  <FiChevronDown className={`text-gray-400 transition-transform ${countryDropdownOpen ? "rotate-180" : ""}`} />
+                </button>
 
-                    <span className="font-medium">
-                      +254
-                    </span>
+                {countryDropdownOpen && (
+                  <div className="absolute z-30 mt-1 w-full rounded-xl bg-white shadow-xl border border-gray-100 max-h-56 overflow-hidden flex flex-col">
+                    <div className="p-2 border-b border-gray-100">
+                      <input
+                        type="text"
+                        placeholder="Search country..."
+                        value={countrySearch}
+                        onChange={(e) => setCountrySearch(e.target.value)}
+                        className="w-full rounded-lg bg-gray-50 px-2.5 py-1.5 text-xs outline-none focus:bg-white focus:ring-1 focus:ring-downy-500"
+                        autoFocus
+                      />
+                    </div>
+                    <div className="overflow-y-auto flex-1 py-1">
+                      {filteredCountries.map((c) => (
+                        <button
+                          key={c.iso2}
+                          type="button"
+                          onClick={() => {
+                            setSelectedCountry(c);
+                            setCountryDropdownOpen(false);
+                            setCountrySearch("");
+                          }}
+                          className={`w-full px-3 py-2 text-left flex items-center justify-between text-xs hover:bg-gray-50 ${
+                            c.iso2 === selectedCountry.iso2 ? "bg-downy-50 text-downy-700 font-bold" : "text-gray-800"
+                          }`}
+                        >
+                          <span className="flex items-center gap-2">
+                            <span>{c.flag}</span>
+                            <span>{c.name}</span>
+                          </span>
+                          <span className="text-gray-400">+{c.dialCode}</span>
+                        </button>
+                      ))}
+                    </div>
                   </div>
+                )}
+              </div>
 
-                  {/* Editable local number */}
+              {/* Phone Input */}
+              <div>
+                <label className="block text-[11px] font-semibold text-gray-700 mb-1">
+                  Phone Number (WhatsApp)
+                </label>
+                <div className="flex items-center rounded-lg border border-gray-200 bg-gray-50 overflow-hidden focus-within:border-downy-500 focus-within:bg-white transition">
+                  <span className="px-3 text-xs font-semibold text-gray-500 bg-gray-100/80 border-r border-gray-200 py-2.5">
+                    +{selectedCountry.dialCode}
+                  </span>
                   <input
                     type="tel"
-                    inputMode="numeric"
-                    value={phone}
-                    onChange={(e) => {
-                      // Allow digits, spaces and + while typing.
-                      // Normalization happens during validation/submission.
-                      const value =
-                        e.target.value.replace(
-                          /[^\d\s+]/g,
-                          "",
-                        );
-
-                      setPhone(value);
-                    }}
-                    onBlur={() => touch("phone")}
-                    autoComplete="tel-national"
-                    placeholder="712 345 678"
-                    className="min-w-0 flex-1 bg-transparent px-3 py-2.5 text-[13px] text-gray-900 placeholder:text-gray-400/60 outline-none"
+                    value={phoneNumber}
+                    onChange={(e) => setPhoneNumber(e.target.value)}
+                    placeholder={selectedCountry.placeholder || "712 345 678"}
+                    disabled={otpSent}
+                    className="flex-1 bg-transparent px-3 py-2.5 text-[13px] text-gray-900 outline-none"
                   />
-                </div>
-              </Field>
-
-              {/* Continue */}
-              <div className="pt-1">
-                <button
-                  type="button"
-                  onClick={handleContinue}
-                  className="w-full rounded-lg bg-downy-600 py-3 text-white text-[13px] font-bold flex items-center justify-center gap-1.5 shadow-md shadow-downy-600/20 active:opacity-90 transition"
-                >
-                  Continue
-                  <FiArrowRight size={15} />
-                </button>
-              </div>
-            </>
-          ) : (
-            <>
-              {/* Identity */}
-              <div>
-                <p className="text-[13px] font-bold text-gray-900">
-                  Identity verification
-                </p>
-
-                <p className="text-[11px] text-gray-500 mt-0.5">
-                  Choose a document to verify your
-                  identity.
-                </p>
-              </div>
-
-              {/* Document type */}
-              <Field
-                label="Document type"
-                error={showError(
-                  "docType",
-                  step2Errors.docType,
-                )}
-              >
-                <div className="relative">
-                  <select
-                    value={docType}
-                    onChange={(e) => {
-                      setDocType(
-                        e.target.value as KycDocumentType,
-                      );
-                      setDocNumber("");
-                      touch("docType");
-                    }}
-                    className={`${inputClass} ${docType ? FILLED_TEXT : EMPTY_TEXT} ${border(
-                      "docType",
-                      step2Errors.docType,
-                    )} appearance-none pr-9`}
-                  >
-                    <option value="" disabled>
-                      Select document type
-                    </option>
-
-                    {DOCUMENT_TYPES.map((d) => (
-                      <option
-                        key={d.id}
-                        value={d.id}
-                      >
-                        {d.label}
-                      </option>
-                    ))}
-                  </select>
-
-                  <FiChevronDown
-                    size={16}
-                    className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-400"
-                  />
-                </div>
-              </Field>
-
-              {/* Document number */}
-              <Field
-                label={
-                  selectedDoc?.numberLabel ??
-                  "Document number"
-                }
-                error={showError(
-                  "docNumber",
-                  step2Errors.docNumber,
-                )}
-              >
-                <input
-                  value={docNumber}
-                  onChange={(e) =>
-                    setDocNumber(e.target.value)
-                  }
-                  onBlur={() => touch("docNumber")}
-                  disabled={!docType}
-                  inputMode={
-                    docType === "national_id"
-                      ? "numeric"
-                      : "text"
-                  }
-                  placeholder={
-                    selectedDoc?.placeholder ??
-                    "Select a document type first"
-                  }
-                  className={`${inputClass} ${FILLED_TEXT} ${border(
-                    "docNumber",
-                    step2Errors.docNumber,
-                  )} disabled:opacity-60`}
-                />
-              </Field>
-
-              {/* Back + Submit */}
-              <div className="grid grid-cols-2 gap-2.5 pt-1">
-                <button
-                  type="button"
-                  onClick={handleBack}
-                  disabled={submitting}
-                  className="rounded-lg border border-gray-200 bg-white py-3 text-gray-700 text-[13px] font-bold flex items-center justify-center gap-1.5 active:bg-gray-50 transition disabled:opacity-50"
-                >
-                  <FiArrowLeft size={15} />
-                  Back
-                </button>
-
-                <button
-                  type="button"
-                  onClick={handleSubmit}
-                  disabled={submitting}
-                  className="rounded-lg bg-downy-600 py-3 text-white text-[13px] font-bold flex items-center justify-center gap-2 shadow-md shadow-downy-600/20 active:opacity-90 transition disabled:opacity-70"
-                >
-                  {submitting && (
-                    <span className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  {otpSent && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setOtpSent(false);
+                        setOtpCode("");
+                      }}
+                      className="text-xs text-downy-600 font-semibold px-3 hover:underline"
+                    >
+                      Change
+                    </button>
                   )}
-
-                  {submitting
-                    ? "Submitting…"
-                    : "Submit"}
-                </button>
+                </div>
               </div>
-            </>
+
+              {/* Send or Verify OTP */}
+              {!otpSent ? (
+                <button
+                  type="button"
+                  onClick={handleSendOtp}
+                  disabled={sendingOtp || !phoneNumber.trim()}
+                  className="w-full rounded-xl bg-downy-600 py-3 text-white text-[13px] font-bold flex items-center justify-center gap-2 shadow-md shadow-downy-600/20 active:opacity-90 transition disabled:opacity-50"
+                >
+                  {sendingOtp && <span className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
+                  {sendingOtp ? "Sending code..." : "Send Verification Code"}
+                </button>
+              ) : (
+                <div className="space-y-3 pt-1">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-gray-700 mb-1">
+                      Enter 6-Digit WhatsApp Code
+                    </label>
+                    <input
+                      type="text"
+                      maxLength={6}
+                      value={otpCode}
+                      onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ""))}
+                      placeholder="• • • • • •"
+                      className="w-full text-center tracking-[0.4em] font-mono text-lg font-bold rounded-lg border border-gray-200 bg-gray-50 py-2.5 text-gray-900 outline-none focus:bg-white focus:border-downy-500 transition"
+                      autoFocus
+                    />
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleVerifyOtp}
+                    disabled={verifyingOtp || otpCode.length < 6}
+                    className="w-full rounded-xl bg-downy-600 py-3 text-white text-[13px] font-bold flex items-center justify-center gap-2 shadow-md shadow-downy-600/20 active:opacity-90 transition disabled:opacity-50"
+                  >
+                    {verifyingOtp && <span className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
+                    {verifyingOtp ? "Verifying code..." : "Verify & Continue"}
+                  </button>
+
+                  <div className="text-center pt-1">
+                    {resendCooldown > 0 ? (
+                      <span className="text-[11px] text-gray-400">Resend code in {resendCooldown}s</span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={handleSendOtp}
+                        className="text-[11px] text-downy-600 font-semibold hover:underline"
+                      >
+                        Didn&apos;t receive code? Resend
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* STEP 2: Didit Live Document & Selfie Verification */}
+          {step === "didit" && (
+            <div className="rounded-2xl bg-white p-5 shadow-sm border border-gray-100 space-y-5">
+              <div className="text-center space-y-1">
+                <div className="mx-auto h-12 w-12 rounded-2xl bg-downy-50 text-downy-600 flex items-center justify-center text-xl mb-2">
+                  <FiShield />
+                </div>
+                <h2 className="text-[16px] font-bold text-gray-900">Live Identity Verification</h2>
+                <p className="text-[12px] text-gray-500 leading-relaxed">
+                  Verify with Didit Protocol to unlock higher limits and protect against identity theft.
+                </p>
+              </div>
+
+              {/* What will be checked */}
+              <div className="rounded-xl bg-gray-50 p-3.5 space-y-2.5 text-xs border border-gray-100">
+                <div className="flex items-start gap-2.5">
+                  <span className="text-downy-600 mt-0.5"><FiCamera /></span>
+                  <div>
+                    <span className="font-semibold text-gray-800">Government ID (Front & Back)</span>
+                    <p className="text-gray-500 text-[11px]">Passport, National ID card, or Driver’s License from {selectedCountry.name} or any country.</p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-2.5">
+                  <span className="text-downy-600 mt-0.5"><FiCamera /></span>
+                  <div>
+                    <span className="font-semibold text-gray-800">Live 3D Face Scan</span>
+                    <p className="text-gray-500 text-[11px]">Quick 3-second liveness check to confirm you are the true document owner.</p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-2.5">
+                  <span className="text-downy-600 mt-0.5"><FiLock /></span>
+                  <div>
+                    <span className="font-semibold text-gray-800">AES-256 Encryption</span>
+                    <p className="text-gray-500 text-[11px]">Your ID number is securely encrypted and never exposed in plaintext.</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Error box if failed */}
+              {diditError && (
+                <div className="rounded-xl bg-red-50 border border-red-200 p-3 flex items-start gap-2.5 text-xs text-red-700">
+                  <FiAlertCircle className="mt-0.5 shrink-0 text-red-500" />
+                  <span>{diditError}</span>
+                </div>
+              )}
+
+              {/* Action Buttons */}
+              <div className="space-y-2 pt-2">
+                <button
+                  type="button"
+                  onClick={handleStartDidit}
+                  disabled={launchingDidit}
+                  className="w-full rounded-xl bg-downy-600 py-3.5 text-white text-[13px] font-bold flex items-center justify-center gap-2 shadow-md shadow-downy-600/20 active:opacity-90 transition disabled:opacity-50"
+                >
+                  {launchingDidit && <span className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
+                  {launchingDidit ? "Opening Didit..." : "Start Identity Verification"}
+                </button>
+
+                {/* Direct link fallback in case modal popup is blocked */}
+                {sessionUrl && (
+                  <a
+                    href={sessionUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-full block text-center py-2.5 text-xs font-semibold text-gray-600 hover:text-downy-600 flex items-center justify-center gap-1.5 transition"
+                  >
+                    <span>Open in new window</span>
+                    <FiExternalLink size={12} />
+                  </a>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* STEP 3: Checking / Decision */}
+          {step === "checking" && (
+            <div className="rounded-2xl bg-white p-7 text-center shadow-sm border border-gray-100 space-y-4">
+              <div className="mx-auto h-14 w-14 rounded-full bg-downy-50 text-downy-600 flex items-center justify-center text-2xl animate-spin">
+                <FiRefreshCw />
+              </div>
+              <h2 className="text-[16px] font-bold text-gray-900">Verifying Documents...</h2>
+              <p className="text-[12px] text-gray-500 leading-relaxed">
+                {checkingMessage}
+              </p>
+              <div className="pt-2">
+                <span className="inline-block h-1.5 w-24 bg-gray-100 rounded-full overflow-hidden">
+                  <span className="block h-full bg-downy-500 rounded-full animate-pulse" style={{ width: "70%" }} />
+                </span>
+              </div>
+            </div>
+          )}
+
+          {/* STEP 4: Success / Done */}
+          {step === "done" && (
+            <div className="rounded-2xl bg-white p-6 text-center shadow-sm border border-gray-100 space-y-4">
+              <div className="mx-auto h-16 w-16 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center text-3xl">
+                <FiCheck />
+              </div>
+              <div>
+                <h2 className="text-[17px] font-bold text-gray-900">Identity Verified 🎉</h2>
+                <span className="inline-block mt-1 px-3 py-1 bg-emerald-50 text-emerald-700 text-xs font-bold rounded-full border border-emerald-200">
+                  Tier 2 Verified
+                </span>
+              </div>
+
+              <div className="rounded-xl bg-gray-50 p-4 text-left text-xs space-y-2 border border-gray-100">
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Monthly Limit:</span>
+                  <span className="font-bold text-emerald-700">100,000 KES</span>
+                </div>
+                {kycData?.identity?.fullName && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Legal Name:</span>
+                    <span className="font-semibold text-gray-800">{kycData.identity.fullName}</span>
+                  </div>
+                )}
+                {kycData?.identity?.dateOfBirth && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Date of Birth:</span>
+                    <span className="font-semibold text-gray-800">{kycData.identity.dateOfBirth}</span>
+                  </div>
+                )}
+                {kycData?.identity?.documentType && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Document:</span>
+                    <span className="font-semibold text-gray-800">{kycData.identity.documentType}</span>
+                  </div>
+                )}
+              </div>
+
+              <button
+                type="button"
+                onClick={leaveVerify}
+                className="w-full rounded-xl bg-downy-600 py-3.5 text-white text-[13px] font-bold shadow-md shadow-downy-600/20 active:opacity-90 transition"
+              >
+                Done
+              </button>
+            </div>
           )}
         </div>
       </div>
-
-      {/* Success modal */}
-      {showSuccess && (
-        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/50 px-6">
-          <div
-            role="dialog"
-            aria-modal="true"
-            className="w-full max-w-sm rounded-2xl bg-white p-5 text-center shadow-xl"
-          >
-            <div className="mx-auto mb-3 h-14 w-14 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center">
-              <FiCheck size={28} />
-            </div>
-
-            <h2 className="text-[16px] font-bold text-gray-900">
-              Details submitted
-            </h2>
-
-            <p className="mt-1.5 text-[12px] text-gray-500 leading-relaxed">
-              Thanks! We&apos;re reviewing your information.
-              You&apos;ll be able to use all features once
-              your verification is approved.
-            </p>
-
-            <button
-              type="button"
-              onClick={leaveVerify}
-              className="mt-4 w-full rounded-lg bg-downy-600 py-3 text-white text-[13px] font-bold"
-            >
-              Done
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

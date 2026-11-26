@@ -363,7 +363,7 @@ const ChamaDetails = ({ params }: { params: { slug: string } }) => {
           showToast("You already sent a request.", "warning");
         } else {
           showToast(
-            "✅ Join request sent to admin. wait for approval.",
+            "Join request sent to admin. wait for approval.",
             "success"
           );
         }
