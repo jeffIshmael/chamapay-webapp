@@ -401,7 +401,7 @@ function SelfieCapture({
                 onClick={() => fallbackRef.current?.click()}
                 className="w-full py-2 text-xs font-semibold text-gray-600"
               >
-                Use my phone's camera app instead
+                Use my phone&apos;s camera app instead
               </button>
               <input
                 ref={fallbackRef}
