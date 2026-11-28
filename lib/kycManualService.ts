@@ -1,10 +1,5 @@
-/**
- * Client for the manual KYC endpoints.
- *
- * IMPORTANT: make API_BASE match whatever your existing lib/kycService.ts uses
- * (same base URL, and the same prefix if your router is mounted under /api).
- */
 import { serverUrl } from "./serverUrl";
+
 
 const API_BASE = serverUrl;
 
@@ -104,6 +99,7 @@ export type AdminDetail = {
   firstName: string;
   lastName: string;
   dateOfBirth: string;
+  phone: string | null;
   documentNumber: string | null;
   livenessPrompt: string;
   flags: string[] | null;

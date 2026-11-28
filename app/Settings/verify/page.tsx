@@ -24,9 +24,7 @@ import { getKycStatus, type KycStatusResponse } from "@/lib/kycService";
 import {
   getManualChallenge,
   getManualStatus,
-  sendPhoneOtp,
   submitManualKyc,
-  verifyPhoneOtp,
   type ManualSubmission,
 } from "@/lib/kycManualService";
 import { COUNTRIES, DEFAULT_COUNTRY, type CountryInfo } from "@/lib/countries";
@@ -152,8 +150,9 @@ function ProgressBar({ current }: { current: Step }) {
         {FORM_STEPS.map((s, i) => (
           <div
             key={s.key}
-            className={`h-1.5 flex-1 rounded-full transition-colors ${i <= idx ? "bg-downy-600" : "bg-gray-200"
-              }`}
+            className={`h-1.5 flex-1 rounded-full transition-colors ${
+              i <= idx ? "bg-downy-600" : "bg-gray-200"
+            }`}
           />
         ))}
       </div>
@@ -290,7 +289,7 @@ function SelfieCapture({
       streamRef.current = stream;
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
-        await videoRef.current.play().catch(() => { });
+        await videoRef.current.play().catch(() => {});
       }
       setReady(true);
     } catch {
@@ -400,7 +399,7 @@ function SelfieCapture({
                 onClick={() => fallbackRef.current?.click()}
                 className="w-full py-2 text-xs font-semibold text-gray-600"
               >
-                Use my phone&apos;s camera app instead
+                Use my phone's camera app instead
               </button>
               <input
                 ref={fallbackRef}
@@ -453,14 +452,6 @@ export default function VerifyDetailsPage() {
   const [countryOpen, setCountryOpen] = useState(false);
   const [countrySearch, setCountrySearch] = useState("");
   const [phoneInput, setPhoneInput] = useState("");
-  const [phoneVerified, setPhoneVerified] = useState(false);
-  const [verifiedPhone, setVerifiedPhone] = useState<string | null>(null);
-  const [editingPhone, setEditingPhone] = useState(false);
-  const [otpSent, setOtpSent] = useState(false);
-  const [otpCode, setOtpCode] = useState("");
-  const [otpBusy, setOtpBusy] = useState(false);
-  const [cooldown, setCooldown] = useState(0);
-  const [phoneError, setPhoneError] = useState<string | null>(null);
 
   // Step 2: identity
   const [dob, setDob] = useState("");
@@ -498,9 +489,8 @@ export default function VerifyDetailsPage() {
 
       if (kyc && kyc.success) {
         setKycData(kyc);
-        if (kyc.phoneE164) {
-          setPhoneVerified(true);
-          setVerifiedPhone(kyc.phoneE164);
+        if (kyc.phoneE164 && kyc.phoneE164.startsWith(`+${DEFAULT_COUNTRY.dialCode}`)) {
+          setPhoneInput(kyc.phoneE164.slice(DEFAULT_COUNTRY.dialCode.length + 1));
         }
         if (kyc.kycTier >= 2 && kyc.kycStatus === "approved") {
           setStep("done");
@@ -522,14 +512,6 @@ export default function VerifyDetailsPage() {
       cancelled = true;
     };
   }, [token]);
-
-  /* ---------------------------- OTP resend timer -------------------------- */
-
-  useEffect(() => {
-    if (cooldown <= 0) return;
-    const t = setTimeout(() => setCooldown((c) => c - 1), 1000);
-    return () => clearTimeout(t);
-  }, [cooldown]);
 
   /* ------------------------- status polling after submit ------------------ */
 
@@ -587,7 +569,9 @@ export default function VerifyDetailsPage() {
   }, [countrySearch]);
 
   const detailsValid =
-    NAME_RE.test(firstName.trim()) && NAME_RE.test(lastName.trim()) && phoneVerified;
+    NAME_RE.test(firstName.trim()) &&
+    NAME_RE.test(lastName.trim()) &&
+    phoneInput.replace(/\D/g, "").length >= 7;
 
   const docNumErr = docNumber ? docNumberError(country.iso3, docType, docNumber) : null;
   const identityValid =
@@ -610,43 +594,6 @@ export default function VerifyDetailsPage() {
     else if (step === "selfie") setStep("identity");
     else if (step === "review") setStep("selfie");
     else leaveVerify();
-  };
-
-  const handleSendOtp = async () => {
-    if (!token) return;
-    const digits = phoneInput.replace(/\D/g, "");
-    if (digits.length < 7) {
-      setPhoneError("Enter a valid phone number.");
-      return;
-    }
-    setOtpBusy(true);
-    setPhoneError(null);
-    const r = await sendPhoneOtp(token, phoneInput, country.dialCode);
-    setOtpBusy(false);
-    if (!r.success) {
-      setPhoneError(r.error || "Could not send the code.");
-      return;
-    }
-    setOtpSent(true);
-    setCooldown(45);
-  };
-
-  const handleVerifyOtp = async () => {
-    if (!token || otpCode.trim().length < 6) return;
-    setOtpBusy(true);
-    setPhoneError(null);
-    const r = await verifyPhoneOtp(token, otpCode.trim());
-    setOtpBusy(false);
-    if (!r.success) {
-      setPhoneError(r.error || "Invalid code.");
-      return;
-    }
-    setPhoneVerified(true);
-    setVerifiedPhone(r.phoneE164 || null);
-    setEditingPhone(false);
-    setOtpSent(false);
-    setOtpCode("");
-    showToast("Phone number verified", "success");
   };
 
   const pickDoc = async (field: "front" | "back", file: File) => {
@@ -701,6 +648,8 @@ export default function VerifyDetailsPage() {
     form.append("dateOfBirth", dob);
     form.append("docType", docType);
     form.append("documentNumber", docNumber.trim());
+    form.append("phone", phoneInput.trim());
+    form.append("dialCode", country.dialCode);
     form.append("challenge", challenge.token);
     form.append("front", front.blob, "front.jpg");
     if (docType === "id_card" && back) form.append("back", back.blob, "back.jpg");
@@ -765,7 +714,7 @@ export default function VerifyDetailsPage() {
           >
             <FiArrowLeft size={16} />
           </button>
-          <h1 className="text-display text-[15px] font-bold">Verify Identity</h1>
+          <h1 className="text-display text-[15px] font-bold">Verify Identity (Tier 2)</h1>
           <div className="w-8" />
         </div>
       </div>
@@ -791,7 +740,8 @@ export default function VerifyDetailsPage() {
                 </div>
                 <h2 className="text-[16px] font-bold text-gray-900">Confirm your details</h2>
                 <p className="text-[12px] leading-relaxed text-gray-500">
-                  Enter your name exactly as it appears on your ID. Verifying enables you to access more features like deposits and withdrawals.
+                  Enter your name exactly as it appears on your ID. Verifying lifts your limit to
+                  100,000 KES/month.
                 </p>
               </div>
 
@@ -858,10 +808,11 @@ export default function VerifyDetailsPage() {
                             setCountryOpen(false);
                             setCountrySearch("");
                           }}
-                          className={`flex w-full items-center gap-2 px-3 py-2 text-left text-xs hover:bg-gray-50 ${c.iso2 === country.iso2
+                          className={`flex w-full items-center gap-2 px-3 py-2 text-left text-xs hover:bg-gray-50 ${
+                            c.iso2 === country.iso2
                               ? "bg-downy-50 font-bold text-downy-700"
                               : "text-gray-800"
-                            }`}
+                          }`}
                         >
                           <span>{c.flag}</span>
                           <span>{c.name}</span>
@@ -873,78 +824,25 @@ export default function VerifyDetailsPage() {
               </div>
 
               {/* Phone */}
-              <div className="space-y-2">
-                <label className={labelCls}>WhatsApp phone number</label>
-
-                {phoneVerified && !editingPhone ? (
-                  <div className="flex items-center justify-between rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2.5">
-                    <span className="flex items-center gap-2 text-[13px] font-semibold text-emerald-800">
-                      <FiCheck /> {verifiedPhone || "Verified"}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => setEditingPhone(true)}
-                      className="text-[11px] font-semibold text-gray-600 underline"
-                    >
-                      Change
-                    </button>
-                  </div>
-                ) : (
-                  <>
-                    <div className="flex items-center overflow-hidden rounded-lg border border-gray-200 bg-gray-50 transition focus-within:border-downy-500 focus-within:bg-white">
-                      <span className="border-r border-gray-200 bg-gray-100/80 px-3 py-2.5 text-xs font-semibold text-gray-500">
-                        +{country.dialCode}
-                      </span>
-                      <input
-                        type="tel"
-                        inputMode="tel"
-                        value={phoneInput}
-                        onChange={(e) => setPhoneInput(e.target.value)}
-                        placeholder={country.placeholder || "712 345 678"}
-                        className="flex-1 bg-transparent px-3 py-2.5 text-[13px] text-gray-900 outline-none"
-                      />
-                    </div>
-
-                    {!otpSent ? (
-                      <button
-                        type="button"
-                        onClick={handleSendOtp}
-                        disabled={otpBusy || phoneInput.replace(/\D/g, "").length < 7}
-                        className="w-full rounded-lg border border-downy-600 py-2.5 text-xs font-bold text-downy-700 transition active:bg-downy-50 disabled:opacity-40"
-                      >
-                        {otpBusy ? "Sending..." : "Send code on WhatsApp"}
-                      </button>
-                    ) : (
-                      <div className="space-y-2">
-                        <input
-                          className={`${inputCls} text-center tracking-[0.4em]`}
-                          inputMode="numeric"
-                          maxLength={6}
-                          placeholder="000000"
-                          value={otpCode}
-                          onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ""))}
-                        />
-                        <button
-                          type="button"
-                          onClick={handleVerifyOtp}
-                          disabled={otpBusy || otpCode.length < 6}
-                          className={primaryBtn}
-                        >
-                          {otpBusy ? "Checking..." : "Verify code"}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={handleSendOtp}
-                          disabled={cooldown > 0 || otpBusy}
-                          className="w-full py-1 text-[11px] font-semibold text-gray-600 disabled:opacity-50"
-                        >
-                          {cooldown > 0 ? `Resend code in ${cooldown}s` : "Resend code"}
-                        </button>
-                      </div>
-                    )}
-                  </>
-                )}
-                {phoneError && <ErrorBox message={phoneError} />}
+              <div>
+                <label className={labelCls}>Phone number</label>
+                <div className="flex items-center overflow-hidden rounded-lg border border-gray-200 bg-gray-50 transition focus-within:border-downy-500 focus-within:bg-white">
+                  <span className="border-r border-gray-200 bg-gray-100/80 px-3 py-2.5 text-xs font-semibold text-gray-500">
+                    +{country.dialCode}
+                  </span>
+                  <input
+                    type="tel"
+                    inputMode="tel"
+                    value={phoneInput}
+                    onChange={(e) => setPhoneInput(e.target.value)}
+                    placeholder={country.placeholder || "712 345 678"}
+                    className="flex-1 bg-transparent px-3 py-2.5 text-[13px] text-gray-900 outline-none"
+                    autoComplete="tel-national"
+                  />
+                </div>
+                <p className="mt-1 text-[10px] text-gray-400">
+                  Used only to contact you about this verification. Your mobile money number works best.
+                </p>
               </div>
 
               <button
@@ -999,10 +897,11 @@ export default function VerifyDetailsPage() {
                         setDocType(d.key);
                         if (d.key === "passport") clearDoc("back");
                       }}
-                      className={`rounded-xl border-2 p-3 text-left transition ${docType === d.key
+                      className={`rounded-xl border-2 p-3 text-left transition ${
+                        docType === d.key
                           ? "border-downy-600 bg-downy-50"
                           : "border-gray-200 bg-white"
-                        }`}
+                      }`}
                     >
                       <span className="text-lg text-downy-600">{d.icon}</span>
                       <p className="mt-1 text-[12px] font-bold leading-tight text-gray-900">{d.title}</p>
@@ -1111,7 +1010,7 @@ export default function VerifyDetailsPage() {
                 {[
                   ["Name", `${firstName.trim()} ${lastName.trim()}`],
                   ["Country", `${country.flag} ${country.name}`],
-                  ["Phone", verifiedPhone || "-"],
+                  ["Phone", `+${country.dialCode} ${phoneInput.trim()}`],
                   ["Date of birth", dob],
                   ["Document", docType === "passport" ? "Passport" : "ID card / Driver's license"],
                   ["Number", docNumber.toUpperCase()],
@@ -1215,12 +1114,13 @@ export default function VerifyDetailsPage() {
                     ].map((s) => (
                       <div key={s.label} className="flex items-center gap-2.5">
                         <span
-                          className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] ${s.state === "done"
+                          className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] ${
+                            s.state === "done"
                               ? "bg-emerald-500 text-white"
                               : s.state === "active"
-                                ? "border-2 border-downy-600 bg-white"
-                                : "border-2 border-gray-300 bg-white"
-                            }`}
+                              ? "border-2 border-downy-600 bg-white"
+                              : "border-2 border-gray-300 bg-white"
+                          }`}
                         >
                           {s.state === "done" && <FiCheck size={11} />}
                           {s.state === "active" && (
@@ -1265,7 +1165,7 @@ export default function VerifyDetailsPage() {
               <div>
                 <h2 className="text-[17px] font-bold text-gray-900">Identity Verified 🎉</h2>
                 <span className="mt-1 inline-block rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700">
-                  Verified
+                  Tier 2 Verified
                 </span>
               </div>
 
