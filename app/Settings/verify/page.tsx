@@ -152,9 +152,8 @@ function ProgressBar({ current }: { current: Step }) {
         {FORM_STEPS.map((s, i) => (
           <div
             key={s.key}
-            className={`h-1.5 flex-1 rounded-full transition-colors ${
-              i <= idx ? "bg-downy-600" : "bg-gray-200"
-            }`}
+            className={`h-1.5 flex-1 rounded-full transition-colors ${i <= idx ? "bg-downy-600" : "bg-gray-200"
+              }`}
           />
         ))}
       </div>
@@ -291,7 +290,7 @@ function SelfieCapture({
       streamRef.current = stream;
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
-        await videoRef.current.play().catch(() => {});
+        await videoRef.current.play().catch(() => { });
       }
       setReady(true);
     } catch {
@@ -766,7 +765,7 @@ export default function VerifyDetailsPage() {
           >
             <FiArrowLeft size={16} />
           </button>
-          <h1 className="text-display text-[15px] font-bold">Verify Identity (Tier 2)</h1>
+          <h1 className="text-display text-[15px] font-bold">Verify Identity</h1>
           <div className="w-8" />
         </div>
       </div>
@@ -792,8 +791,7 @@ export default function VerifyDetailsPage() {
                 </div>
                 <h2 className="text-[16px] font-bold text-gray-900">Confirm your details</h2>
                 <p className="text-[12px] leading-relaxed text-gray-500">
-                  Enter your name exactly as it appears on your ID. Verifying lifts your limit to
-                  100,000 KES/month.
+                  Enter your name exactly as it appears on your ID. Verifying enables you to access more features like deposits and withdrawals.
                 </p>
               </div>
 
@@ -860,11 +858,10 @@ export default function VerifyDetailsPage() {
                             setCountryOpen(false);
                             setCountrySearch("");
                           }}
-                          className={`flex w-full items-center gap-2 px-3 py-2 text-left text-xs hover:bg-gray-50 ${
-                            c.iso2 === country.iso2
+                          className={`flex w-full items-center gap-2 px-3 py-2 text-left text-xs hover:bg-gray-50 ${c.iso2 === country.iso2
                               ? "bg-downy-50 font-bold text-downy-700"
                               : "text-gray-800"
-                          }`}
+                            }`}
                         >
                           <span>{c.flag}</span>
                           <span>{c.name}</span>
@@ -1002,11 +999,10 @@ export default function VerifyDetailsPage() {
                         setDocType(d.key);
                         if (d.key === "passport") clearDoc("back");
                       }}
-                      className={`rounded-xl border-2 p-3 text-left transition ${
-                        docType === d.key
+                      className={`rounded-xl border-2 p-3 text-left transition ${docType === d.key
                           ? "border-downy-600 bg-downy-50"
                           : "border-gray-200 bg-white"
-                      }`}
+                        }`}
                     >
                       <span className="text-lg text-downy-600">{d.icon}</span>
                       <p className="mt-1 text-[12px] font-bold leading-tight text-gray-900">{d.title}</p>
@@ -1219,13 +1215,12 @@ export default function VerifyDetailsPage() {
                     ].map((s) => (
                       <div key={s.label} className="flex items-center gap-2.5">
                         <span
-                          className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] ${
-                            s.state === "done"
+                          className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] ${s.state === "done"
                               ? "bg-emerald-500 text-white"
                               : s.state === "active"
-                              ? "border-2 border-downy-600 bg-white"
-                              : "border-2 border-gray-300 bg-white"
-                          }`}
+                                ? "border-2 border-downy-600 bg-white"
+                                : "border-2 border-gray-300 bg-white"
+                            }`}
                         >
                           {s.state === "done" && <FiCheck size={11} />}
                           {s.state === "active" && (
@@ -1270,7 +1265,7 @@ export default function VerifyDetailsPage() {
               <div>
                 <h2 className="text-[17px] font-bold text-gray-900">Identity Verified 🎉</h2>
                 <span className="mt-1 inline-block rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700">
-                  Tier 2 Verified
+                  Verified
                 </span>
               </div>
 

@@ -4,7 +4,9 @@
  * IMPORTANT: make API_BASE match whatever your existing lib/kycService.ts uses
  * (same base URL, and the same prefix if your router is mounted under /api).
  */
-const API_BASE = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/$/, "");
+import { serverUrl } from "./serverUrl";
+
+const API_BASE = serverUrl;
 
 export type ManualSubmission = {
   reference: string;
