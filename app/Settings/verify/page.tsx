@@ -399,7 +399,7 @@ function SelfieCapture({
                 onClick={() => fallbackRef.current?.click()}
                 className="w-full py-2 text-xs font-semibold text-gray-600"
               >
-                Use my phone's camera app instead
+                Use my phone&apos;s camera app instead
               </button>
               <input
                 ref={fallbackRef}
@@ -714,7 +714,7 @@ export default function VerifyDetailsPage() {
           >
             <FiArrowLeft size={16} />
           </button>
-          <h1 className="text-display text-[15px] font-bold">Verify Identity (Tier 2)</h1>
+          <h1 className="text-display text-[15px] font-bold">Verify Identity </h1>
           <div className="w-8" />
         </div>
       </div>
@@ -740,8 +740,7 @@ export default function VerifyDetailsPage() {
                 </div>
                 <h2 className="text-[16px] font-bold text-gray-900">Confirm your details</h2>
                 <p className="text-[12px] leading-relaxed text-gray-500">
-                  Enter your name exactly as it appears on your ID. Verifying lifts your limit to
-                  100,000 KES/month.
+                  Enter your name exactly as it appears on your ID. Verifying helps you access more features like deposit and withdraw.
                 </p>
               </div>
 
@@ -1165,15 +1164,15 @@ export default function VerifyDetailsPage() {
               <div>
                 <h2 className="text-[17px] font-bold text-gray-900">Identity Verified 🎉</h2>
                 <span className="mt-1 inline-block rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700">
-                  Tier 2 Verified
+                  Verified
                 </span>
               </div>
 
               <div className="space-y-2 rounded-xl border border-gray-100 bg-gray-50 p-4 text-left text-xs">
-                <div className="flex justify-between">
+                {/* <div className="flex justify-between">
                   <span className="text-gray-500">Monthly Limit:</span>
                   <span className="font-bold text-emerald-700">100,000 KES</span>
-                </div>
+                </div> */}
                 {kycData?.identity?.fullName && (
                   <div className="flex justify-between">
                     <span className="text-gray-500">Legal Name:</span>
